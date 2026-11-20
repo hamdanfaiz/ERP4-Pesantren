@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, BedDouble, CheckCircle2, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
+import { toERPUserMessage } from "../utils/userMessages";
 import { ERPLoadingSkeleton } from "../components/ERPDesignSystem";
 import {
   assignSupabaseStudentRoom,
@@ -36,7 +37,7 @@ export function SupabaseBoardingRoomsManager() {
     let active = true;
     setLoading(true);
     refresh()
-      .catch((cause: any) => { if (active) setError(cause?.message || "Data penempatan kamar belum dapat dimuat."); })
+      .catch((cause: any) => { if (active) setError(toERPUserMessage(cause, "Data penempatan kamar belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh]);
@@ -83,7 +84,7 @@ export function SupabaseBoardingRoomsManager() {
       else setNotice(roomId ? `Penempatan kamar ${student.name} disimpan.` : `Penempatan kamar ${student.name} dilepas.`);
       await refresh();
     } catch (cause: any) {
-      setError(cause?.message || "Penempatan kamar belum dapat disimpan.");
+      setError(toERPUserMessage(cause, "Penempatan kamar belum dapat disimpan."));
     } finally {
       setSaving("");
     }
@@ -96,7 +97,7 @@ export function SupabaseBoardingRoomsManager() {
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Penempatan Kamar Santri</h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Tetapkan atau lepaskan kamar aktif dari Data Induk. Jumlah penghuni dan kapasitas kamar diperbarui otomatis.</p>
       </div>
-      <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((cause: any) => setError(cause?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
+      <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((cause: any) => setError(toERPUserMessage(cause, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
         <RefreshCw className="h-4 w-4" />Muat ulang
       </button>
     </header>
@@ -166,3 +167,4 @@ export function SupabaseBoardingRoomsManager() {
     </div>
   </section>;
 }
+

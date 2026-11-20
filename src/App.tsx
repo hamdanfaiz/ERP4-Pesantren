@@ -10,6 +10,7 @@ const PasswordRecoveryView = React.lazy(() => import('./pages/PasswordRecoveryVi
 
 import { ModulePlaceholder } from './pages/ModulePlaceholder';
 import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
+import { ModuleErrorBoundary } from './components/ModuleErrorBoundary';
 import { Tenant, ModuleId } from './types';
 import { ROLE_MODULES } from './rbac';
 import { useSystemSettings } from './hooks/useSystemSettings';
@@ -41,6 +42,36 @@ const SupabaseLMSManager = React.lazy(() => import('./pages/SupabaseLMSManager')
 const SupabaseMarketplaceManager = React.lazy(() => import('./pages/SupabaseMarketplaceManager').then((module) => ({ default: module.SupabaseMarketplaceManager })));
 const SupabaseEnterpriseUnitsManager = React.lazy(() => import('./pages/SupabaseEnterpriseUnitsManager').then((module) => ({ default: module.SupabaseEnterpriseUnitsManager })));
 const UserManagementView = React.lazy(() => import('./pages/UserManagementView').then((module) => ({ default: module.UserManagementView })));
+
+const MODULE_LABELS: Record<ModuleId, string> = {
+  dashboard: 'Ringkasan',
+  'master-data': 'Data Induk',
+  ppdb: 'Penerimaan Santri',
+  tahfidz: 'Tahfidz',
+  boarding: 'Asrama',
+  finance: 'Keuangan',
+  communication: 'Pusat Komunikasi',
+  academic: 'Akademik Formal',
+  healthcare: 'Kesehatan',
+  cooperative: 'Koperasi',
+  hris: 'Sumber Daya Manusia',
+  document: 'Dokumen Digital',
+  library: 'Perpustakaan',
+  donation: 'Donasi dan Wakaf',
+  laundry: 'Laundry',
+  settings: 'Pengaturan',
+  enterprise: 'Manajemen Multi-Unit',
+  erp: 'Keuangan dan Anggaran',
+  ga: 'Sarana dan Prasarana',
+  alumni: 'Data Alumni',
+  crm: 'Relasi Wali dan Donatur',
+  lms: 'Pembelajaran',
+  intelligence: 'Pusat Data Analitik',
+  marketplace: 'Marketplace',
+  cbt: 'Ujian Berbasis Komputer',
+  users: 'Manajemen Pengguna',
+};
+
 export default function App() {
   const { role, user, completeGuardianInvitation, completeGuardianRegistration, completePasswordRecovery } = useAuth();
   const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
@@ -252,19 +283,22 @@ export default function App() {
         <Header currentTenant={currentTenant} branding={branding} />
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible">
-          <Suspense
-            fallback={
-              <div className="p-8 text-sm text-slate-500" role="status" aria-live="polite">
-                Memuat modul…
-              </div>
-            }
-          >
-            {renderModule()}
-          </Suspense>
+          <ModuleErrorBoundary key={activeModule} moduleName={MODULE_LABELS[activeModule]}>
+            <Suspense
+              fallback={
+                <div className="p-8 text-sm text-slate-500" role="status" aria-live="polite">
+                  Memuat modul…
+                </div>
+              }
+            >
+              {renderModule()}
+            </Suspense>
+          </ModuleErrorBoundary>
         </main>
       </div>
     </div>
   );
 }
+
 
 

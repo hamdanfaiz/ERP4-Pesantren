@@ -186,7 +186,7 @@ export function SupabaseBoardingPermitsManager() {
           <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Kelola permohonan izin santri dan tinjau persetujuannya.</p>
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
+          <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
             <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Muat ulang
           </button>
           {snapshot.canRequest && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setIsFormOpen(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
@@ -260,3 +260,4 @@ export function SupabaseBoardingPermitsManager() {
     </section>
   );
 }
+
