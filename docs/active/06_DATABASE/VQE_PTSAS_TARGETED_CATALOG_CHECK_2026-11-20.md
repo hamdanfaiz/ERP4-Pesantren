@@ -19,7 +19,9 @@ Pemeriksaan katalog schema `public` memberikan hasil:
 | VQE staging (`vqemuyzveuirlkvdggjd`) | 13/13 | 13/13 |
 | PTSAS Production (`ptsasgdvgrbdtgyqieie`) | 0/13 | Tidak berlaku; nama persis tidak ditemukan |
 
-Hasil Production hanya menyatakan ketiga belas nama persis itu tidak ditemukan. Ini belum membuktikan tidak ada indeks lain dengan definisi kolom yang setara. Tim backend perlu membandingkan definisi setiap indeks aktual dengan source sebelum memutuskan apakah migrasi indeks perlu dipromosikan. Migration memakai `CREATE INDEX` biasa; ukur tabel, tinjau rencana lock, dan jadwalkan jendela penulisan rendah sebelum penerapan.
+Pemeriksaan definisi indeks lanjutan mencocokkan awalan kolom B-tree valid/ready yang tidak parsial untuk setiap urutan key foreign key. Hasilnya: VQE memiliki 13/13 indeks pendukung; PTSAS tidak memiliki nama indeks source maupun indeks B-tree tak bersyarat yang mendukung salah satu dari 13 urutan key tersebut. Pemeriksaan katalog foreign key terpisah menemukan seluruh 13 constraint target ada dan tervalidasi di kedua project. Jadi bukti menunjukkan kesenjangan indeks pendukung pada constraint yang sudah ada di Production—bukan ketiadaan atau invaliditas foreign key. Ini hanya cakupan 13 constraint target, bukan audit semua indeks Production.
+
+Statistik katalog saat pemeriksaan PTSAS memperkirakan `academic_records` 13 baris / 272 kB, `boarding_attendance_records` 16 baris / 88 kB, dan `students` 51 baris / 368 kB. `n_live_tup` adalah estimasi statistik, bukan hitungan record yang presisi; ukuran mencakup heap dan indeks. Source memakai `CREATE INDEX` biasa, yang dapat menghambat penulisan. Tim backend perlu meninjau jadwal/lock dan mengukur ulang sebelum menerapkan indeks.
 
 ## Objek Tahfidz yang diperiksa
 
