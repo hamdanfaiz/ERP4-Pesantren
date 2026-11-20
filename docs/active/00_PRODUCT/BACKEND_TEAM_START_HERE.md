@@ -1,5 +1,13 @@
 > **Agent / multi-agent:** mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Untuk Relasi & Ekosistem + OpenWA (13 Nov 2026) baca [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Checkpoint di bawah ini tetap relevan untuk ledger Production dan gerbang migrasi umum.
 
+## Pembaruan terbaru — 20 November 2026
+
+- PR #130 (kompatibilitas respons leaderboard Tahfidz lama) sudah merged ke `main` pada commit `3ca67fc0e0adfa0b71f98c8b31a0ccca85f981b6`. Ini perubahan aplikasi; tidak membawa migration database.
+- Pemeriksaan baca-saja MCP pada VQE (`vqemuyzveuirlkvdggjd`) menghasilkan 150 versi ledger sampai `20270319000000`. Source `main` saat ini memuat 162 file migration sampai `20270401000000`.
+- Rekonsiliasi versi menemukan 18 file source yang tidak tercatat dengan versi sama di VQE, 6 versi VQE yang tidak ada di source dengan nomor sama, dan 4 versi yang nama ledger-nya berbeda dari file source. Tiga keluarga Tahfidz dan stack CBT mengindikasikan alias/renumbering, tetapi kesetaraan SQL/DDL belum dibuktikan. Rincian lengkap ada di [snapshot drift VQE 20 November](../06_DATABASE/VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-20.md).
+- `db push --dry-run` berhasil mencapai VQE, lalu berhenti dengan `DbPushMissingLocalError` karena enam versi remote tidak memiliki file source bernomor sama. CLI menyarankan `migration repair --status reverted` atau `db pull`; keduanya belum dijalankan. Tidak ada migration, repair, atau perubahan database yang dilakukan.
+- Jangan menerapkan semua gap atau menjalankan `migration repair` berdasarkan hitungan/nama saja. Selesaikan rekonsiliasi lineage dan pemeriksaan DDL staging terlebih dahulu. PTSAS Production tetap target terpisah; VQE tidak menjadi bukti kesetaraan Production.
+
 ## Pembaruan terbaru — 13 November 2026
 
 - PR #112 (`codex/cbt-scale-main-20261113`) memuat paginasi/admin API CBT dan enam migration baru. GitHub Actions run #1617 pada head `834ec73cb61f441af13525adac41857bd154044f` lulus pada ketiga job required; Supabase Preview dilewati karena preview branch dinonaktifkan. PR tetap draft untuk tinjauan.
