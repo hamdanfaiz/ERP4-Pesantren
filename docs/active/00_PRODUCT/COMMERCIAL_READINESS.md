@@ -4,7 +4,7 @@
 
 ### Source dan pemeriksaan otomatis
 
-- Branch `main` berada pada merge commit dokumentasi PR #148, `83d796833f9529ed856c7b3637a89edf47a84331`. PR #148 sudah merged; pemeriksaan GitHub terbaru menemukan **0 PR terbuka**. PR ini hanya mengubah dokumentasi.
+- Branch `main` berada pada merge commit dokumentasi PR #148, `83d796833f9529ed856c7b3637a89edf47a84331`. PR #148 sudah merged. Snapshot GitHub sebelum PR #149 dibuat menunjukkan **0 PR terbuka**; PR #149 adalah pembaruan dokumentasi lanjutan. PR #148 hanya mengubah dokumentasi.
 - Source aplikasi dan migrasi tetap pada `a138895783f7118a657a0d5bd94e5872f60f2cba`; PR #148 tidak mengubahnya.
 - Pada checkout bersih commit `83d7968`, `npm ci`, `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase` berhasil. Guard memeriksa 167 modul, 26 route Supabase, penutupan 26 route migrasi yang dipensiunkan, dan kebijakan penyimpanan browser.
 - Build menghasilkan peringatan chunk PDF sekitar 1,46 MB dan beberapa komentar anotasi `zod` yang diabaikan bundler. Audit dependency penuh sebelumnya mencatat dua advisori rendah dan satu tinggi pada dependency pengembangan; audit dependency produksi bersih. Advisory tinggi berada pada `xlsx` yang hanya dipakai layar legacy yang tidak masuk bundle aktif, tetapi tetap menjadi pekerjaan supply-chain.
@@ -278,6 +278,3 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
-
-
-
