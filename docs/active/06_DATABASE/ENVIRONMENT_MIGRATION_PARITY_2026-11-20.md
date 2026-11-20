@@ -4,10 +4,10 @@
 
 Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan katalog PostgreSQL pada VQE staging serta PTSAS Production. Tujuannya menentukan langkah rekonsiliasi yang aman; hasil ini bukan izin untuk menerapkan seluruh migrasi.
 
-- Source main saat pembaruan: commit `bbf0b9cf08d71144ada4ed2fbe29ce220bcc50fe`, 163 file migrasi. File migrasi tidak berubah dari snapshot preflight `9a631a1`; PR #133–#134 hanya memperbarui dokumentasi.
+- Source main saat pembaruan: commit `6a2ce88ae3299150b9fc50c6576d5d10d82fc25f`, 163 file migrasi. PR #135 hanya memperbarui dokumentasi; isi migrasi sama dengan snapshot preflight `bbf0b9c`.
 - VQE staging (vqemuyzveuirlkvdggjd): 150 entri ledger.
 - PTSAS Production (ptsasgdvgrbdtgyqieie): 100 entri ledger, terakhir 20270316000000.
-- Setelah reset password database VQE, Supabase CLI `2.122.1` berhasil terhubung menggunakan URL pooler dari `.env`. `db push --dry-run --skip-vault` tetap berhenti dengan `DbPushMissingLocalError` pada enam versi remote-only; ini membuktikan koneksi/kredensial berhasil, bukan membuktikan migrasi siap diterapkan. Snapshot SQL yang diuji memiliki 163 file migrasi dan sama dengan `main` saat ini.
+- Setelah password database VQE diperbarui, Supabase CLI `2.122.0` berhasil membuka koneksi melalui URL pooler pada `.env`. Dry-run ulang pada commit `6a2ce88` berhenti dengan `DbPushMissingLocalError` untuk enam versi remote-only; ini membuktikan koneksi/kredensial bekerja, bukan membuktikan migrasi siap diterapkan. Tidak ada migrasi yang diterapkan.
 - Tidak ada migrasi atau perbaikan ledger yang dijalankan. Tidak ada baris operasional santri, wali, keuangan, akademik, atau modul lain yang dibaca.
 
 ## VQE staging
@@ -21,7 +21,7 @@ Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan kata
 | Versi sama, tetapi nama migrasi berbeda | 4 |
 | File source yang belum tercatat dengan versi/nama yang sama | 19 |
 
-CLI 2.122.1 mengembalikan `DbPushMissingLocalError` untuk enam versi remote-only:
+CLI 2.122.0 mengembalikan `DbPushMissingLocalError` untuk enam versi remote-only:
 
 | Versi VQE | Nama ledger |
 | --- | --- |
@@ -116,9 +116,16 @@ Pemeriksaan 13 RPC Tahfidz/CBT terpilih di Production menemukan hanya `record_ta
 ### Posisi ledger
 
 - Ledger berisi 100 migrasi, dari 20260603000000 sampai 20270316000000.
-- Seluruh 100 versi/nama ledger yang dikembalikan cocok dengan source main.
-- Tidak ditemukan entri Production yang versinya tidak ada di source atau benturan nama untuk versi yang sama.
-- Ada 63 migrasi source setelah ledger Production yang belum tercatat.
+- 97 dari 100 entri memiliki pasangan versi dan nama yang sama persis dengan source main.
+- Tiga entri ledger memiliki `name = NULL`: versi `20261205000000`, `20261206000000`, dan `20270118000000`. Versinya ditemukan pada source, tetapi nama historis ledger tidak tersedia sehingga kecocokan nama/provenance belum dapat dibuktikan.
+- Tidak ditemukan versi Production yang tidak memiliki file source dengan versi sama. Ini tidak membuktikan kesetaraan DDL atau efek migrasi.
+- Ada 63 versi migration source yang belum tercatat pada ledger Production; versi tersebut tersebar di antara migrasi yang sudah tercatat, bukan hanya berada di bagian akhir.
+
+| Versi dengan `name = NULL` | Nama file source pada versi yang sama |
+| --- | --- |
+| `20261205000000` | `data_api_default_privilege_hardening` |
+| `20261206000000` | `ppdb_legacy_candidate_import` |
+| `20270118000000` | `crm_contact_management` |
 
 ### Migrasi source yang belum tercatat
 
@@ -203,15 +210,16 @@ Ledger membuktikan migrasi tersebut pernah dicatat, tetapi tidak membuktikan bar
 2. Jangan jalankan migration repair massal. Untuk VQE, perlu dibuktikan asal alias, definisi aktif, hak eksekusi, constraint, indeks, trigger, policy, dan efek data per migrasi.
 3. Pisahkan migrasi struktur dari seed/data contoh. VQE masih memiliki beberapa file katalog/seed source yang belum tercatat; Production sudah mencatat sebagian migrasi seed. Seed tidak boleh diterapkan atau dibersihkan secara luas tanpa menentukan tenant dan record yang dimaksud.
 4. Lakukan rehearsal di database disposable, lalu siapkan baseline ledger VQE yang disepakati dan migrasi forward-only untuk ketidaksesuaian fungsi.
-5. Production memerlukan rencana 63 migrasi yang eksplisit, pengelompokan DDL vs perubahan data, backup yang dapat dipulihkan, uji restore, urutan dan pemeriksaan pascamigrasi, serta jendela rilis. Tidak ada perubahan Production yang dilakukan pada audit ini.
+5. Production memerlukan rencana eksplisit untuk 63 migrasi source yang belum tercatat, pengelompokan DDL vs perubahan data, rekonsiliasi tiga nama ledger `NULL`, backup yang dapat dipulihkan, uji restore, urutan dan pemeriksaan pascamigrasi, serta jendela rilis. Tidak ada perubahan Production yang dilakukan pada audit ini.
 6. Jalankan ulang UAT setelah staging konsisten: autentikasi/role/tenant, PPDB, Master Data/NIS, Akademik, Tahfidz, asrama, keuangan, dokumen/Storage, serta verifikasi backup/restore.
 
 ## Bukti dan batas
 
-- supabase db push --dry-run --skip-vault memakai URL pooler VQE dari .env; password tidak dicetak.
+- supabase db push --dry-run --skip-vault memakai URL pooler VQE dari .env; password tidak dicetak. Dry-run terbaru terhubung tetapi berhenti pada enam versi remote-only, sebelum menghitung rencana migrasi yang akan diterapkan.
 - MCP Supabase hanya digunakan untuk metadata migration dan katalog PostgreSQL baca-saja.
 - Tidak ada migration, repair, operasi data, upload, atau perubahan cloud yang dijalankan.
 - CI PR #132 lulus pada migration/database tests, frontend/build, dan instalasi paket customer. PR #132 merged ke main pada commit 9a631a120d8cfdaf0e9e242aaa26350a430f1352.
 - CI lokal/terisolasi membuktikan source dapat diuji pada baseline yang dikonfigurasi; itu tidak membuktikan kesetaraan live VQE atau pemulihan Production.
 - Pemeriksaan ini belum membuktikan UAT seluruh modul, backup/restore cloud, migrasi Production, atau kesiapan deploy final.
+
 
