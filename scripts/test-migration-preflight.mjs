@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 163);
+assert.equal(sourceMigrationsWithSql.length, 164);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
 assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
@@ -269,6 +269,11 @@ assert(canonicalProductionCollisionVersions.every((version) =>
 'Canonical production migrations must remain recognized as applied at their original versions.');
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270401000000_tahfidz_monthly_leaderboard.sql'));
+const uniqueMemorizationMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql');
+assert(uniqueMemorizationMigration, 'Lifetime unique-ayah ranking requires a forward-only migration.');
+assert.match(uniqueMemorizationMigration.statements.join('\n'), /tahfidz_student_ayah_progress/i);
+assert.match(uniqueMemorizationMigration.statements.join('\n'), /CREATE TRIGGER tahfidz_records_sync_student_ayah_progress/i);
+assert.match(uniqueMemorizationMigration.statements.join('\n'), /REVOKE ALL ON TABLE public\.tahfidz_student_ayah_progress[\s\S]*?FROM PUBLIC, anon, authenticated, service_role/i);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270328000000_tahfidz_bulk_daily_target_write_api.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270329000000_tahfidz_target_decimal_precision.sql'));
 const bulkPrecisionGuardMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270402000000_tahfidz_bulk_target_precision_guard.sql');
