@@ -1,13 +1,13 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 20 November 2026, setelah PR #158
+## Status otoritatif — 20 November 2026, setelah PR #161
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- Branch kanonis `main` berada pada commit `ce09d3c5a982a2b7307cc28cb8c344f58b78081d` setelah PR #158 digabung. PR #153–#158 telah merged dan pencarian GitHub terbaru menemukan **0 PR terbuka**. PR #157 memperbarui status setelah PR #156; PR #158 menambahkan inventaris fixture UAT VQE.
+- Branch kanonis `main` berada pada merge commit `de39e94629a0186019e66485f3931a60e080dcba` setelah PR #161 digabung. PR #153–#161 telah merged; pemeriksaan GitHub setelah #161 menemukan **0 PR terbuka**. PR #159 memperbarui status kesiapan dan fixture VQE; PR #160 mencatat bahwa akses UI Dokumen Digital di Hostinger staging belum terkonfirmasi; PR #161 melengkapi gerbang target massal Tahfidz pada matriks runtime.
 - Audit status PR: #1–#11 tetap closed tanpa merge; audit terdahulu (#78, #85, #88) memetakan branch lama sebagai digantikan oleh PR #13 dan implementasi lanjutan, sehingga migrasi branch lama tidak boleh dijalankan ulang. PR #38–#40 sudah merged.
 - PR #122 mengonsolidasikan perubahan dari PR #91, #92, #112, #114, #115, dan #121. PR #93–#100 dan #102 ditutup sebagai superseded oleh jalur CBT #112; #107 digantikan oleh #108; leaderboard alternatif #116 tidak digabung karena benturan versi dan digantikan kontrak kanonis #91/#121. Tidak ada patch dari PR-PR tersebut yang perlu digabung terpisah.
-- CI PR #158, run [#44755036455](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44755036455), lulus ketiga job yang menjalankan pemeriksaan: build/guard frontend, instalasi NPM pelanggan, dan uji migrasi/API/auth/pgTAP/Storage/backup-restore di Supabase lokal terisolasi. Check Supabase Preview dilewati karena pembuatan preview branch dinonaktifkan. Hasil CI sintetis bukan UAT live atau bukti restore cloud.
+- CI PR #161, run [#44761801857](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44761801857), lulus seluruh 3 job: build/guard frontend, instalasi NPM pelanggan, dan uji migrasi/API/auth/pgTAP/Storage/backup-restore pada Supabase lokal terisolasi. Ini bukan UAT live, bukan bukti restore cloud, dan bukan pemeriksaan database Production.
 - Runtime frontend aktif menjaga Firebase tidak masuk dependency produksi dan graph runtime; CI memeriksa guard ini. Pemeriksaan ini tidak menyatakan seluruh string atau kode legacy Firebase telah dihapus dari repository.
 - Persentase kesiapan keseluruhan tidak ditetapkan karena belum ada denominator penerimaan fitur/UAT yang disepakati.
 
@@ -21,7 +21,7 @@
 
 ### Produk dan kesiapan rilis pelanggan
 
-- Otomatisasi CI mencakup build dan jalur API/tenant terpilih pada backend lokal sintetis. Fixture admin staging untuk Data Induk, Asrama, target Tahfidz, dan Dokumen Digital telah dibuat serta dibaca ulang; inventaris dan panduan ada pada [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). UAT browser menyeluruh untuk semua menu, submodul, peran, transaksi, Storage, serta proses pemulihan belum terbukti.
+- Otomatisasi CI mencakup build dan jalur API/tenant terpilih pada backend lokal sintetis. Fixture Admin staging untuk Data Induk, Asrama, target Tahfidz, dan Dokumen Digital telah dibuat serta dibaca ulang; inventaris dan panduan ada pada [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). PR #160 menegaskan bahwa pembacaan fixture Dokumen Digital melalui backend berhasil, tetapi akses UI pada Hostinger staging belum dikonfirmasi. UAT browser menyeluruh untuk semua menu, submodul, peran, transaksi, Storage, serta proses pemulihan belum terbukti.
 - Pemilik melaporkan aplikasi telah dideploy ke `erp4-pesantren.tlusur.com`; commit build dan environment aktif di hosting tersebut belum diverifikasi langsung pada checkpoint ini.
 - Bukti backup dan restore yang ada berasal dari lingkungan CI lokal sintetis; backup/restore VQE maupun Production belum dibuktikan.
 - PTSAS Production belum siap menerima promosi source sampai tim backend menyelesaikan diff DDL, memetakan semua 63 migrasi dan DML-nya, merekonsiliasi tiga nama ledger kosong, melakukan rehearsal terkontrol, serta membuktikan backup/restore sesuai runbook.
@@ -29,13 +29,12 @@
 
 ### Langkah kerja berikutnya
 
-1. Tim backend dapat mulai mereview source `main` sekarang; tidak ada PR terbuka yang menahan source.
+1. Tim backend dapat mereview source `main` sekarang; tidak ada PR terbuka yang menahan source.
 2. Untuk staging, CLI melaporkan tidak ada migrasi tertunda. Lanjutkan UAT transaksi dan antarmuka dengan akun/tenant uji, menggunakan [panduan fixture VQE](UAT_VQE_FIXTURES_2026-11-20.md).
 3. Untuk Production, ikuti runbook rekonsiliasi dan lakukan promosi hanya setelah diff DDL, dampak DML, rehearsal, serta bukti pemulihan tersedia.
 4. Verifikasi commit, konfigurasi, dan smoke test di hosting dari source `main` yang disepakati.
 
 **Status:** source terintegrasi dan CI hijau; staging ledger up-to-date; Production migration, UAT end-to-end, restore cloud, dan verifikasi hosting/operasi pelanggan masih menjadi pekerjaan terbuka. Produk belum dinyatakan siap Production atau komersial.
-
 ---
 
 Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
