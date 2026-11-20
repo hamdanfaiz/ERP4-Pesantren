@@ -437,7 +437,6 @@ export async function listSupabaseTahfidzLeaderboard(
     || result.students.length > pageSize || typeof result.hasMore !== "boolean"
     || participants === null || participants < result.students.length
     || (result.hasMore && participants <= result.students.length)
-    || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.periodStart || ""))
     || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.businessDate || ""))) {
     throw new SupabaseTahfidzError(503, "Peringkat Tahfidz belum dapat dimuat.");
   }
@@ -448,20 +447,19 @@ export async function listSupabaseTahfidzLeaderboard(
     grade: String(student.grade || ""),
     halaqah: String(student.halaqah || ""),
     ziyadahRecords: Number(student.ziyadahRecords),
-    ziyadahAyahs: Number(student.ziyadahAyahs),
+    uniqueMemorizedAyahs: Number(student.uniqueMemorizedAyahs),
     ziyadahActiveDays: Number(student.ziyadahActiveDays),
   }));
   if (students.some((student, index) => !isUuid(student.id)
     || !student.name.trim()
     || student.rank !== index + 1
     || !Number.isSafeInteger(student.ziyadahRecords) || student.ziyadahRecords < 1
-    || !Number.isSafeInteger(student.ziyadahAyahs) || student.ziyadahAyahs < 1
+    || !Number.isSafeInteger(student.uniqueMemorizedAyahs) || student.uniqueMemorizedAyahs < 1 || student.uniqueMemorizedAyahs > 6236
     || !Number.isSafeInteger(student.ziyadahActiveDays) || student.ziyadahActiveDays < 1
     || student.ziyadahActiveDays > student.ziyadahRecords)) {
     throw new SupabaseTahfidzError(503, "Data peringkat Tahfidz tidak valid.");
   }
   return {
-    periodStart: String(result.periodStart),
     businessDate: String(result.businessDate),
     students,
     hasMore: result.hasMore,
