@@ -67,3 +67,4 @@ assert.match(compose, /^\s+SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED: \$\{SUPABASE_T
 assert.match(compose, /^\s+VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED: \$\{VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED:-false\}$/m);
 
 console.log("Tahfidz bulk-target source checks passed: atomic RPC wiring, capped tenant batch, idempotency and authorization test coverage.");
+
