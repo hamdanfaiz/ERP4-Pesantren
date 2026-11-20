@@ -77,6 +77,23 @@ Kemiripan nama menunjukkan kandidat relasi, bukan bukti bahwa SQL, efek data, at
 
 Perbandingan isi fungsi ini tidak membuktikan kesetaraan seluruh signature, DDL, trigger, constraint, indeks, policy, atau efek data dengan source. Karena itu selisih ledger tetap perlu direkonsiliasi sebelum `db push`; keberadaan fungsi saja bukan alasan untuk melewati migrasi atau mengubah ledger.
 
+### Selisih modul Komunikasi antara staging dan Production
+
+Katalog Production menunjukkan kelima tabel `communication_templates`, `communication_tickets`, `communication_ticket_events`, `communication_direct_messages`, dan `communication_direct_message_events`; semuanya mengaktifkan RLS dan FORCE RLS. Enam RPC dari migration `20270316000000_communication_ops_runtime` juga ditemukan. Pada VQE, pemeriksaan katalog baca-saja tidak menemukan satu pun dari lima tabel atau enam RPC tersebut.
+
+Ini cocok dengan konflik ledger yang teridentifikasi: Production mencatat `20270316000000 | communication_ops_runtime`, sedangkan VQE mencatat versi sama sebagai `cbt_admin_question_keyset_pages`. Dengan demikian, modul Komunikasi adalah perbedaan skema spesifik yang terbukti: objeknya ada di Production dan belum ada di staging. Ini tidak berarti keseluruhan Production lebih baru atau setara; 63 migration source masih belum tercatat di Production.
+
+### Dampak data pada migrasi source yang tertunda di VQE
+
+Pemeriksaan SQL source menemukan operasi data tingkat migrasi berikut di antara file yang belum tercatat di VQE:
+
+- `20270215500000_sample_class_grade_labels`: memperbarui label kelas pada record Master Data.
+- `20270310000000_academic_sample_catalog` dan `20270311000000_academic_sample_term`: menambahkan mata pelajaran/katalog dan term/setting akademik contoh.
+- `20270313000000_education_boarding_operational_seed`: menambah atau memperbarui contoh data lintas modul, termasuk gedung/kamar/santri, CBT, Tahfidz, LMS, perpustakaan, unit organisasi, izin, disiplin, dan kehadiran asrama.
+- `20270320000000_tahfidz_quran_surah_catalog`: memasukkan katalog referensi Surah dan mengisi `surah_number` pada riwayat Tahfidz yang cocok berdasarkan nama Surah.
+
+Empat migration sample/seed pertama tidak boleh diterapkan otomatis ke tenant staging yang sudah memiliki data. Katalog Surah merupakan referensi produk, tetapi backfill dan cakupan katalog perlu diperiksa sebelum replay. Source migration lain pada daftar pending berisi perubahan skema, fungsi, constraint, atau indeks; masing-masing tetap perlu uji urutan dan idempotensi. Tidak ada DML tersebut yang dijalankan saat audit.
+
 ## PTSAS Production
 
 ### Posisi ledger
