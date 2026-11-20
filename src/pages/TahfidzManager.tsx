@@ -3921,8 +3921,8 @@ export function TahfidzManager() {
             className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
           >
             <Mic className="w-4 h-4" />
-            AI Audio Assessment
-          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />AI Audio Assessment</button>}
+            Penilaian Audio AI
+          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian Audio AI</button>}
           {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
@@ -3946,9 +3946,9 @@ export function TahfidzManager() {
 
             <ERPTabs
         tabs={[
-          { id: "dashboard", label: "Overview Halaqah" },
-          { id: "records", label: "Log Setoran Terbaru" },
-          { id: "targets", label: "Target & Raport" },
+          { id: "dashboard", label: "Ringkasan Halaqah" },
+          { id: "records", label: "Riwayat Setoran" },
+          { id: "targets", label: "Target & Rapor" },
           { id: "talaqqi", label: "Jadwal Talaqqi" },
           { id: "exams", label: "Munaqasyah" },
           { id: "parent", label: "Portal Wali Santri" },
