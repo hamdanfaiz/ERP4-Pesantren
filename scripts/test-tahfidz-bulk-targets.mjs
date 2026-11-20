@@ -18,6 +18,7 @@ const [migration, targetMigration, precisionGuardMigration, databaseTest, server
 ]);
 
 assert.match(migration, /cardinality\(p_student_ids\) > 250/);
+assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.tahfidz_target_bulk_write_requests/);
 assert.match(migration, /Santri target massal tidak boleh duplikat/);
 assert.match(migration, /pg_advisory_xact_lock/);
 assert.match(migration, /public\.record_tahfidz_daily_target\(/);
