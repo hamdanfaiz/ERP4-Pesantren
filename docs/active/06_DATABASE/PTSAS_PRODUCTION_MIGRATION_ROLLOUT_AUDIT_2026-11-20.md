@@ -21,6 +21,10 @@ Ledger membuktikan versi yang pernah direkam, bukan bahwa DDL saat ini identik d
 
 Pemeriksaan baca-saja lanjutan menemukan 13/13 indeks target valid/ready di VQE, sementara PTSAS tidak memiliki indeks B-tree tak bersyarat yang mendukung urutan key dari satu pun dari 13 FK terkait. Seluruh 13 FK itu sendiri ada dan tervalidasi di kedua project. Ini kesenjangan indeks pendukung nyata pada constraint inti yang tercakup, bukan audit seluruh schema atau izin menerapkan migration. Ukuran tabel PTSAS yang tercatat di laporan hanya statistik snapshot. Katalog Surah, validator, dan dua RPC Tahfidz terpilih juga ada di VQE tetapi tidak di PTSAS. Lihat [catatan pemeriksaan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Production tidak diubah.
 
+### Helper RLS tenant yang belum diinternalisasi
+
+PTSAS masih memiliki empat helper `SECURITY DEFINER` pada schema `public`, dengan `EXECUTE` hanya untuk `authenticated` (tidak untuk `PUBLIC`/`anon`), sementara VQE sudah menempatkannya di `private` melalui source migration `20270210000000_internalize_tenant_rls_helpers` yang belum tercatat di ledger Production. Definisi Production yang diperiksa menggunakan `auth.uid()` dan profil/tenant aktif; ini tidak menunjukkan akses lintas tenant, tetapi tidak sesuai hardening source. Schema `public` otomatis exposed secara default menurut dokumentasi Supabase; actual setting exposed-schema Production belum diperiksa, jadi akses HTTP RPC belum dikonfirmasi. Promosikan migration melalui rehearsal/backup terkontrol, bukan revoke manual, karena RLS policies tetap memerlukan fungsi helper. Detail: [audit helper RLS](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md).
+
 ## Temuan statis pada 63 file yang belum tercatat
 
 Pemindaian source migration tidak menemukan perintah migrasi `DELETE` atau `TRUNCATE`. Ini bukan jaminan bebas risiko: ada perubahan DDL, pengisian metadata/historis, penggantian fungsi dan trigger, perubahan constraint, serta indeks yang dapat mengunci penulisan.
