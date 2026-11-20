@@ -19,8 +19,7 @@ type DashboardSnapshot = {
 };
 type TahfidzLeaderboard = {
   businessDate: string;
-  periodStart: string;
-  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; ziyadahRecords: number; ziyadahAyahs: number; ziyadahActiveDays: number }>;
+  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; uniqueMemorizedAyahs: number; ziyadahRecords: number; ziyadahActiveDays: number }>;
   hasMore: boolean;
 };
 type DocumentSearchResult = {
