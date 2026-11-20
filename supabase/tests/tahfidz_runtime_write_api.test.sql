@@ -205,7 +205,7 @@ SELECT ok(EXISTS (
 SELECT is((public.record_tahfidz_setoran(
   'd1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
   (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
-  'Ziyadah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
+  'Muroja''ah', 'Al-Fatihah', 1, 7, 'A', 'A', NULL, '2026-10-25 09:00:00+00',
   'd1800000-0000-4000-8000-000000000012', 'Ustadz A', 'ustadz', 'd1800000-0000-4000-8000-000000000590'
 )->>'alreadyRecorded'), 'false', 'valid Surah and Ayah range still records successfully');
 SELECT is((SELECT surah_number::INTEGER FROM public.tahfidz_records
@@ -239,6 +239,10 @@ VALUES
     (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
     'Ziyadah', 'Al-Fatihah', 1, 4, 6, 'A', 'A', (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
     'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000594'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+    (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+    'Ziyadah', 'Al-Baqarah', 2, 1, 2, 'A', 'A', (CURRENT_DATE + TIME '07:20')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000598'),
   ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
     'Ziyadah', 'Al-Fatihah', 1, 1, 3, 'A', 'A', ((CURRENT_DATE - 1) + TIME '07:00')::TIMESTAMPTZ,
     'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000595'),
@@ -261,7 +265,7 @@ SELECT ok(NOT ((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-0000000
 SELECT ok((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->>'hasMore')::BOOLEAN AND jsonb_array_length((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->'students')) = 1, 'ranking limit is respected and signals more results');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->>'participants')::INTEGER, 2, 'participant total includes students beyond the selected limit');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000201', 'Ustadz sees only a student in their assigned halaqah');
-SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'uniqueMemorizedAyahs'), '6', 'Ustadz totals include only unique ayat from their assigned halaqah');
+SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'uniqueMemorizedAyahs'), '8', 'Ustadz totals include only unique ayat from their assigned halaqah');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'another Ustadz sees their own assigned student');
 SELECT ok(NOT EXISTS (SELECT 1 FROM jsonb_array_elements((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5)->'students')) AS row WHERE row->>'id' = 'd1800000-0000-4000-8000-000000000201'), 'Ustadz cannot see students outside assigned halaqahs');
 SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5)$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read ranking data');
