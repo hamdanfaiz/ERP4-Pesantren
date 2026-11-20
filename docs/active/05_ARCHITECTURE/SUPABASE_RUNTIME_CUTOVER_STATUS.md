@@ -1,17 +1,18 @@
 # Status Cutover Runtime Firebase ke Supabase
 
-> **Perubahan ruang lingkup 27 Oktober 2026:** data Firestore proyek ini dummy dan tidak perlu disalin. Pernyataan historis yang menjadikan impor/rekonsiliasi seluruh arsip sebagai gerbang rilis tidak lagi berlaku. Gunakan fixture sintetis untuk membuktikan logika, relasi, transaksi, serta isolasi tenant/role; data contoh dapat dimasukkan manual kemudian. Syarat migrasi schema, runtime Supabase-only, login/UAT, backup/restore, rotasi secret, dan kesiapan environment pelanggan tetap berlaku.
+> Ruang lingkup: data Firestore pemilik dinyatakan dummy dan tidak perlu disalin. Fokus migrasi adalah runtime Supabase-only, kontrak skema/tenant, uji logika serta isolasi role, dan persiapan instalasi pelanggan. Bukti kerja lama di bawah diberi konteks tanggal; gunakan status terbaru ini.
 
-## Status runtime terverifikasi — source PR #47, checkpoint 7 November 2026
+## Status terverifikasi — 20 November 2026, setelah PR #147
 
-- Baseline kode runtime adalah merge commit PR #47 `45230fc06f4e7baedb4ed9adadc62f7b24efb23d`. PR #43 menutup temuan batas pemberian permission Admin; PR #47 membatasi tambah/ubah katalog menurut permission modul pemilik. PR #44–#46 hanya memperbarui dokumentasi; PR #47 tidak mengubah migration.
-- GitHub Actions [run #42329049029](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42329049029) lulus 3/3 job pada PR #47. CI mencakup build/runtime tanpa Firebase, pemasangan NPM, replay migrasi/pgTAP sintetis dan API/Auth/tenant; uji baru membuktikan perubahan katalog menolak role atau permission modul yang tidak berhak.
-- Guard `scripts/test-supabase-runtime-no-firebase.mjs` menelusuri import graph dari `src/main.tsx` dan `server.ts`, menolak paket Firebase pada graph aktif, memeriksa 26 tujuan rute Supabase, dan memastikan endpoint arsip legacy tertutup dengan HTTP 410. `src/runtimeBackend.ts` menetapkan `SUPABASE_ONLY_RUNTIME = true`; `src/firebase.ts` melempar error alih-alih menginisialisasi Firebase.
-- `firebase` masih tercantum sebagai development dependency dan beberapa file layar/utility legacy tetap ada di repo untuk kompatibilitas/typecheck. Guard CI membuktikan paket tersebut tidak berada di production dependencies dan tidak masuk ke graph runtime aktif. Ini kode dormant, bukan fallback operasional.
-- Firestore archive import dinonaktifkan secara eksplisit karena data pemilik dinyatakan dummy. Tidak ada migrasi data Firestore ke Supabase yang diperlukan.
-- VQE staging `vqemuyzveuirlkvdggjd` terakhir tercatat memiliki 136/136 versi dan nama ledger sesuai file source sampai `20270304000000_student_room_assignment_reference_locks`. Kecocokan nama/versi ledger bukan bukti kesetaraan DDL atau UAT.
-- PTSAS Production `ptsasgdvgrbdtgyqieie` tidak diubah. Snapshot operator mencatat 47 versi ledger dibanding 136 migration source; selisih 89 bukan daftar migrasi siap terapkan. Perbandingan DDL aktual, rencana urutan, dan rehearsal backup/restore Production tetap tugas tim backend.
-- CI belum menguji login browser Admin/Wali, feature flags pada environment pelanggan, semua menu dan proses modul pada hosting, atau Production. Aktifkan fitur hanya setelah konfigurasi target dan UAT tenant/role sesuai; ERP belum dinyatakan siap go-live.
+- Source aplikasi terakhir berada pada a138895783f7118a657a0d5bd94e5872f60f2cba; commit b72450777c78d848bb5c79f39481a163a621754b menambahkan dokumentasi melalui PR #147, tanpa perubahan aplikasi atau migrasi.
+- CI PR #147 lulus 3/3 job. Guard memastikan graph frontend aktif dan dependency produksi tidak memakai Firebase; CI juga menjalankan replay migrasi/API/pgTAP dan build image pelanggan pada environment lokal terisolasi.
+- Referensi, helper, atau layar Firebase lama yang tersisa di repository tidak otomatis menjadi runtime. Status runtime dibuktikan oleh guard import graph dan production bundle; arsip/kompatibilitas tidak boleh diaktifkan sebagai fallback.
+- Ledger VQE staging memuat 163/163 versi source sampai 20270402000000. Ini membuktikan catatan versi ledger, bukan kesetaraan semua DDL atau UAT semua modul.
+- PTSAS Production memuat 100 entri dari 163 versi source; 63 versi belum tercatat. Pemeriksaan katalog public terarah menemukan tabel/kolom/constraint yang hilang, walau status RLS aktif cocok pada 162 tabel bersama. Lihat [runbook Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- Belum ada bukti diff DDL lengkap PTSAS, backup/restore Production, atau UAT menyeluruh pada target hosting. Produk belum dinyatakan siap go-live.
+- Tidak ada perubahan database Production dalam sesi ini. Tim backend harus menyelesaikan rekonsiliasi dan rehearsal sebelum memilih migrasi apa pun untuk Production. Jangan menjalankan db push hanya untuk mengejar jumlah ledger.
+
+> Bagian di bawah ini adalah catatan historis per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
 
 > Bagian di bawah ini adalah catatan historis per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
 
