@@ -1,4 +1,5 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useEffect, useState } from 'react';
 import {
   Megaphone, MessageSquare, Send, Search, Filter, Plus,
@@ -792,7 +793,7 @@ export function CommunicationHub() {
                     <div className="rounded-lg border border-rose-300 bg-rose-50 p-3 dark:border-rose-500/30 dark:bg-rose-950/20">
                       <h3 className="text-sm font-semibold text-rose-700 dark:text-rose-300">Perlu rekonsiliasi ({announcementMigrationReport.blockingIssues.length})</h3>
                       <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs text-rose-700 dark:text-rose-200">
-                        {announcementMigrationReport.blockingIssues.map((issue: any, index: number) => <li key={`${issue.sourceId}-${index}`}>{issue.sourceId}: {issue.reason}</li>)}
+                        {announcementMigrationReport.blockingIssues.map((issue: any, index: number) => <li key={`${issue.sourceId}-${index}`}>{issue.sourceId}: {toERPUserMessage(issue.reason, "Periksa data pengumuman pada baris ini sebelum melanjutkan.")}</li>)}
                       </ul>
                     </div>
                   )}
