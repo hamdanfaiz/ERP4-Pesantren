@@ -1,3 +1,5 @@
+# Kesiapan Komersial dan Go-Live — ERP4 Pesantren
+
 ## Status aktual — checkpoint 20 November 2026, setelah PR #141
 
 ### Source, PR, dan verifikasi otomatis
