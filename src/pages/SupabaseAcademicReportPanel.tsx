@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Check, FileText, Loader2 } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -80,7 +81,7 @@ export function SupabaseAcademicReportPanel({ isAdmin }: { isAdmin: boolean }) {
       }
       setComments(Object.fromEntries((payload.students || []).map((student) => [student.studentId, student.comment || ""])));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Rapor akademik belum dapat dimuat.");
+      setError(toERPUserMessage(cause, "Rapor akademik belum dapat dimuat."));
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export function SupabaseAcademicReportPanel({ isAdmin }: { isAdmin: boolean }) {
       setNotice("Perubahan rapor tersimpan.");
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Perubahan rapor belum tersimpan.");
+      setError(toERPUserMessage(cause, "Perubahan rapor belum tersimpan."));
     } finally {
       setSaving(false);
     }

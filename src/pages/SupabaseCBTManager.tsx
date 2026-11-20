@@ -323,7 +323,7 @@ export function SupabaseCBTManager() {
         }));
       }
       return true;
-    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(cause?.message || "Data CBT belum dapat dimuat."); return false; }
+    } catch (cause: any) { setSnapshot(EMPTY); setSnapshotUpdatedAt(null); setError(toERPUserMessage(cause, "Data CBT belum dapat dimuat.")); return false; }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
 
@@ -768,7 +768,7 @@ export function SupabaseCBTManager() {
       });
       setNotice(editingQuestionId ? "Soal berhasil diperbarui." : "Soal ditambahkan ke bank soal.");
       resetQuestion(); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Soal belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Soal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 

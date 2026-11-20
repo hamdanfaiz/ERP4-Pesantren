@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, CheckCircle2, ClipboardCheck, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -106,7 +107,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       setHasMoreSessions(payload.hasMore === true);
       setNextSessionCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
     } catch (loadError: any) {
-      if (sequence === sessionListSequence.current) setError(loadError?.message || "Jadwal Tahfidz belum dapat dimuat.");
+      if (sequence === sessionListSequence.current) setError(toERPUserMessage(loadError, "Jadwal Tahfidz belum dapat dimuat."));
       throw loadError;
     } finally {
       if (sequence === sessionListSequence.current) setLoading(false);
@@ -145,7 +146,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       setHasMoreSessions(payload.hasMore === true);
       setNextSessionCursor(typeof payload.nextCursor === "string" ? payload.nextCursor : null);
     } catch (loadError: any) {
-      if (sequence === sessionListSequence.current) setError(loadError?.message || "Halaman jadwal berikutnya belum dapat dimuat.");
+      if (sequence === sessionListSequence.current) setError(toERPUserMessage(loadError, "Halaman jadwal berikutnya belum dapat dimuat."));
     } finally {
       if (loadSequence === loadingMoreSequence.current) {
         loadingMoreGuard.current = false;
@@ -183,7 +184,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       await refresh();
       releaseRequestId(signature, clientRequestId);
       setCreateOpen(false); setSelectedRosterStudent(null); setForm({ studentId: "", scheduledAt: tenantLocalDateTime(1, timeZone), durationMinutes: "30", focus: "", examType: "munaqasyah", juzStart: "1", juzEnd: "1" });
-    } catch (saveError: any) { setError(saveError?.message || "Jadwal belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Jadwal belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -200,7 +201,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
       await refresh();
       releaseRequestId(signature, clientRequestId);
       setCompleteSession(null);
-    } catch (saveError: any) { setError(saveError?.message || "Perubahan sesi belum dapat disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Perubahan sesi belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 

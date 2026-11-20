@@ -134,7 +134,7 @@ export function SupabaseCommunicationHub() {
     setError("");
     requestCommunication("/api/communication/announcements")
       .then((payload) => { if (active) setAnnouncements(Array.isArray(payload.announcements) ? payload.announcements : []); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Pengumuman belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Pengumuman belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -145,7 +145,7 @@ export function SupabaseCommunicationHub() {
     setOpsLoading(true);
     setError("");
     refreshOps()
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data operasional komunikasi belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data operasional komunikasi belum dapat dimuat.")); })
       .finally(() => { if (active) setOpsLoading(false); });
     return () => { active = false; };
   }, [tab, refreshOps]);
@@ -156,7 +156,7 @@ export function SupabaseCommunicationHub() {
     setOpsLoading(true);
     setError("");
     refreshPermits()
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data perizinan belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data perizinan belum dapat dimuat.")); })
       .finally(() => { if (active) setOpsLoading(false); });
     return () => { active = false; };
   }, [tab, refreshPermits]);
@@ -174,7 +174,7 @@ export function SupabaseCommunicationHub() {
       setComposeOpen(false);
       setTitle(""); setContent(""); setUrgent(false);
     } catch (submitError: any) {
-      setError(submitError?.message || "Pengumuman belum dapat disimpan.");
+      setError(toERPUserMessage(submitError, "Pengumuman belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -194,7 +194,7 @@ export function SupabaseCommunicationHub() {
           : item));
       }
     } catch (ackError: any) {
-      setError(ackError?.message || "Konfirmasi baca belum dapat disimpan.");
+      setError(toERPUserMessage(ackError, "Konfirmasi baca belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -214,7 +214,7 @@ export function SupabaseCommunicationHub() {
       setMigrationPreview(payload);
       if (apply) await refreshAnnouncements();
     } catch (migrationError: any) {
-      setError(migrationError?.message || "Impor pengumuman lama belum dapat diproses.");
+      setError(toERPUserMessage(migrationError, "Impor pengumuman lama belum dapat diproses."));
     } finally { setMigrationBusy(false); }
   };
 
@@ -230,7 +230,7 @@ export function SupabaseCommunicationHub() {
       setNotice("Tiket bantuan tercatat.");
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Tiket belum dapat disimpan.");
+      setError(toERPUserMessage(cause, "Tiket belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -244,7 +244,7 @@ export function SupabaseCommunicationHub() {
       setNotice(`Status tiket diperbarui: ${TICKET_STATUS_LABEL[status] || status}.`);
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Status tiket belum dapat diubah.");
+      setError(toERPUserMessage(cause, "Status tiket belum dapat diubah."));
     } finally { setBusy(false); }
   };
 
@@ -260,7 +260,7 @@ export function SupabaseCommunicationHub() {
       setNotice("Pesan terkirim.");
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Pesan belum dapat dikirim.");
+      setError(toERPUserMessage(cause, "Pesan belum dapat dikirim."));
     } finally { setBusy(false); }
   };
 
@@ -274,7 +274,7 @@ export function SupabaseCommunicationHub() {
       setNotice(status === "read" ? "Pesan ditandai sudah dibaca." : "Pesan diarsipkan.");
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Status pesan belum dapat diubah.");
+      setError(toERPUserMessage(cause, "Status pesan belum dapat diubah."));
     } finally { setBusy(false); }
   };
 
@@ -296,7 +296,7 @@ export function SupabaseCommunicationHub() {
       setNotice("Templat tersimpan.");
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Templat belum dapat disimpan.");
+      setError(toERPUserMessage(cause, "Templat belum dapat disimpan."));
     } finally { setBusy(false); }
   };
 
@@ -316,7 +316,7 @@ export function SupabaseCommunicationHub() {
       setNotice("Templat diarsipkan.");
       await refreshOps();
     } catch (cause: any) {
-      setError(cause?.message || "Templat belum dapat diarsipkan.");
+      setError(toERPUserMessage(cause, "Templat belum dapat diarsipkan."));
     } finally { setBusy(false); }
   };
 
@@ -343,13 +343,13 @@ export function SupabaseCommunicationHub() {
             setError(""); setNotice("");
             if (tab === "announcements") {
               setLoading(true);
-              void refreshAnnouncements().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false));
+              void refreshAnnouncements().catch((refreshError: any) => setError(toERPUserMessage(refreshError, "Data belum dapat dimuat."))).finally(() => setLoading(false));
             } else if (tab === "permits") {
               setOpsLoading(true);
-              void refreshPermits().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setOpsLoading(false));
+              void refreshPermits().catch((refreshError: any) => setError(toERPUserMessage(refreshError, "Data belum dapat dimuat."))).finally(() => setOpsLoading(false));
             } else {
               setOpsLoading(true);
-              void refreshOps().catch((refreshError: any) => setError(refreshError?.message || "Data belum dapat dimuat.")).finally(() => setOpsLoading(false));
+              void refreshOps().catch((refreshError: any) => setError(toERPUserMessage(refreshError, "Data belum dapat dimuat."))).finally(() => setOpsLoading(false));
             }
           }} aria-label="Muat ulang" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button>
         </div>
