@@ -27,8 +27,10 @@ assert.match(migration, /ORDER BY unique_memorized_ayahs DESC, ziyadah_records D
   "Ranking prioritizes unique memorized ayat with stable tie-breakers.");
 assert.match(migration, /first_performed_at < v_business_cutoff/,
   "Future-dated records are excluded from the business-date snapshot.");
-assert.match(migration, /tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I/,
-  "Projection access stays limited to the trusted routine owner.");
+assert.match(migration, /tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I[\s\S]*?tenant_id = NULLIF\(pg_catalog\.current_setting\(%L, true\), %L\)/,
+  "Projection RLS requires the trusted routine to set the matching tenant scope.");
+assert.doesNotMatch(migration, /USING\s*\(true\)|WITH CHECK\s*\(true\)/i,
+  "Projection RLS never allows unconditional row access.");
 assert.match(migration, /REVOKE ALL ON FUNCTION public\.list_tahfidz_leaderboard[\s\S]*?FROM PUBLIC, anon, authenticated/,
   "Browser roles cannot invoke the privileged SQL function directly.");
 assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.list_tahfidz_leaderboard[\s\S]*?TO service_role/,
