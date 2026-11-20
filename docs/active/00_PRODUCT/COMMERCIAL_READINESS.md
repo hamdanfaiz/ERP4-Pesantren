@@ -1,13 +1,13 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 20 November 2026, setelah PR #161
+## Status otoritatif — 20 November 2026, setelah PR #162
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- Branch kanonis `main` berada pada merge commit `de39e94629a0186019e66485f3931a60e080dcba` setelah PR #161 digabung. PR #153–#161 telah merged; pemeriksaan GitHub setelah #161 menemukan **0 PR terbuka**. PR #159 memperbarui status kesiapan dan fixture VQE; PR #160 mencatat bahwa akses UI Dokumen Digital di Hostinger staging belum terkonfirmasi; PR #161 melengkapi gerbang target massal Tahfidz pada matriks runtime.
+- Branch kanonis `main` berada pada merge commit `0d8d15f8f2cac35fe7d92652f2c592300047062a` setelah PR #162 digabung. Source aplikasi tidak berubah sejak PR #161; PR #159–#162 memperbarui dokumentasi status, fixture VQE, akses UI Dokumen Digital, serta gerbang target massal Tahfidz. PR #153–#162 telah merged; pemeriksaan GitHub setelah #162 menemukan **0 PR terbuka**.
 - Audit status PR: #1–#11 tetap closed tanpa merge; audit terdahulu (#78, #85, #88) memetakan branch lama sebagai digantikan oleh PR #13 dan implementasi lanjutan, sehingga migrasi branch lama tidak boleh dijalankan ulang. PR #38–#40 sudah merged.
 - PR #122 mengonsolidasikan perubahan dari PR #91, #92, #112, #114, #115, dan #121. PR #93–#100 dan #102 ditutup sebagai superseded oleh jalur CBT #112; #107 digantikan oleh #108; leaderboard alternatif #116 tidak digabung karena benturan versi dan digantikan kontrak kanonis #91/#121. Tidak ada patch dari PR-PR tersebut yang perlu digabung terpisah.
-- CI PR #161, run [#44761801857](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44761801857), lulus seluruh 3 job: build/guard frontend, instalasi NPM pelanggan, dan uji migrasi/API/auth/pgTAP/Storage/backup-restore pada Supabase lokal terisolasi. Ini bukan UAT live, bukan bukti restore cloud, dan bukan pemeriksaan database Production.
+- CI PR #162, run [#44763926474](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44763926474), lulus seluruh 3 job: build/guard frontend, instalasi NPM pelanggan, dan uji migrasi/API/auth/pgTAP/Storage/backup-restore pada Supabase lokal terisolasi. Ini bukan UAT live, bukan bukti restore cloud, dan bukan pemeriksaan database Production.
 - Runtime frontend aktif menjaga Firebase tidak masuk dependency produksi dan graph runtime; CI memeriksa guard ini. Pemeriksaan ini tidak menyatakan seluruh string atau kode legacy Firebase telah dihapus dari repository.
 - Persentase kesiapan keseluruhan tidak ditetapkan karena belum ada denominator penerimaan fitur/UAT yang disepakati.
 
