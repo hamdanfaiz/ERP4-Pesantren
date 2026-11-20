@@ -1,39 +1,35 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status aktual — checkpoint 20 November 2026, setelah PR #141
+## Status aktual — checkpoint 20 November 2026, setelah PR #147
 
-### Source, PR, dan verifikasi otomatis
+### Source dan pemeriksaan otomatis
 
-- PR #141 menambahkan runbook rekonsiliasi migrasi Production dan sudah merged ke `main` pada commit `a59f39f3e130a71202bed1db5e4ed441a17ebf73`.
-- CI PR #141 lulus pada tiga job: replay migrasi dan pgTAP pada Supabase lokal terisolasi, build/guard frontend, dan instalasi paket pelanggan. CI tidak membuktikan DDL live Production cocok dengan source atau backup Production dapat dipulihkan.
-- Pemeriksaan ini menambah bukti katalog terarah; bukan pengganti audit DDL menyeluruh.
+- Branch main berada pada merge commit dokumentasi PR #147, b72450777c78d848bb5c79f39481a163a621754b. Source aplikasi/migrasi terakhir tidak berubah sejak commit a138895783f7118a657a0d5bd94e5872f60f2cba; PR #147 hanya memperbarui dokumentasi audit.
+- PR #147 sudah merged. GitHub Actions run [#44708456273](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44708456273) lulus 3/3 job: instalasi NPM pelanggan, build/guard frontend dan image Docker, serta migration replay, API, pgTAP, Storage dan backup/restore pada Supabase lokal terisolasi.
+- Hasil CI membuktikan pemeriksaan source pada lingkungan sintetis; bukan DDL Production, backup/restore Production, login atau UAT pada hosting.
+- Pada pemeriksaan awal setelah PR #147 dan sebelum PR #148, tidak ada PR terbuka di repository.
 
-### Status migrasi backend
+### Status database dan skema
 
-- Source `main` berisi 163 file migrasi sampai `20270402000000`.
-- PTSAS Production memiliki 100 entri ledger sampai `20270316000000`; 97 versi/nama cocok, dan tiga versi memiliki nama ledger kosong.
-- Ada 63 versi source yang belum tercatat pada ledger Production. Coverage ledger **100/163 = 61,3%** adalah ukuran versi migrasi, bukan persentase fitur ERP.
-- VQE staging memiliki 163 versi source tercatat hingga `20270402000000`.
-- DDL Production belum dibandingkan lengkap dengan source. Backup/restore Production serta UAT Production belum dibuktikan. Jangan menjalankan `db push` hanya untuk mengejar kesamaan hitungan.
-
-### Pemeriksaan katalog terarah terbaru
-
-Pemeriksaan baca-saja menemukan 13/13 indeks target valid/ready di VQE. Di PTSAS, seluruh 13 foreign key terkait ada dan tervalidasi, tetapi katalog tidak menemukan indeks B-tree tak bersyarat dengan urutan key yang mendukung satu pun dari 13 FK itu—kesenjangan indeks aktual pada tabel `academic_records`, `boarding_attendance_records`, dan `students`. Estimasi ukuran saat pemeriksaan masing-masing 272 kB, 88 kB, dan 368 kB; estimasi baris katalog bukan hitungan presisi. `quran_surahs`, validator Surah, dan dua RPC Tahfidz terpilih ditemukan di VQE tetapi tidak di PTSAS. Pemeriksaan juga menemukan empat helper `SECURITY DEFINER` tenant berada di `public` pada Production dengan `EXECUTE` hanya untuk `authenticated` (tanpa grant `PUBLIC`/`anon`), sedangkan VQE sudah memindahkannya ke `private` sesuai source migration yang belum tercatat di Production. Definisi helper membatasi konteks ke `auth.uid()`; keterjangkauan Data API aktual belum diverifikasi karena exposed-schema setting belum diperiksa. Ini temuan terarah, bukan DDL diff lengkap.
-
-Rincian, batas bukti, dan tindakan yang disarankan ada di [pemeriksaan katalog terarah VQE–PTSAS](../06_DATABASE/VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md), [audit paritas migrasi](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md), dan [runbook promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- Source main berisi 163 file migrasi sampai 20270402000000.
+- VQE staging memiliki 163 versi ledger yang semuanya cocok dengan versi source hingga 20270402000000.
+- PTSAS Production memiliki 100 entri ledger sampai 20270316000000; 63 versi source belum tercatat dan tiga entri Production tidak memiliki nama: 20261205000000, 20261206000000, dan 20270118000000.
+- Perbandingan katalog public terarah: VQE 179 tabel, PTSAS 162; 17 tabel, 10 kolom, dan empat kontrak constraint yang diperiksa berbeda atau belum tersedia di PTSAS. Flag RLS pada 162 tabel bersama cocok, tetapi isi policy/grant dan DDL keseluruhan belum dibandingkan.
+- Lima dari 63 migrasi tertunda berisi perubahan data saat penerapan, termasuk tanda terima idempotensi, snapshot awal asrama, pengisian email wali, dan katalog/nama surah. Detail dan urutan verifikasi ada di [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
 ### Status produk dan keputusan kesiapan
 
-- Source yang diuji menggunakan Supabase sebagai runtime backend dan CI menjaga Firebase tidak masuk ke bundle/runtime frontend aktif. Pengujian otomatis mencakup alur terpilih lintas modul, bukan setiap menu, tombol, peran, dan simpan-baca.
-- Tim pemilik sebelumnya melaporkan domain `erp4-pesantren.tlusur.com` telah dideploy. Commit yang berjalan, konfigurasi server, dan UAT pada domain tersebut belum diperiksa pada checkpoint ini.
-- Produk **belum dinyatakan siap Production atau komersial**. Sebelum rilis, backend perlu menyelesaikan rekonsiliasi ledger dan DDL, memeriksa indeks setara, membuktikan backup/restore, merehearsal urutan migrasi di salinan yang dapat dipulihkan, lalu menjalankan UAT pada target deployment.
-- Tidak ada persentase keseluruhan yang bisa dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Tidak ada perubahan database Production dalam pemeriksaan ini.
+- Source aktif menggunakan Supabase; CI menjaga Firebase tidak masuk ke graph frontend aktif maupun dependency produksi. Kode lama dan alat/adapter arsip masih ada untuk kompatibilitas atau dokumentasi, tetapi bukan fallback runtime aktif.
+- Pengujian otomatis mencakup alur lintas modul terpilih; belum membuktikan setiap menu, tombol, peran, dan CRUD melalui UAT browser.
+- Pemilik melaporkan domain erp4-pesantren.tlusur.com telah dideploy. Commit, konfigurasi server, dan UAT terkini pada domain tersebut belum diverifikasi dalam checkpoint ini.
+- Produk belum dinyatakan siap Production atau komersial. Gerbang yang belum dibuktikan: diff DDL Production, rekonsiliasi migrasi dan rehearsal terkontrol, backup/restore Production, UAT pada target hosting, serta penerimaan operasional.
+- Tidak ada persentase total yang dapat dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Angka 100/163 (61,3%) hanya coverage ledger Production, bukan persentase fitur ERP.
 
-Hostname pooler tidak dibutuhkan untuk pemeriksaan MCP baca-saja ini. Jika koneksi PostgreSQL langsung melalui CLI diperlukan, salin URI/hostname persis dari dialog **Connect** proyek target; jangan menebak nomor cluster.
+Tidak ada migrasi, ledger repair, perubahan data, atau perubahan konfigurasi Production yang dilakukan. Untuk koneksi PostgreSQL langsung yang diperlukan tim, salin hostname/URI pooler tepat dari dialog Connect project target; jangan menebak cluster.
 
 ---
-Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
 
+Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
 ## Addendum otoritatif — checkpoint 14 November 2026
 
 Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
