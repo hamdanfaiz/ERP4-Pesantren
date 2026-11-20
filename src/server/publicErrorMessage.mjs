@@ -9,6 +9,7 @@ function toPublicErrorText(message, status) {
   if (status >= 500) return GENERIC_SERVER_ERROR;
   if (!value || INTERNAL_ERROR_TERMS.test(value) || INTERNAL_API_ERROR_DETAILS.test(value)) return GENERIC_PUBLIC_ERROR;
   return value
+    .replace(/\btenants?\s+akun ini\b/gi, "pesantren yang terhubung dengan akun ini")
     .replace(/\btenants?\b/gi, "pesantren")
     .replace(/\brosters?\b/gi, "daftar santri");
 }
