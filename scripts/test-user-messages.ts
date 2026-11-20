@@ -31,13 +31,16 @@ const guardedModuleFiles = [
   "src/components/SupabaseNamingSeriesManager.tsx",
   "src/pages/SupabaseCommunicationHub.tsx",
   "src/pages/SupabaseGeneralAffairsAssets.tsx",
+  "src/pages/SettingsManager.tsx",
 ];
 const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|\.message|instanceof\s+Error)/;
+const rawServiceErrorToast = /showToast\([^)]*\b[A-Za-z_$][\w$]*(?:\?\.message|\.message)/;
 for (const relativePath of guardedModuleFiles) {
   const source = fs.readFileSync(path.join(root, relativePath), "utf8");
   assert.match(source, /import\s+\{\s*toERPUserMessage\s*\}\s+from\s+["\'][^"\']*userMessages["\']/, `${relativePath} imports the shared customer-safe error mapper`);
   assert.match(source, /toERPUserMessage\(/, `${relativePath} maps service errors to customer-safe copy`);
   assert.doesNotMatch(source, rawServiceErrorSetter, `${relativePath} does not expose raw service error text`);
+  assert.doesNotMatch(source, rawServiceErrorToast, `${relativePath} does not expose raw service error text in a toast`);
 }
 
 
