@@ -1,36 +1,33 @@
-# Kesiapan Komersial dan Go-Live — ERP4 Pesantren
-
 ## Status aktual — checkpoint 20 November 2026, setelah PR #141
 
 ### Source, PR, dan verifikasi otomatis
 
 - PR #141 menambahkan runbook rekonsiliasi migrasi Production dan sudah merged ke `main` pada commit `a59f39f3e130a71202bed1db5e4ed441a17ebf73`.
-- Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka.
-- CI PR #141 lulus pada tiga job: replay migrasi dan pgTAP pada Supabase lokal terisolasi, build/guard frontend termasuk tes cakupan terpilih, dan instalasi paket pelanggan. Job database juga memeriksa isolasi API/tenant, Storage, serta backup/restore lokal.
-- CI tersebut tidak membuktikan DDL live Production cocok dengan source, backup Production bisa dipulihkan, atau seluruh alur browser sudah lolos UAT.
+- CI PR #141 lulus pada tiga job: replay migrasi dan pgTAP pada Supabase lokal terisolasi, build/guard frontend, dan instalasi paket pelanggan. CI tidak membuktikan DDL live Production cocok dengan source atau backup Production dapat dipulihkan.
+- Pemeriksaan ini menambah bukti katalog terarah; bukan pengganti audit DDL menyeluruh.
 
 ### Status migrasi backend
 
 - Source `main` berisi 163 file migrasi sampai `20270402000000`.
-- PTSAS Production memiliki 100 versi ledger sampai `20270316000000`. Sebanyak 97 entri cocok pada versi dan nama; tiga versi (`20261205000000`, `20261206000000`, `20270118000000`) tidak memiliki nama ledger.
-- Ada 63 versi source yang belum tercatat pada ledger Production. Coverage versi ledger adalah **100/163 = 61,3%**; ini bukan persentase penyelesaian fitur ERP.
-- VQE staging memiliki 163 versi source tercatat. CLI melaporkan tidak ada migrasi tertunda, tetapi mekanisme yang menambahkan versi itu tidak disimpulkan dari bukti yang ada.
-- DDL Production belum dibandingkan lengkap dengan source. Uji restore Production dan UAT Production juga belum dibuktikan. Jangan menjalankan `db push` hanya untuk mengejar kesamaan hitungan.
-- Rincian dan prosedur promosi tersedia di [audit paritas migrasi](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md) dan [runbook promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- PTSAS Production memiliki 100 entri ledger sampai `20270316000000`; 97 versi/nama cocok, dan tiga versi memiliki nama ledger kosong.
+- Ada 63 versi source yang belum tercatat pada ledger Production. Coverage ledger **100/163 = 61,3%** adalah ukuran versi migrasi, bukan persentase fitur ERP.
+- VQE staging memiliki 163 versi source tercatat hingga `20270402000000`.
+- DDL Production belum dibandingkan lengkap dengan source. Backup/restore Production serta UAT Production belum dibuktikan. Jangan menjalankan `db push` hanya untuk mengejar kesamaan hitungan.
 
-### Status produk
+### Pemeriksaan katalog terarah terbaru
 
-- Source yang diuji menggunakan Supabase sebagai runtime backend dan CI menjaga Firebase tidak masuk ke bundle/runtime frontend aktif.
-- Pengujian otomatis mencakup alur terpilih untuk Master Data/NIS, akademik, PPDB, Tahfidz, CBT, keuangan, asrama, dokumen/Storage, serta API dan isolasi tenant. Cakupan ini tidak sama dengan pengujian manual setiap menu, tombol, peran, dan alur simpan-baca.
-- Tim pemilik sebelumnya melaporkan domain `erp4-pesantren.tlusur.com` telah dideploy. Commit yang sedang berjalan, konfigurasi server, dan UAT pada domain itu tidak diperiksa pada checkpoint ini.
+Pemeriksaan baca-saja pada 20 November menemukan 13/13 nama indeks komposit dari migration `20270330000000_add_core_composite_fk_indexes` valid dan siap di VQE; tidak satu pun dari nama persis itu ditemukan di PTSAS. Ketiadaan nama belum membuktikan tidak ada indeks dengan definisi setara. Katalog `quran_surahs`, validator Surah, dan dua RPC Tahfidz terpilih ditemukan di VQE, tetapi tidak ditemukan di PTSAS. Ini temuan objek terpilih, bukan bukti DDL Production lengkap.
 
-### Keputusan kesiapan
+Rincian, batas bukti, dan tindakan yang disarankan ada di [pemeriksaan katalog terarah VQE–PTSAS](../06_DATABASE/VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md), [audit paritas migrasi](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md), dan [runbook promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
-Produk **belum dinyatakan siap Production atau komersial**. Source dan CI terus bergerak, tetapi sebelum rilis backend perlu menyelesaikan DDL diff, membuktikan backup/restore, merehearsal daftar migrasi tertunda pada salinan Production, lalu menjalankan UAT pada target deployment. Harga, lisensi, SLA, dan cakupan dukungan juga belum menjadi bukti kesiapan teknis.
+### Status produk dan keputusan kesiapan
 
-Tidak ada persentase keseluruhan yang bisa dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Angka terukur saat ini adalah coverage versi ledger Production **61,3%**, bukan progress total project. Tidak ada perubahan database Production pada checkpoint ini.
+- Source yang diuji menggunakan Supabase sebagai runtime backend dan CI menjaga Firebase tidak masuk ke bundle/runtime frontend aktif. Pengujian otomatis mencakup alur terpilih lintas modul, bukan setiap menu, tombol, peran, dan simpan-baca.
+- Tim pemilik sebelumnya melaporkan domain `erp4-pesantren.tlusur.com` telah dideploy. Commit yang berjalan, konfigurasi server, dan UAT pada domain tersebut belum diperiksa pada checkpoint ini.
+- Produk **belum dinyatakan siap Production atau komersial**. Sebelum rilis, backend perlu menyelesaikan rekonsiliasi ledger dan DDL, memeriksa indeks setara, membuktikan backup/restore, merehearsal urutan migrasi di salinan yang dapat dipulihkan, lalu menjalankan UAT pada target deployment.
+- Tidak ada persentase keseluruhan yang bisa dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Tidak ada perubahan database Production dalam pemeriksaan ini.
 
-Jika koneksi VQE pooler diperlukan, hostname yang tersimpan sudah berfungsi; tidak perlu tindakan manual. Bila tim memerlukan URL pooler Production, salin hostname tepat dari dialog Connect pada project Production—jangan menebak region atau cluster.
+Hostname pooler tidak dibutuhkan untuk pemeriksaan MCP baca-saja ini. Jika koneksi PostgreSQL langsung melalui CLI diperlukan, salin URI/hostname persis dari dialog **Connect** proyek target; jangan menebak nomor cluster.
 
 ---
 Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
