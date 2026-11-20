@@ -1,13 +1,22 @@
-> **Agent / multi-agent:** mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Untuk Relasi & Ekosistem + OpenWA (13 Nov 2026) baca [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Checkpoint di bawah ini tetap relevan untuk ledger Production dan gerbang migrasi umum.
+> Agent / multi-agent: mulai dari AGENT_START_HERE.md. Checkpoint di bawah tetap menjadi arsip; gunakan pembaruan terbaru ini untuk angka dan urutan kerja saat ini.
 
-## Pembaruan terbaru — 20 November 2026
+## Pembaruan terbaru — 20 November 2026, setelah PR #147
 
-- PR #130 (kompatibilitas respons leaderboard Tahfidz lama) sudah merged ke `main` pada commit `3ca67fc0e0adfa0b71f98c8b31a0ccca85f981b6`. Ini perubahan aplikasi; tidak membawa migration database.
-- Pemeriksaan baca-saja MCP pada VQE (`vqemuyzveuirlkvdggjd`) menghasilkan 150 versi ledger sampai `20270319000000`. Source `main` saat ini memuat 162 file migration sampai `20270401000000`.
-- Rekonsiliasi versi menemukan 18 file source yang tidak tercatat dengan versi sama di VQE, 6 versi VQE yang tidak ada di source dengan nomor sama, dan 4 versi yang nama ledger-nya berbeda dari file source. Tiga keluarga Tahfidz dan stack CBT mengindikasikan alias/renumbering, tetapi kesetaraan SQL/DDL belum dibuktikan. Rincian lengkap ada di [snapshot drift VQE 20 November](../06_DATABASE/VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-20.md).
-- `db push --dry-run` berhasil mencapai VQE, lalu berhenti dengan `DbPushMissingLocalError` karena enam versi remote tidak memiliki file source bernomor sama. CLI menyarankan `migration repair --status reverted` atau `db pull`; keduanya belum dijalankan. Tidak ada migration, repair, atau perubahan database yang dilakukan.
-- Jangan menerapkan semua gap atau menjalankan `migration repair` berdasarkan hitungan/nama saja. Selesaikan rekonsiliasi lineage dan pemeriksaan DDL staging terlebih dahulu. PTSAS Production tetap target terpisah; VQE tidak menjadi bukti kesetaraan Production.
+- Branch main berada pada b72450777c78d848bb5c79f39481a163a621754b; PR #147 adalah perubahan dokumentasi dan sudah merged. Source aplikasi/migrasi terakhir tetap a138895783f7118a657a0d5bd94e5872f60f2cba.
+- Tidak ada PR terbuka ketika repository diperiksa.
+- PR #147 CI lulus 3/3 job pada [run #44708456273](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44708456273): install paket pelanggan, build/guard frontend dan Docker, serta migration replay, API auth/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi. Ini bukan bukti restore atau UAT Production.
+- Source main memuat 163 file migrasi sampai 20270402000000. VQE staging (vqemuyzveuirlkvdggjd) mencatat 163 versi tersebut tanpa versi source yang hilang atau versi ledger-only.
+- PTSAS Production (ptsasgdvgrbdtgyqieie) mencatat 100 versi sampai 20270316000000; 63 file source belum tercatat. Nama ledger kosong pada tiga versi: 20261205000000, 20261206000000, dan 20270118000000.
+- Perbandingan katalog public terarah menemukan 179 tabel di VQE dan 162 di PTSAS; 17 tabel, 10 kolom, serta empat kontrak constraint terpilih berbeda. Status RLS aktif sama pada 162 tabel bersama, tetapi policy, grant, dan DDL penuh belum dibandingkan. Rincian: [audit promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- Pemindaian 63 migrasi yang belum tercatat menemukan lima migration dengan efek data saat penerapan; runbook mencatat tabel sasaran, kondisi, dan risiko. Ini perlu dihitung/rehearsal pada salinan yang dapat dipulihkan sebelum promosi.
+- Tidak ada migration, repair ledger, atau perubahan database yang dilakukan pada PTSAS dalam pekerjaan ini. Jangan mengejar kesamaan hitungan dengan db push massal.
+- PTSAS Production masih memerlukan perbandingan DDL menyeluruh, rekonsiliasi urutan/alias migrasi, bukti backup/restore, dan keputusan operator backend. Jika CLI memerlukan koneksi pooler, hostname harus disalin tepat dari dialog Connect project target; nomor cluster tidak dapat ditebak.
 
+CI hijau dan ledger lengkap VQE belum membuktikan UAT browser setiap modul/role atau kesiapan Production. Handoff ini tidak menyatakan deploy/komersial siap.
+
+## Pembaruan terdahulu — 20 November 2026
+
+Bagian berikutnya merupakan snapshot lama dan dapat memuat angka staging/source yang sudah disupersede oleh pembaruan di atas.
 ## Pembaruan terbaru — 13 November 2026
 
 - PR #112 (`codex/cbt-scale-main-20261113`) memuat paginasi/admin API CBT dan enam migration baru. GitHub Actions run #1617 pada head `834ec73cb61f441af13525adac41857bd154044f` lulus pada ketiga job required; Supabase Preview dilewati karena preview branch dinonaktifkan. PR tetap draft untuk tinjauan.
