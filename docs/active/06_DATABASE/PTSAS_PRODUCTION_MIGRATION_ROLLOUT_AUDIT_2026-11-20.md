@@ -97,6 +97,23 @@ Sejumlah migrasi memakai `CREATE INDEX` biasa. Source secara khusus memperingatk
 - Periksa log/error, antrean/retry, latensi, waktu lock, dan hasil DML/rekonsiliasi; dokumentasikan hasil serta tindakan pemulihan.
 - Production dianggap selesai pada tahap ini hanya setelah tim backend menerima bukti uji restore dan UAT pascarilis. Ini terpisah dari pemeriksaan CI pada database sementara.
 
+## Revalidasi Advisor Production (baca-saja, 20 November 2026)
+
+Snapshot Advisor Production sekitar 15.36–15.37 WIB melaporkan:
+
+| Area | Temuan | Interpretasi operasional |
+| --- | --- | --- |
+| Security | 157 tabel mengaktifkan RLS tanpa policy (INFO) | Query katalog tambahan tidak menemukan grant tabel kepada `PUBLIC`, `anon`, atau `authenticated` pada tabel tanpa policy. Temuan ini tidak membuktikan endpoint backend yang memakai `service_role` menerapkan isolasi tenant; otorisasi endpoint tetap perlu diuji. |
+| Security | `public.erp4_ppdb_update_updated_at_column()` memiliki search path yang tidak dipatok (WARN) | Fungsi adalah SECURITY INVOKER, owner `postgres`, ACL hanya owner, dan terpasang pada dua trigger. Migration source `20270209000000_harden_ppdb_trigger_search_path` menetapkan `search_path = pg_catalog`; versi ini belum tercatat di ledger Production. |
+| Security | Empat helper tenant SECURITY DEFINER dapat dipanggil oleh `authenticated` (WARN) | Katalog mengonfirmasi semuanya masih di `public`, `search_path=pg_catalog, public`, dan EXECUTE hanya untuk `authenticated`, `service_role`, serta owner—tanpa `PUBLIC`/`anon`. Source `20270210000000_internalize_tenant_rls_helpers` memindahkan helper ke schema `private`; versi ini belum tercatat di Production. Definisi yang diperiksa menggunakan `auth.uid()`; belum ada bukti eksploit lintas-tenant. Keterjangkauan RPC melalui HTTP belum diuji karena exposed-schema setting belum dibaca. |
+| Auth | Perlindungan kata sandi bocor nonaktif (WARN) | Ini pengaturan Auth proyek, bukan migration SQL. Advisor VQE juga melaporkan hal yang sama. |
+| Performance | 269 foreign key tanpa covering index (INFO); 89 index belum terlihat dipakai (INFO) | Indeks perlu dipilih berdasarkan query dan beban representatif. Jangan menambah atau menghapus indeks massal hanya dari lint Advisor. |
+| Performance | Dua policy mengulang evaluasi auth per baris (WARN) | Policy `user_profiles_select_own` dan `profiles_select_self_or_tenant_admin`; source `20270211000000_optimize_profile_rls_initplans` belum tercatat di ledger Production. |
+| Performance | Satu pasangan index unik duplikat (WARN) | `document_records_tenant_document_number_uq` dan `document_records_tenant_number_normalized_uq` adalah index B-tree unik valid/ready dengan definisi key yang identik; tidak ada yang menjadi backing constraint. VQE hanya memiliki index ternormalisasi. Source `20270227000000_remove_redundant_document_number_index` menghapus index lama. Jangan jalankan DDL terpisah atau `db push` massal sebelum urutan migrasi, backup/restore, dan rehearsal disetujui. |
+| Health | Tidak ada temuan | Ini hanya hasil Health Advisor, bukan bukti kesiapan rilis. |
+
+Production dan VQE tidak diubah. Advisor memakai metadata/katalog, bukan isi data operasional; statistik index yang belum dipakai bergantung pada periode dan beban yang teramati. Snapshot ini menambah daftar tindakan rekonsiliasi, bukan persetujuan untuk mengubah Production.
+
 ## Hal yang belum dibuktikan
 
 - Kesetaraan seluruh DDL Production dengan commit source.
