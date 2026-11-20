@@ -56,6 +56,7 @@ import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBa
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
+import { buildTahfidzViewScopeKey, getRowsForTahfidzViewScope, isTahfidzViewScopeCurrent } from "../lib/tahfidzViewScope";
 import { cn, generateUniqueId } from "../lib/utils";
 import {
   AreaChart,
@@ -587,6 +588,8 @@ export function TahfidzManager() {
   const [achievementNextCursor, setAchievementNextCursor] = useState("");
   const [achievementLoading, setAchievementLoading] = useState(false);
   const [achievementError, setAchievementError] = useState("");
+  const [achievementScope, setAchievementScope] = useState("");
+  const [achievementErrorScope, setAchievementErrorScope] = useState("");
   const achievementRequestSequence = useRef(0);
   const [leaderboard, setLeaderboard] = useState<TahfidzLeaderboard | null>(null);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
@@ -594,7 +597,14 @@ export function TahfidzManager() {
   const [leaderboardLimit, setLeaderboardLimit] = useState<5 | 20>(5);
   const leaderboardRequestSequence = useRef(0);
   const [leaderboardScope, setLeaderboardScope] = useState("");
-  const currentLeaderboardScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}:${String(user?.modulePermissions?.tahfidz ?? "")}`;
+  const currentTahfidzScopeKey = buildTahfidzViewScopeKey({
+    tenantId: user?.tenantId,
+    userId: user?.uid,
+    role,
+    modulePermission: user?.modulePermissions?.tahfidz,
+  });
+  const currentLeaderboardScopeKey = currentTahfidzScopeKey;
+  const currentAchievementScopeKey = currentTahfidzScopeKey;
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -702,28 +712,34 @@ export function TahfidzManager() {
 
   const loadSupabaseTahfidzAchievements = async (cursor = "", append = false) => {
     const requestSequence = ++achievementRequestSequence.current;
+    const requestScopeKey = currentAchievementScopeKey;
+    const shouldAppend = append && isTahfidzViewScopeCurrent(achievementScope, requestScopeKey);
     setAchievementLoading(true);
     setAchievementError("");
-    if (!append) {
+    setAchievementErrorScope(requestScopeKey);
+    if (!shouldAppend) {
+      setAchievementScope("");
       setAchievementRows([]);
       setAchievementHasMore(false);
       setAchievementNextCursor("");
     }
     try {
       const params = new URLSearchParams();
-      if (cursor) params.set("cursor", cursor);
+      if (cursor && shouldAppend) params.set("cursor", cursor);
       const page = await requestSupabaseTahfidzApi(`/api/tahfidz/achievements?${params.toString()}`);
       if (requestSequence !== achievementRequestSequence.current) return;
       const incoming = Array.isArray(page.students) ? page.students : [];
       setAchievementRows((current) => {
-        const existing = append ? current : [];
+        const existing = shouldAppend ? current : [];
         const knownIds = new Set(existing.map((student) => String(student.id)));
         return [...existing, ...incoming.filter((student: any) => !knownIds.has(String(student.id)))];
       });
+      setAchievementScope(requestScopeKey);
       setAchievementHasMore(page.hasMore === true);
       setAchievementNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === achievementRequestSequence.current) {
+        setAchievementErrorScope(requestScopeKey);
         setAchievementError(error?.message || "Pencapaian Tahfidz belum dapat dimuat.");
       }
     } finally {
@@ -1816,7 +1832,7 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseDashboard = () => {
-    const currentLeaderboard = leaderboardScope === currentLeaderboardScopeKey
+    const currentLeaderboard = isTahfidzViewScopeCurrent(leaderboardScope, currentLeaderboardScopeKey)
       ? leaderboard
       : null;
     const today = currentTenantDate();
@@ -1868,7 +1884,7 @@ export function TahfidzManager() {
       { label: "Cakupan Target", value: targetCoverage, tone: "amber" },
     ];
     const showLeaderboard = ["Admin", "SuperAdmin", "Ustadz"].includes(role)
-      && leaderboardScope === currentLeaderboardScopeKey;
+      && isTahfidzViewScopeCurrent(leaderboardScope, currentLeaderboardScopeKey);
     const leaderboardPeriod = leaderboard?.periodStart
       ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })
         .format(new Date(`${leaderboard.periodStart}T00:00:00Z`))
@@ -3413,6 +3429,11 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseAchievements = () => {
+    const achievementScopeMatches = isTahfidzViewScopeCurrent(achievementScope, currentAchievementScopeKey);
+    const visibleAchievementRows = getRowsForTahfidzViewScope(achievementRows, achievementScope, currentAchievementScopeKey);
+    const visibleAchievementError = isTahfidzViewScopeCurrent(achievementErrorScope, currentAchievementScopeKey) ? achievementError : "";
+    const visibleAchievementHasMore = achievementScopeMatches && achievementHasMore;
+    const isAchievementLoading = achievementLoading || (!achievementScopeMatches && !visibleAchievementError);
     const icons: Record<string, any> = {
       "first-record": CheckCircle2,
       "ten-records": BookOpen,
@@ -3428,20 +3449,20 @@ export function TahfidzManager() {
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ringkasan dihitung dari catatan setoran tersimpan. Hari belajar berarti tanggal kalender berbeda, bukan rentetan hari.</p>
         </div>
 
-        {achievementError && (
+        {visibleAchievementError && (
           <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200">
             <div className="flex items-center justify-between gap-3">
-              <span>{achievementError}</span>
+              <span>{visibleAchievementError}</span>
               <button type="button" onClick={() => void loadSupabaseTahfidzAchievements()} className="shrink-0 font-semibold underline underline-offset-2">Coba lagi</button>
             </div>
           </div>
         )}
 
-        {achievementLoading && achievementRows.length === 0 && (
+        {isAchievementLoading && visibleAchievementRows.length === 0 && (
           <div role="status" className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-white/10 dark:bg-black/20 dark:text-slate-400">Memuat pencapaian…</div>
         )}
 
-        {!achievementLoading && !achievementError && achievementRows.length === 0 && (
+        {!isAchievementLoading && !visibleAchievementError && visibleAchievementRows.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-black/20">
             <Award className="mx-auto h-8 w-8 text-slate-400" />
             <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada santri pada cakupan akun ini.</p>
@@ -3450,7 +3471,7 @@ export function TahfidzManager() {
         )}
 
         <div className="space-y-4">
-          {achievementRows.map((student) => {
+          {visibleAchievementRows.map((student) => {
             const achievements = getTahfidzAchievementProgress(student.metrics || {
               totalRecords: 0, ziyadahRecords: 0, murojaahRecords: 0, studyDays: 0,
             });
@@ -3499,10 +3520,10 @@ export function TahfidzManager() {
           })}
         </div>
 
-        {achievementHasMore && (
+        {visibleAchievementHasMore && (
           <div className="flex justify-center">
-            <button type="button" onClick={() => void loadSupabaseTahfidzAchievements(achievementNextCursor, true)} disabled={achievementLoading} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/5">
-              {achievementLoading ? "Memuat…" : "Muat pencapaian berikutnya"}
+            <button type="button" onClick={() => void loadSupabaseTahfidzAchievements(achievementNextCursor, true)} disabled={isAchievementLoading} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-white/5">
+              {isAchievementLoading ? "Memuat…" : "Muat pencapaian berikutnya"}
             </button>
           </div>
         )}

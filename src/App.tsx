@@ -82,6 +82,13 @@ export default function App() {
     name: user?.tenantName || 'Pesantren',
     type: user?.tenantType || 'Pesantren',
   };
+  const moduleStateScopeKey = JSON.stringify([
+    user?.tenantId ?? '',
+    user?.uid ?? '',
+    role ?? '',
+    user?.tenantTimeZone ?? '',
+    Object.entries(user?.modulePermissions ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+  ]);
   const { getUserAllowedModules, canAccessModule, general, orgInfo } = useSystemSettings();
   const [showLogin, setShowLogin] = useState(false);
   const [activeModule, setActiveModule] = useState<ModuleId>('dashboard');
@@ -283,7 +290,7 @@ export default function App() {
         <Header currentTenant={currentTenant} branding={branding} />
         
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 print:p-0 print:overflow-visible">
-          <ModuleErrorBoundary key={activeModule} moduleName={MODULE_LABELS[activeModule]}>
+          <ModuleErrorBoundary key={`${activeModule}:${moduleStateScopeKey}`} moduleName={MODULE_LABELS[activeModule]}>
             <Suspense
               fallback={
                 <div className="p-8 text-sm text-slate-500" role="status" aria-live="polite">

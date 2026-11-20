@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { getTahfidzAchievementProgress, TAHFIDZ_ACHIEVEMENTS } from "../src/lib/tahfidzAchievements";
+import { buildTahfidzViewScopeKey, getRowsForTahfidzViewScope, isTahfidzViewScopeCurrent } from "../src/lib/tahfidzViewScope";
 
 const earned = getTahfidzAchievementProgress({
   totalRecords: 100,
@@ -39,4 +40,25 @@ const invalid = getTahfidzAchievementProgress({
   studyDays: 1.5,
 });
 assert.ok(invalid.every((achievement) => !achievement.earned && achievement.progress === 0));
-console.log("Tahfidz achievement progress tests passed.");
+
+const tenantAScope = buildTahfidzViewScopeKey({
+  tenantId: "tenant-a",
+  userId: "admin-a",
+  role: "Admin",
+  modulePermission: true,
+});
+assert.ok(tenantAScope.length > 0);
+assert.equal(isTahfidzViewScopeCurrent(tenantAScope, tenantAScope), true);
+assert.equal(isTahfidzViewScopeCurrent(tenantAScope, ""), false);
+assert.equal(isTahfidzViewScopeCurrent("", tenantAScope), false);
+assert.equal(isTahfidzViewScopeCurrent(tenantAScope, buildTahfidzViewScopeKey({
+  tenantId: "tenant-b", userId: "admin-a", role: "Admin", modulePermission: true,
+})), false);
+assert.equal(isTahfidzViewScopeCurrent(tenantAScope, buildTahfidzViewScopeKey({
+  tenantId: "tenant-a", userId: "wali-a", role: "Walisantri", modulePermission: true,
+})), false);
+assert.deepEqual(getRowsForTahfidzViewScope(["data tenant A"], tenantAScope, ""), []);
+assert.deepEqual(getRowsForTahfidzViewScope(["data tenant A"], tenantAScope, tenantAScope), ["data tenant A"]);
+assert.equal(buildTahfidzViewScopeKey({ tenantId: "", userId: "admin-a", role: "Admin" }), "");
+
+console.log("Tahfidz achievement and view-scope tests passed.");
