@@ -102,6 +102,7 @@ Empat migration sample/seed pertama tidak boleh diterapkan otomatis ke tenant st
 - Di PTSAS Production, katalog `public.quran_surahs` dan fungsi `public.validate_tahfidz_quran_reference()` belum ada.
 - Source migration `20270320000000_tahfidz_quran_surah_catalog` belum tercatat di ledger Production. Ini bukti skema/fitur katalog Tahfidz belum dipasang di Production; tidak membuktikan kondisi seluruh modul.
 
+Pemeriksaan 13 RPC Tahfidz/CBT terpilih di Production menemukan hanya `record_tahfidz_daily_target` (satu overload, SECURITY INVOKER, EXECUTE hanya untuk `service_role`). Dua belas RPC lain yang dibandingkan tidak ditemukan, termasuk RPC pengaturan/halaman CBT, validator katalog Surah, leaderboard, dan target massal. Ini membuktikan sebagian API database yang dipakai source belum tersedia di Production; bukan audit lengkap seluruh fungsi atau rute API.
 
 ### Posisi ledger
 
