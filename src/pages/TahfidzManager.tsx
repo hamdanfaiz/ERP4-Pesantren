@@ -56,6 +56,7 @@ import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBa
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
+import { buildTahfidzViewScopeKey, getRowsForTahfidzViewScope, isTahfidzViewScopeCurrent } from "../lib/tahfidzViewScope";
 import { cn, generateUniqueId } from "../lib/utils";
 import {
   AreaChart,
@@ -596,7 +597,12 @@ export function TahfidzManager() {
   const [leaderboardLimit, setLeaderboardLimit] = useState<5 | 20>(5);
   const leaderboardRequestSequence = useRef(0);
   const [leaderboardScope, setLeaderboardScope] = useState("");
-  const currentTahfidzScopeKey = `${user?.tenantId || ""}:${user?.uid || ""}:${role}:${String(user?.modulePermissions?.tahfidz ?? "")}`;
+  const currentTahfidzScopeKey = buildTahfidzViewScopeKey({
+    tenantId: user?.tenantId,
+    userId: user?.uid,
+    role,
+    modulePermission: user?.modulePermissions?.tahfidz,
+  });
   const currentLeaderboardScopeKey = currentTahfidzScopeKey;
   const currentAchievementScopeKey = currentTahfidzScopeKey;
 
@@ -707,7 +713,7 @@ export function TahfidzManager() {
   const loadSupabaseTahfidzAchievements = async (cursor = "", append = false) => {
     const requestSequence = ++achievementRequestSequence.current;
     const requestScopeKey = currentAchievementScopeKey;
-    const shouldAppend = append && achievementScope === requestScopeKey;
+    const shouldAppend = append && isTahfidzViewScopeCurrent(achievementScope, requestScopeKey);
     setAchievementLoading(true);
     setAchievementError("");
     setAchievementErrorScope(requestScopeKey);
@@ -3423,9 +3429,9 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseAchievements = () => {
-    const achievementScopeMatches = achievementScope === currentAchievementScopeKey;
-    const visibleAchievementRows = achievementScopeMatches ? achievementRows : [];
-    const visibleAchievementError = achievementErrorScope === currentAchievementScopeKey ? achievementError : "";
+    const achievementScopeMatches = isTahfidzViewScopeCurrent(achievementScope, currentAchievementScopeKey);
+    const visibleAchievementRows = getRowsForTahfidzViewScope(achievementRows, achievementScope, currentAchievementScopeKey);
+    const visibleAchievementError = isTahfidzViewScopeCurrent(achievementErrorScope, currentAchievementScopeKey) ? achievementError : "";
     const visibleAchievementHasMore = achievementScopeMatches && achievementHasMore;
     const isAchievementLoading = achievementLoading || (!achievementScopeMatches && !visibleAchievementError);
     const icons: Record<string, any> = {
