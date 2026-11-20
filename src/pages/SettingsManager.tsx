@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import React, { useState, useEffect } from 'react';
 import { 
@@ -88,7 +89,7 @@ export function SettingsManager() {
       if (!response.ok) throw new Error('Data pengaturan sebelumnya belum dapat diproses.');
       setSettingsMigrationReport(payload);
     } catch (error: any) {
-      setSettingsMigrationError(error?.message || 'Data pengaturan sebelumnya belum dapat diproses.');
+      setSettingsMigrationError(toERPUserMessage(error, 'Data pengaturan sebelumnya belum dapat diproses.'));
     } finally {
       setSettingsMigrationBusy(false);
     }
@@ -242,7 +243,7 @@ export function SettingsManager() {
       URL.revokeObjectURL(url);
       showToast('Salinan pengaturan berhasil diunduh.', 'success');
     } catch (e: any) {
-      showToast('Gagal membuat file cadangan: ' + e.message, 'error');
+      showToast('Gagal membuat file cadangan: ' + toERPUserMessage(e, 'File cadangan belum dapat dibuat.'), 'error');
     }
   };
 

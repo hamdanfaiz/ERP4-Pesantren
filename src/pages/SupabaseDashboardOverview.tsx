@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertCircle, BookOpen, CheckCircle2, RefreshCw, TrendingUp, Users, Wallet } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -149,7 +150,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
         if (controller.signal.aborted) return;
         setNotice("");
         notifyReloadRef.current = false;
-        setError(loadError?.message || "Ringkasan dashboard belum dapat dimuat.");
+        setError(toERPUserMessage(loadError, "Ringkasan dashboard belum dapat dimuat."));
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
@@ -169,7 +170,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
     loadTahfidzLeaderboard(tahfidzLeaderboardLimit, controller.signal)
       .then((result) => { if (!controller.signal.aborted) setTahfidzLeaderboard(result); })
       .catch((loadError: any) => {
-        if (!controller.signal.aborted) setTahfidzLeaderboardError(loadError?.message || "Capaian Tahfidz belum dapat dimuat.");
+        if (!controller.signal.aborted) setTahfidzLeaderboardError(toERPUserMessage(loadError, "Capaian Tahfidz belum dapat dimuat."));
       })
       .finally(() => { if (!controller.signal.aborted) setTahfidzLeaderboardLoading(false); });
     return () => controller.abort();
@@ -203,7 +204,7 @@ export function SupabaseDashboardOverview({ surface = "dashboard" }: { surface?:
       } catch (searchError: any) {
         if (!controller.signal.aborted) {
           setDocumentSearchResults([]);
-          setDocumentSearchError(searchError?.message || "Pencarian dokumen belum dapat diproses.");
+          setDocumentSearchError(toERPUserMessage(searchError, "Pencarian dokumen belum dapat diproses."));
         }
       } finally {
         if (!controller.signal.aborted) setDocumentSearchLoading(false);

@@ -1,6 +1,49 @@
 import assert from "node:assert/strict";
 import { toERPUserMessage } from "../src/utils/userMessages";
 
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const guardedModuleFiles = [
+  "src/pages/SupabaseAcademicReportPanel.tsx",
+  "src/pages/SupabaseGeneralAffairManager.tsx",
+  "src/components/SupabaseMasterDataAuditPanel.tsx",
+  "src/pages/SupabaseEnterpriseUnitsManager.tsx",
+  "src/pages/SupabaseHrisManager.tsx",
+  "src/pages/SupabaseTahfidzSessions.tsx",
+  "src/pages/SupabaseAlumniManager.tsx",
+  "src/pages/SupabaseDocumentManager.tsx",
+  "src/pages/SupabaseFinanceManager.tsx",
+  "src/pages/SupabasePpdbManager.tsx",
+  "src/pages/SupabaseFinanceBudgetManager.tsx",
+  "src/pages/SupabaseAcademicManager.tsx",
+  "src/pages/SupabaseLaundryManager.tsx",
+  "src/pages/SupabaseHealthcareManager.tsx",
+  "src/pages/SupabaseDonationManager.tsx",
+  "src/pages/SupabaseCooperativeManager.tsx",
+  "src/pages/SupabaseLibraryManager.tsx",
+  "src/pages/SupabaseMarketplaceManager.tsx",
+  "src/pages/SupabaseLMSManager.tsx",
+  "src/pages/SupabaseCBTManager.tsx",
+  "src/pages/SupabaseDashboardOverview.tsx",
+  "src/components/SupabaseNamingSeriesManager.tsx",
+  "src/pages/SupabaseCommunicationHub.tsx",
+  "src/pages/SupabaseGeneralAffairsAssets.tsx",
+  "src/pages/SettingsManager.tsx",
+];
+const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|\.message|instanceof\s+Error)/;
+const rawServiceErrorToast = /showToast\([^)]*\b[A-Za-z_$][\w$]*(?:\?\.message|\.message)/;
+for (const relativePath of guardedModuleFiles) {
+  const source = fs.readFileSync(path.join(root, relativePath), "utf8");
+  assert.match(source, /import\s+\{\s*toERPUserMessage\s*\}\s+from\s+["\'][^"\']*userMessages["\']/, `${relativePath} imports the shared customer-safe error mapper`);
+  assert.match(source, /toERPUserMessage\(/, `${relativePath} maps service errors to customer-safe copy`);
+  assert.doesNotMatch(source, rawServiceErrorSetter, `${relativePath} does not expose raw service error text`);
+  assert.doesNotMatch(source, rawServiceErrorToast, `${relativePath} does not expose raw service error text in a toast`);
+}
+
+
 const fallback = "Tindakan belum dapat diproses. Silakan coba kembali.";
 assert.equal(toERPUserMessage(new TypeError("Failed to fetch"), fallback), "Koneksi sedang bermasalah. Periksa jaringan lalu coba kembali.");
 assert.equal(toERPUserMessage("Invalid login credentials", fallback), "Email atau kata sandi tidak sesuai. Periksa kembali lalu coba lagi.");

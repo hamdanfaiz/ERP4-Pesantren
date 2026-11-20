@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
@@ -58,7 +59,7 @@ function GaLinkedPanel({ mode }: { mode: "procurement" | "fleet" | "kitchen" }) 
     setLoading(true);
     setError("");
     refresh()
-      .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : "Data belum dapat dimuat."); })
+      .catch((cause: unknown) => { if (active) setError(toERPUserMessage(cause, "Data belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [refresh]);
@@ -81,7 +82,7 @@ function GaLinkedPanel({ mode }: { mode: "procurement" | "fleet" | "kitchen" }) 
       setNotice(`Stok ${item.name} ditambah ${quantity}.`);
       await refresh();
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : "Mutasi stok belum dapat dicatat.");
+      setError(toERPUserMessage(cause, "Mutasi stok belum dapat dicatat."));
     } finally { setBusy(false); }
   };
 

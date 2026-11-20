@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowDownRight, ArrowUpRight, CheckCircle2, Download, FileCheck2, Lock, LockOpen, Plus, RefreshCw, Upload, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -95,7 +96,7 @@ export function SupabaseFinanceManager() {
     setLoading(true); setError("");
     requestFinance("/api/finance/snapshot")
       .then((result) => { if (active) setSnapshot({ bills: Array.isArray(result.bills) ? result.bills : [], units: Array.isArray(result.units) ? result.units : [], expenses: Array.isArray(result.expenses) ? result.expenses : [], students: Array.isArray(result.students) ? result.students : [], ledger: Array.isArray(result.ledger) ? result.ledger : [], feeTypes: Array.isArray(result.feeTypes) ? result.feeTypes : [], expenseCategories: Array.isArray(result.expenseCategories) ? result.expenseCategories : [], financeLocked: result.financeLocked === true }); })
-      .catch((loadError: any) => { if (active) setError(loadError?.message || "Data keuangan belum dapat dimuat."); })
+      .catch((loadError: any) => { if (active) setError(toERPUserMessage(loadError, "Data keuangan belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user?.tenantId, user?.uid]);
@@ -153,7 +154,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("create-bills", user?.tenantId || "", user?.uid || "", batch, (clientRequestId) =>
         requestFinance("/api/finance/bills", { method: "POST", body: JSON.stringify({ batch: { ...batch, clientRequestId } }) }));
       setCreateType(null); setBillForm({ studentId: "", feeTypeReferenceId: "", period: "", amount: "" }); await refreshAfterMutation("Tagihan berhasil diterbitkan.");
-    } catch (saveError: any) { setError(saveError?.message || "Tagihan belum dapat diterbitkan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Tagihan belum dapat diterbitkan.")); }
     finally { setSaving(false); }
   };
 
@@ -169,7 +170,7 @@ export function SupabaseFinanceManager() {
       setCreateType(null); setExpenseForm({ categoryReferenceId: "", description: "", amount: "", unitId: snapshot.units[0]?.id || "" });
       expenseDateRef.current = today(user?.tenantTimeZone);
       await refreshAfterMutation("Pengajuan pengeluaran tersimpan untuk diperiksa.");
-    } catch (saveError: any) { setError(saveError?.message || "Pengajuan pengeluaran gagal disimpan."); }
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Pengajuan pengeluaran gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -183,7 +184,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("review-bill", user?.tenantId || "", user?.uid || "", review, (clientRequestId) =>
         requestFinance("/api/finance/bills/review", { method: "POST", body: JSON.stringify({ review: { ...review, clientRequestId } }) }));
       await refreshAfterMutation(action === "settle" ? "Pembayaran disahkan dan masuk ledger." : "Bukti ditolak dan alasan dicatat.");
-    } catch (reviewError: any) { setError(reviewError?.message || "Keputusan tagihan belum dapat disimpan."); }
+    } catch (reviewError: any) { setError(toERPUserMessage(reviewError, "Keputusan tagihan belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -197,7 +198,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("review-expense", user?.tenantId || "", user?.uid || "", review, (clientRequestId) =>
         requestFinance("/api/finance/expenses/review", { method: "POST", body: JSON.stringify({ review: { ...review, clientRequestId } }) }));
       await refreshAfterMutation(action === "approve" ? "Pengeluaran disetujui dan masuk ledger." : "Pengeluaran ditolak.");
-    } catch (reviewError: any) { setError(reviewError?.message || "Keputusan pengeluaran gagal disimpan."); }
+    } catch (reviewError: any) { setError(toERPUserMessage(reviewError, "Keputusan pengeluaran gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -210,7 +211,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("set-book-lock", user?.tenantId || "", user?.uid || "", change, (clientRequestId) =>
         requestFinance("/api/finance/lock", { method: "POST", body: JSON.stringify({ lock: { ...change, clientRequestId } }) }));
       await refreshAfterMutation(locked ? "Buku keuangan ditutup." : "Buku keuangan dibuka.");
-    } catch (lockError: any) { setError(lockError?.message || "Status buku gagal disimpan."); }
+    } catch (lockError: any) { setError(toERPUserMessage(lockError, "Status buku gagal disimpan.")); }
     finally { setSaving(false); }
   };
 
@@ -233,7 +234,7 @@ export function SupabaseFinanceManager() {
       await runIdempotentFinanceMutation("payment-proof", user?.tenantId || "", user?.uid || "", identity, (clientRequestId) =>
         requestFinance("/api/finance/payment-proofs", { method: "POST", body: JSON.stringify({ billingId: paymentBill.id, fileName: paymentFile.name, mimeType: paymentFile.type, base64, payChannel: paymentChannel, clientRequestId }) }));
       setPaymentBill(null); setPaymentFile(null); await refreshAfterMutation("Bukti pembayaran terkirim untuk verifikasi.");
-    } catch (uploadError: any) { setError(uploadError?.message || "Bukti pembayaran belum dapat diunggah."); }
+    } catch (uploadError: any) { setError(toERPUserMessage(uploadError, "Bukti pembayaran belum dapat diunggah.")); }
     finally { setSaving(false); }
   };
 
@@ -247,7 +248,7 @@ export function SupabaseFinanceManager() {
       if (!response.ok) { const payload = await response.json().catch(() => ({})); throw new Error(payload.error || "Bukti transfer tidak dapat diakses."); }
       const objectUrl = URL.createObjectURL(await response.blob());
       proofWindow.location.replace(objectUrl); window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
-    } catch (openError: any) { proofWindow.close(); setError(openError?.message || "Bukti transfer tidak dapat diakses."); }
+    } catch (openError: any) { proofWindow.close(); setError(toERPUserMessage(openError, "Bukti transfer tidak dapat diakses.")); }
   };
 
   const exportLedger = () => {
@@ -269,7 +270,7 @@ export function SupabaseFinanceManager() {
     <main className="mx-auto max-w-7xl space-y-6 pb-10">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between dark:border-slate-800">
         <div><div className="mb-2 inline-flex rounded-lg bg-emerald-50 p-2.5 dark:bg-emerald-950/40"><Wallet className="h-5 w-5 text-emerald-700 dark:text-emerald-300" /></div><h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Keuangan</h1><p className="mt-1 text-sm text-slate-500">Kelola tagihan, pengajuan, verifikasi, dan buku besar pesantren dari modul ini.</p></div>
-        <div className="flex flex-wrap gap-2">{isAdmin && canSeeBills && tab === "bills" && <button onClick={() => { setError(""); setCreateType("bill"); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Plus className="h-4 w-4" /> Terbitkan tagihan</button>}{canRequestExpense && tab === "expenses" && <button onClick={() => { expenseDateRef.current = today(user?.tenantTimeZone); setError(""); setCreateType("expense"); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Plus className="h-4 w-4" /> Ajukan pengeluaran</button>}{isAdmin && <button onClick={() => void toggleLock()} disabled={saving} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${snapshot.financeLocked ? "border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-200" : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"}`}>{snapshot.financeLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}{snapshot.financeLocked ? "Buka buku" : "Tutup buku"}</button>}<button onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(e?.message || "Data belum dapat dimuat.")).finally(() => setLoading(false)); }} aria-label="Muat ulang Finance" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button></div>
+        <div className="flex flex-wrap gap-2">{isAdmin && canSeeBills && tab === "bills" && <button onClick={() => { setError(""); setCreateType("bill"); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Plus className="h-4 w-4" /> Terbitkan tagihan</button>}{canRequestExpense && tab === "expenses" && <button onClick={() => { expenseDateRef.current = today(user?.tenantTimeZone); setError(""); setCreateType("expense"); }} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"><Plus className="h-4 w-4" /> Ajukan pengeluaran</button>}{isAdmin && <button onClick={() => void toggleLock()} disabled={saving} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${snapshot.financeLocked ? "border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-200" : "border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"}`}>{snapshot.financeLocked ? <LockOpen className="h-4 w-4" /> : <Lock className="h-4 w-4" />}{snapshot.financeLocked ? "Buka buku" : "Tutup buku"}</button>}<button onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} aria-label="Muat ulang Finance" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><RefreshCw className="h-4 w-4" /></button></div>
       </header>
 
       <div role="note" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Catatan keuangan baru dapat ditambahkan melalui modul ini. Admin dapat menerbitkan tagihan atau mencatat pengeluaran.</div>

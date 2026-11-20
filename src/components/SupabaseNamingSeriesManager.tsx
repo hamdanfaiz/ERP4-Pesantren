@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertCircle, Check, Hash, Loader2, RefreshCw, Save } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -105,7 +106,7 @@ export function SupabaseNamingSeriesManager() {
     } catch (cause: any) {
       setSeries([]);
       setNotice("");
-      setError(cause?.message || "Aturan penomoran pesantren belum dapat dimuat.");
+      setError(toERPUserMessage(cause, "Aturan penomoran pesantren belum dapat dimuat."));
     } finally {
       setLoading(false);
     }

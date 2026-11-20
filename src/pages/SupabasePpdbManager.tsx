@@ -197,7 +197,7 @@ export function SupabasePpdbManager() {
       setCandidates([]);
       setGradeLevels([]);
       setHasMore(false); setNextCursor(null); setLoadedQueryKey(queryKey);
-      setError(loadError?.message || "Daftar calon santri belum dapat dimuat.");
+      setError(toERPUserMessage(loadError, "Daftar calon santri belum dapat dimuat."));
     } finally {
       if (requestId === requestSequence.current) setLoading(false);
     }
@@ -376,7 +376,7 @@ export function SupabasePpdbManager() {
       setCsvImportOpen(false); setCsvFileName(""); setCsvCandidates([]); setCsvPreview(null);
       await refresh();
     } catch (saveError: any) {
-      setCsvError(saveError?.message || "Impor belum dapat disimpan karena ditemukan nomor pendaftaran yang sama.");
+      setCsvError(toERPUserMessage(saveError, "Impor belum dapat disimpan karena ditemukan nomor pendaftaran yang sama."));
     } finally { setCsvSaving(false); }
   };
 

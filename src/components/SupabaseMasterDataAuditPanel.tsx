@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Download, RefreshCw, ShieldCheck } from "lucide-react";
 import { listSupabaseMasterDataAuditPage, type SupabaseMasterDataAuditEntry } from "../services/masterDataApi";
@@ -108,7 +109,7 @@ export function SupabaseMasterDataAuditPanel() {
         if (!current) return;
         notifyReloadRef.current = false;
         setNotice("");
-        setError(cause instanceof Error ? cause.message : "Jejak audit belum dapat dimuat.");
+        setError(toERPUserMessage(cause, "Jejak audit belum dapat dimuat."));
       })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };

@@ -1,3 +1,4 @@
+import { toERPUserMessage } from "../utils/userMessages";
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -74,7 +75,7 @@ export function SupabaseMarketplaceManager() {
   const refresh = useCallback(async () => {
     setLoading(true); setError("");
     try { setSnapshot({ ...EMPTY, ...(await requestMarketplace("/api/marketplace/snapshot")) }); }
-    catch (cause: any) { setSnapshot(EMPTY); setError(cause?.message || "Data marketplace belum dapat dimuat."); }
+    catch (cause: any) { setSnapshot(EMPTY); setError(toERPUserMessage(cause, "Data marketplace belum dapat dimuat.")); }
     finally { setLoading(false); }
   }, [user?.tenantId, user?.uid]);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -101,7 +102,7 @@ export function SupabaseMarketplaceManager() {
       await runIdempotentMarketplaceMutation("create-order", user?.tenantId || "", user?.uid || "", order, (clientRequestId) =>
         requestMarketplace("/api/marketplace/orders", { method: "POST", body: JSON.stringify({ ...order, clientRequestId }) }));
       setCart({}); setCheckoutOpen(false); setCustomer({ name: "", type: "Parent" }); setTab("orders"); setNotice("Pesanan berhasil dicatat dan stok telah diperbarui."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Pesanan belum dapat dicatat."); await refresh(); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Pesanan belum dapat dicatat.")); await refresh(); }
     finally { setBusy(false); }
   };
   const openCreateProduct = () => { setProductDraft(emptyProduct()); setProductModal(true); };
@@ -128,7 +129,7 @@ export function SupabaseMarketplaceManager() {
       await runIdempotentMarketplaceMutation(editingProduct ? "update-product" : "create-product", user?.tenantId || "", user?.uid || "", product, (clientRequestId) =>
         requestMarketplace("/api/marketplace/products", { method: "POST", body: JSON.stringify({ ...product, clientRequestId }) }));
       setProductDraft(emptyProduct()); setProductModal(false); setNotice(editingProduct ? "Produk diperbarui." : "Produk berhasil disimpan ke katalog."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Produk belum dapat disimpan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Produk belum dapat disimpan.")); }
     finally { setBusy(false); }
   };
   const archiveProduct = async (product: Product) => {
@@ -140,7 +141,7 @@ export function SupabaseMarketplaceManager() {
       await runIdempotentMarketplaceMutation("archive-product", user?.tenantId || "", user?.uid || "", payload, (clientRequestId) =>
         requestMarketplace("/api/marketplace/products", { method: "POST", body: JSON.stringify({ ...payload, clientRequestId }) }));
       setNotice("Produk diarsipkan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Produk belum dapat diarsipkan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Produk belum dapat diarsipkan.")); }
     finally { setBusy(false); }
   };
   const adjustStock = async (product: Product) => {
@@ -152,7 +153,7 @@ export function SupabaseMarketplaceManager() {
       await runIdempotentMarketplaceMutation("adjust-stock", user?.tenantId || "", user?.uid || "", adjustment, (clientRequestId) =>
         requestMarketplace("/api/marketplace/stock-adjustments", { method: "POST", body: JSON.stringify({ ...adjustment, clientRequestId }) }));
       setStockDraft((old) => ({ ...old, [product.id]: { delta: "", reason: "" } })); setNotice("Perubahan inventaris tersimpan."); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Mutasi inventaris belum dapat dicatat."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Mutasi inventaris belum dapat dicatat.")); }
     finally { setBusy(false); }
   };
   const transitionOrder = async (order: Order, next: string) => {
@@ -162,13 +163,13 @@ export function SupabaseMarketplaceManager() {
       await runIdempotentMarketplaceMutation("transition-order", user?.tenantId || "", user?.uid || "", transition, (clientRequestId) =>
         requestMarketplace(`/api/marketplace/orders/${encodeURIComponent(order.id)}/status`, { method: "PATCH", body: JSON.stringify({ status: next, clientRequestId }) }));
       setNotice(next === "cancelled" ? "Pesanan dibatalkan dan stok dikembalikan." : `Status pesanan menjadi ${statusLabel(next)}.`); await refresh();
-    } catch (cause: any) { setError(cause?.message || "Status pesanan belum dapat diperbarui."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Status pesanan belum dapat diperbarui.")); }
     finally { setBusy(false); }
   };
   const previewLegacyImport = async () => {
     setBusy(true); setError(""); setNotice(""); setImportPreview(null);
     try { setImportPreview(await requestMarketplace("/api/marketplace/legacy/import", { method: "POST", body: JSON.stringify({ action: "preview" }) })); }
-    catch (cause: any) { setError(cause?.message || "Pratinjau impor Marketplace belum dapat dibuat."); }
+    catch (cause: any) { setError(toERPUserMessage(cause, "Pratinjau impor Marketplace belum dapat dibuat.")); }
     finally { setBusy(false); }
   };
   const applyLegacyImport = async () => {
@@ -177,7 +178,7 @@ export function SupabaseMarketplaceManager() {
     try {
       const result = await requestMarketplace("/api/marketplace/legacy/import", { method: "POST", body: JSON.stringify({ action: "apply", expectedFingerprint: importPreview.snapshotFingerprint }) });
       setImportPreview(null); setNotice(`Impor selesai: ${result.importedProducts || 0} produk dan ${result.importedOrders || 0} pesanan lama.`);
-    } catch (cause: any) { setError(cause?.message || "Impor Marketplace belum dapat diterapkan."); }
+    } catch (cause: any) { setError(toERPUserMessage(cause, "Impor Marketplace belum dapat diterapkan.")); }
     finally { setBusy(false); }
   };
 
