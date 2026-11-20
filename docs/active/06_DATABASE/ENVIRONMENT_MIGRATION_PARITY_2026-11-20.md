@@ -4,7 +4,7 @@
 
 Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan katalog PostgreSQL pada VQE staging serta PTSAS Production. Tujuannya menentukan langkah rekonsiliasi yang aman; hasil ini bukan izin untuk menerapkan seluruh migrasi.
 
-- Source main: commit 9a631a120d8cfdaf0e9e242aaa26350a430f1352, 163 file migrasi.
+- Source main saat audit: commit 9dc3d32cadbaa36e5e363d10e4fdac994d22651c, 163 file migrasi (PR #133 hanya memperbarui dokumentasi).
 - VQE staging (vqemuyzveuirlkvdggjd): 150 entri ledger.
 - PTSAS Production (ptsasgdvgrbdtgyqieie): 100 entri ledger, terakhir 20270316000000.
 - Kredensial database VQE terbaru berhasil membuka koneksi. supabase db push --dry-run --skip-vault berhenti pada pemeriksaan ledger, sebelum menyusun daftar migrasi yang akan diterapkan.
@@ -67,17 +67,42 @@ Kemiripan nama menunjukkan kandidat relasi, bukan bukti bahwa SQL, efek data, at
 
 ### Pemeriksaan katalog baca-saja
 
-Katalog VQE menunjukkan objek berikut tersedia:
-
-- quran_surahs dan tahfidz_target_bulk_write_requests ada, RLS dan FORCE ROW LEVEL SECURITY aktif, serta kolom dan constraint utama terlihat.
+- `quran_surahs` dan `tahfidz_target_bulk_write_requests` tersedia; RLS dan FORCE ROW LEVEL SECURITY aktif.
 - Indeks halaman CBT assignments/exams dan leaderboard Tahfidz terlihat.
-- Fungsi CBT yang diperiksa tersedia, tidak memakai SECURITY DEFINER, dan hanya memberi EXECUTE ke service_role.
-- Fungsi leaderboard Tahfidz memakai SECURITY DEFINER, dengan EXECUTE hanya untuk service_role; definisi tetap perlu ditinjau sebagai fungsi berhak istimewa.
-- Fungsi record_tahfidz_daily_targets_bulk pada VQE tidak memiliki dua validasi presisi desimal (ziyadah dan murojaah). Fungsi satu-target memiliki keduanya. Perbaikan maju sudah masuk main melalui PR #132, tetapi migrasinya 20270402000000 belum tercatat di VQE maupun Production.
+- Perbandingan `pg_proc.prosrc` dengan source migration terkini mencakup 13 fungsi Tahfidz/CBT, masing-masing satu overload. Isi 11 fungsi cocok setelah normalisasi whitespace: delapan fungsi CBT (dashboard, ringkasan paket soal, halaman soal/santri/tugas/ujian dan hitungan assignment), RPC pengaturan CBT, validasi katalog Surah, serta target Tahfidz satuan.
+- Dua isi fungsi berbeda dari source:
+  - `list_tahfidz_leaderboard` pada VQE belum mencakup metrik hari aktif dan ringkasan bulanan dari migration `20270401000000_tahfidz_monthly_leaderboard`.
+  - `record_tahfidz_daily_targets_bulk` pada VQE belum menolak target Ziyadah dan Murojaah dengan lebih dari dua angka desimal. Migration koreksi `20270402000000_tahfidz_bulk_target_precision_guard` dari PR #132 menambahkan kedua pemeriksaan itu.
+- Semua 13 fungsi tidak memberi hak `EXECUTE` kepada `anon` atau `authenticated`; fungsi aplikasi memberi hak kepada `service_role`. Fungsi validasi katalog adalah trigger helper dan tidak memberi grant tersebut. Hanya leaderboard memakai `SECURITY DEFINER`, dengan grant terbatas ke `service_role`.
 
-Pemeriksaan ini memastikan keberadaan sejumlah objek dan kontrol akses katalog. Pemeriksaan ini belum membuktikan kesetaraan penuh definisi semua fungsi, trigger, constraint, indeks, policy, dan efek data dengan seluruh file source.
+Perbandingan isi fungsi ini tidak membuktikan kesetaraan seluruh signature, DDL, trigger, constraint, indeks, policy, atau efek data dengan source. Karena itu selisih ledger tetap perlu direkonsiliasi sebelum `db push`; keberadaan fungsi saja bukan alasan untuk melewati migrasi atau mengubah ledger.
+
+### Selisih modul Komunikasi antara staging dan Production
+
+Katalog Production menunjukkan kelima tabel `communication_templates`, `communication_tickets`, `communication_ticket_events`, `communication_direct_messages`, dan `communication_direct_message_events`; semuanya mengaktifkan RLS dan FORCE RLS. Enam RPC dari migration `20270316000000_communication_ops_runtime` juga ditemukan. Pada VQE, pemeriksaan katalog baca-saja tidak menemukan satu pun dari lima tabel atau enam RPC tersebut.
+
+Ini cocok dengan konflik ledger yang teridentifikasi: Production mencatat `20270316000000 | communication_ops_runtime`, sedangkan VQE mencatat versi sama sebagai `cbt_admin_question_keyset_pages`. Dengan demikian, modul Komunikasi adalah perbedaan skema spesifik yang terbukti: objeknya ada di Production dan belum ada di staging. Ini tidak berarti keseluruhan Production lebih baru atau setara; 63 migration source masih belum tercatat di Production.
+
+### Dampak data pada migrasi source yang tertunda di VQE
+
+Pemeriksaan SQL source menemukan operasi data tingkat migrasi berikut di antara file yang belum tercatat di VQE:
+
+- `20270215500000_sample_class_grade_labels`: memperbarui label kelas pada record Master Data.
+- `20270310000000_academic_sample_catalog` dan `20270311000000_academic_sample_term`: menambahkan mata pelajaran/katalog dan term/setting akademik contoh.
+- `20270313000000_education_boarding_operational_seed`: menambah atau memperbarui contoh data lintas modul, termasuk gedung/kamar/santri, CBT, Tahfidz, LMS, perpustakaan, unit organisasi, izin, disiplin, dan kehadiran asrama.
+- `20270320000000_tahfidz_quran_surah_catalog`: memasukkan katalog referensi Surah dan mengisi `surah_number` pada riwayat Tahfidz yang cocok berdasarkan nama Surah.
+
+Empat migration sample/seed pertama tidak boleh diterapkan otomatis ke tenant staging yang sudah memiliki data. Katalog Surah merupakan referensi produk, tetapi backfill dan cakupan katalog perlu diperiksa sebelum replay. Source migration lain pada daftar pending berisi perubahan skema, fungsi, constraint, atau indeks; masing-masing tetap perlu uji urutan dan idempotensi. Tidak ada DML tersebut yang dijalankan saat audit.
 
 ## PTSAS Production
+
+### Kesenjangan katalog Surah Tahfidz
+
+- VQE memiliki 114 baris katalog Surah yang unik (nomor 1–114) dan setiap baris memiliki jumlah ayat. Fungsi validator referensinya ada dan isinya cocok dengan source.
+- Di PTSAS Production, katalog `public.quran_surahs` dan fungsi `public.validate_tahfidz_quran_reference()` belum ada.
+- Source migration `20270320000000_tahfidz_quran_surah_catalog` belum tercatat di ledger Production. Ini bukti skema/fitur katalog Tahfidz belum dipasang di Production; tidak membuktikan kondisi seluruh modul.
+
+Pemeriksaan 13 RPC Tahfidz/CBT terpilih di Production menemukan hanya `record_tahfidz_daily_target` (satu overload, SECURITY INVOKER, EXECUTE hanya untuk `service_role`). Dua belas RPC lain yang dibandingkan tidak ditemukan, termasuk RPC pengaturan/halaman CBT, validator katalog Surah, leaderboard, dan target massal. Ini membuktikan sebagian API database yang dipakai source belum tersedia di Production; bukan audit lengkap seluruh fungsi atau rute API.
 
 ### Posisi ledger
 
