@@ -1,43 +1,47 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026, 02.49 WIB
+## Status otoritatif — 21 November 2026, 03.52 WIB
 
-### Source, PR, dan pemeriksaan otomatis
+### Source dan hasil pengembangan
 
-- Source aplikasi di `main` berada pada merge commit PR #175, `2a318bb5b795d80cc0d3fb833afb029342736b5c`. Saat checkpoint ini dicatat, PR #176 sedang terbuka untuk pembaruan dokumen kesiapan ini; tidak ada PR perubahan aplikasi lain yang terbuka.
-- PR #175 memperbaiki isolasi state antartenant dan akun: komponen modul dimuat ulang saat konteks identitas/izin berubah, dan cache pencapaian serta leaderboard Tahfidz hanya ditampilkan untuk tenant, pengguna, role, dan izin yang sesuai.
-- CI sebelum merge pada run [#44801493606](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44801493606) lulus 3/3 job. CI pascamerge [#44803159172](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44803159172) selesai dan lulus 3/3 job, termasuk migrasi/API/pgTAP pada database lokal terisolasi.
-- PR #175 hanya mengubah source dan pemeriksaan otomatis. Tidak ada migrasi, perubahan data, atau perubahan Production.
-- CI mencakup build/runtime, instalasi NPM pelanggan, autentikasi API, aturan isolasi tenant, migrasi/pgTAP, dan backup/restore lokal sintetis. Ini bukan UAT browser lintas modul, bukti backup/restore cloud, atau verifikasi DDL Production.
-- Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih ada di repository.
-- Tidak ada persentase penyelesaian keseluruhan yang diklaim; denominator penerimaan fitur dan UAT belum ditetapkan.
+- Source `main` berada pada merge commit PR #178, `60d64d7c71685dcbfadb459519026ee7eeed8478`.
+- PR #177 menyamarkan 105 penanganan error pada 25 modul; PR #178 menutup jalur error mentah pada tombol muat ulang pemesanan fasilitas dan menambahkan deteksi error kebijakan baris data pada pesan pelanggan.
+- CI pada head PR #178, `6a7df37a27e01033641f8e2c8120d253d03504e1`, lulus 3/3 job: build frontend/Docker, instalasi paket pelanggan, serta migrasi, API auth, pgTAP, dan pengujian database di Supabase lokal terisolasi.
+- PR #178 hanya mengubah source frontend, penyaring pesan, dan pemeriksaan otomatis. Tidak ada migrasi, perubahan data, Storage, hosting, atau Production.
+- CI bukan UAT browser. Ia tidak membuktikan semua alur tampilan, setiap role, konfigurasi Hostinger, pemulihan cloud, atau kesetaraan skema Production.
+- Pemetaan pesan error kini menjaga jalur UI yang dicakup agar tidak menampilkan error teknis provider. Ini bukan bukti bahwa seluruh teks di seluruh repository telah ditinjau secara visual.
+- Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. Arsip/kode Firebase legacy yang tidak aktif tetap ada di repository.
+- Saya tidak menetapkan persentase akhir karena daftar penerimaan dan bobot UAT lintas environment belum disepakati secara terukur.
 
-### Supabase staging dan Production — fakta terakhir yang diperiksa
+### Backend — pemeriksaan baca-saja terbaru
 
-- Source `main` memiliki 163 file migrasi sampai `20270402000000`.
-- VQE staging `vqemuyzveuirlkvdggjd` memiliki 163 entri ledger. Pemeriksaan CLI sebelumnya melaporkan `upToDate: true`; hal itu menunjukkan paritas ledger untuk source yang diuji, bukan kesetaraan seluruh DDL atau kelulusan semua modul.
-- PTSAS Production `ptsasgdvgrbdtgyqieie` memiliki 100 entri ledger; 63 versi source belum tercatat, termasuk tiga entri tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`). Inventaris baca-saja terakhir tidak menemukan versi ledger-only.
-- Katalog `public` yang terakhir diperiksa berisi 179 tabel di VQE dan 162 di PTSAS; RLS aktif pada seluruh tabel yang dilaporkan di masing-masing proyek. Perbandingan terakhir mencatat 17 tabel source belum ada di PTSAS serta perbedaan kolom, constraint, foreign key, indeks, trigger, fungsi, dan ekspresi policy. Rincian ada di [audit rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Ini bukan diff DDL lengkap dari file source atau bukti perilaku aplikasi.
-- Production tidak disentuh. Jangan menerapkan seluruh 63 migrasi hanya untuk menyamakan ledger; urutan migrasi, efek DML, DDL aktual, dan kondisi data perlu ditinjau tim backend dalam rehearsal yang dapat dipulihkan.
+- Source `main` memuat 163 file migrasi hingga `20270402000000`.
+- VQE staging `vqemuyzveuirlkvdggjd` memiliki 163 entri migrasi hingga versi yang sama; pemeriksaan sebelumnya menyebut ledger `upToDate`. Ini hanya membuktikan paritas ledger, bukan kesetaraan penuh DDL atau kelulusan modul.
+- Inventaris VQE menunjukkan 179 tabel `public`, semuanya mengaktifkan RLS. Pemeriksaan per tenant pada 177 tabel dengan kolom `tenant_id` menemukan record pada 43 tabel di tenant UAT yang terdokumentasi; rincian dan kekosongan modul ada di [inventaris fixture VQE](UAT_VQE_FIXTURES_2026-11-20.md). Angka tersebut tidak membuktikan UAT UI lulus. Gunakan data yang sudah ada dan tambahkan hanya yang terbukti kurang.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` masih memiliki 100 entri ledger sampai `20270316000000`, dibanding 163 file source. Ada 63 versi source yang belum tercatat, termasuk tiga entri tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`). Inventaris baca-saja menampilkan 162 tabel `public`, semuanya dengan RLS aktif.
+- Perbandingan katalog terakhir mencatat 17 tabel source belum ada di PTSAS serta perbedaan kolom, constraint, foreign key, indeks, trigger, fungsi, dan ekspresi policy. Rincian: [audit rollout Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Ini bukan diff DDL lengkap atau bukti perilaku aplikasi.
+- Production tidak diubah. Rehearsal migrasi, penjelasan tiga nama ledger kosong, dan bukti backup/restore tetap harus ditangani sebelum cutover; jangan mengejar jumlah ledger dengan menjalankan seluruh 63 migrasi.
 
-### Produk dan kesiapan rilis pelanggan
+### Produk dan UAT yang masih terbuka
 
-- Fixture Admin sintetis staging terakhir yang tercatat mencakup Data Induk, sebagian Asrama, target Tahfidz, dan Dokumen Digital; lihat [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). Belum ada bukti fixture dan UAT menyeluruh untuk PPDB, Keuangan, Akademik, CBT/LMS, serta modul operasional lain.
-- Matriks runtime memuat 38 gerbang server; nilai `.env.example` sengaja `false`. Aktifkan hanya flag yang dibutuhkan per skenario staging setelah skema, Auth/tenant, izin, dan Storage siap. Lihat [matriks gerbang runtime](MODULE_RUNTIME_FLAG_MATRIX.md).
-- UAT browser lintas peran, simpan-baca semua modul, transaksi, unggahan, pemulihan sesi, dan responsivitas belum terbukti menyeluruh. Panduannya ada di [handoff UAT antarmuka](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md).
-- Source `main` memiliki permukaan Asrama yang mengikuti token tema bersama pada `src/index.css` (perubahan desain tercatat pada commit `3c2bbe87c0dc0230d7fdd81e178437cf64ce8274`). Tampilan Hostinger belum diverifikasi ulang terhadap commit terbaru; keluhan panel putih tetap berstatus belum terkonfirmasi secara visual sampai build/tema aktif diperiksa di preview.
-- Commit dan konfigurasi hosting belum diverifikasi pada checkpoint ini. Build domain pelanggan harus dicocokkan dengan source release serta flag environment yang aktif.
-- Backup/restore yang terbukti saat ini hanya berasal dari CI lokal sintetis; backup/restore cloud staging dan Production belum dibuktikan.
-- Kesiapan komersial self-hosted juga memerlukan clean install, upgrade, pemulihan database dan Storage, proses dukungan operasional, kebijakan data/lisensi, dan pilot pesantren.
+- Fixture UAT sintetis yang terdokumentasi mencakup Data Induk, sebagian Asrama, target Tahfidz, dan Dokumen Digital; lihat [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). UAT antarmuka lintas role serta alur lengkap PPDB, Keuangan, Akademik, CBT/LMS, dan modul operasional lain belum terbukti menyeluruh.
+- VQE memiliki data di sejumlah tabel modul lain, tetapi belum dipastikan apakah record tersebut termasuk fixture UAT yang dimaksud atau berada pada tenant yang sama. Sebelum menambah data UAT, petakan tenant sasaran dan referensinya, gunakan fungsi aplikasi, lalu cek konflik/duplikasi.
+- Matriks runtime berisi 38 gerbang server; nilai contoh di `.env.example` sengaja `false`. Aktifkan flag hanya untuk skenario staging setelah skema, Auth/tenant, izin, dan Storage siap. Lihat [matriks gerbang runtime](MODULE_RUNTIME_FLAG_MATRIX.md).
+- UAT browser untuk role, navigasi, simpan-baca, transaksi, unggahan, sesi login, dan tampilan responsif belum lengkap. Gunakan [handoff UAT antarmuka](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md).
+- Source Asrama memiliki pembungkus tema dan aturan permukaan berbasis token pada `src/index.css`. Tampilan Hostinger pada build terbaru belum diperiksa setelah PR #178; keluhan panel putih belum dapat dinyatakan selesai hanya dari pemeriksaan source.
+- Commit serta konfigurasi Hosting/domain pelanggan belum diverifikasi cocok dengan `main` dan flag environment aktif. Build preview PR tidak membuktikan bahwa domain pelanggan sudah menyajikan commit yang sama.
+- Bukti backup/restore yang ada berasal dari CI database lokal sintetis; pemulihan cloud staging dan Production belum dibuktikan.
+- Kesiapan komersial self-hosted masih memerlukan clean install, upgrade, pemulihan database/Storage, dukungan operasional, kebijakan data/lisensi, dan pilot pesantren.
 
 ### Langkah berikutnya
 
-1. Setelah operator aktif, lanjutkan UAT browser di VQE untuk modul, submodul, tampilan, dan alur simpan-baca lintas role; gunakan hanya data sintetis staging.
-2. Lengkapi fixture per modul setelah skenario dan prasyarat modul lulus; jangan menaruh fixture uji di PTSAS.
-3. Tim backend menuntaskan diff DDL Production, tiga nama ledger kosong, dan rehearsal aman atas 63 migrasi yang belum tercatat.
-4. Verifikasi hosting, clean install/upgrade, serta backup/restore di environment target sebelum status rilis dinilai ulang.
+1. Setelah operator aktif, lakukan UAT browser di VQE menggunakan Admin yang sudah ada; periksa tampilan Asrama pada build terbaru dan alur modul yang fixture-nya tersedia.
+2. Petakan record VQE yang sudah ada per tenant sebelum membuat fixture tambahan; buat hanya yang kurang, untuk UAT sintetis, dan verifikasi melalui alur aplikasi.
+3. Lengkapi UAT lintas role, modul, alur simpan-baca, upload privat, dan layar responsif; tandai hasil per skenario.
+4. Tim backend menyelesaikan diff DDL Production, tiga nama ledger kosong, dan rehearsal pemulihan atas 63 versi migrasi yang belum tercatat.
+5. Cocokkan build/flag domain pelanggan, lalu lakukan clean install/upgrade serta backup/restore pada environment target sebelum status rilis dinilai ulang.
 
-**Status:** source PR #175 sudah terintegrasi ke `main`; CI pascamerge lulus 3/3 job. PR #176 adalah pembaruan dokumentasi ini dan sedang diuji. Ini belum menyatakan semua fitur lolos UAT, Production siap dimigrasikan, atau produk siap komersial.
+**Status:** PR #177 dan #178 telah tergabung ke `main`; CI PR #178 lulus 3/3 job. Pengembangan source dan pengujian otomatis masih berlanjut. UAT browser, verifikasi hosting, backup/restore cloud, dan rekonsiliasi Production tetap terbuka; produk belum dinyatakan siap Production atau siap komersial.
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
