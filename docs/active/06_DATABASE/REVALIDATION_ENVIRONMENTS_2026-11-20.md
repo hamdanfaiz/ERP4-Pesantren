@@ -23,22 +23,17 @@ Tiga versi yang nama ledger-nya `NULL` adalah `20261205000000`, `20261206000000`
 
 63 migrasi yang belum tercatat tersebar di dalam rentang ledger, bukan hanya di bagian akhir. Beberapa file memiliki DML seed/backfill, sehingga daftar versi ini tidak boleh diperlakukan sebagai perintah untuk menjalankan semua migrasi secara massal. Rencana rekonsiliasi, urutan, dan pemeriksaan efek DML tetap diperlukan sebelum tim backend melakukan cutover.
 
-## VQE staging: dry-run CLI terbaru
+## VQE staging: direct CLI dry-run — 20 November 2026
 
-Setelah pemilik proyek merotasi password database VQE dan memperbarui file `.env` lokal, upaya `supabase db push --dry-run --include-all --skip-vault` tidak mencapai tahap autentikasi. CLI gagal menyelesaikan DNS untuk hostname pooler yang ada di konfigurasi:
+Sesudah pemilik proyek menyalin hostname Session pooler persis dari Dashboard VQE dan memperbarui password database lokal, koneksi CLI berhasil. Pemeriksaan ini memastikan `SUPABASE_PROJECT_REF` mengarah ke VQE dan hostname pada URL pooler cocok dengan hostname yang diberikan.
 
+Perintah `supabase db push --dry-run --include-all --skip-vault` berhasil dengan exit code 0 dan hasil:
+
+```json
+{"upToDate":true,"dryRun":true,"migrations":[],"seeds":[],"roles":[],"message":"Remote database is up to date."}
 ```
-ENOTFOUND aws-0-ap-northeast-1.pooler.supabase.com
-```
 
-Karena berhenti pada resolusi DNS:
-
-- password baru belum diverifikasi oleh percobaan CLI ini;
-- tidak ada daftar migrasi yang akan diterapkan dari dry-run;
-- tidak ada migrasi atau perubahan database yang dijalankan;
-- kegagalan ini sendiri tidak menunjukkan password salah.
-
-Langkah manual yang diperlukan: di Dashboard proyek VQE buka **Connect → Session pooler**, salin **hostname saja** persis dari dialog tersebut, lalu berikan hostname itu untuk memperbarui konfigurasi lokal. Jangan mengirim URL koneksi, password, API key, atau isi `.env` melalui chat. Setelah hostname benar, ulangi dry-run; jangan menjalankan `db push` tanpa meninjau hasilnya.
+Ini membuktikan kredensial pooler yang tersimpan lokal saat pemeriksaan dapat terautentikasi dan seluruh 163 migrasi source yang ada pada checkout ini sudah tercatat/selaras menurut perencanaan CLI. Tidak ada migrasi, seed, role, atau perubahan database yang diterapkan. Kegagalan DNS pada percobaan sebelumnya terjadi sebelum autentikasi; setelah hostname yang sama disalin ulang dari dialog Connect, DNS dan koneksi berhasil. Penyebab perubahan hasil DNS tidak disimpulkan.
 
 ## Batas bukti dan langkah berikutnya
 
