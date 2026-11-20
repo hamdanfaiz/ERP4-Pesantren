@@ -1,13 +1,15 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status aktual — checkpoint 20 November 2026, setelah PR #147
+## Status aktual — revalidasi 20 November 2026, setelah PR #148
 
 ### Source dan pemeriksaan otomatis
 
-- Branch main berada pada merge commit dokumentasi PR #147, b72450777c78d848bb5c79f39481a163a621754b. Source aplikasi/migrasi terakhir tidak berubah sejak commit a138895783f7118a657a0d5bd94e5872f60f2cba; PR #147 hanya memperbarui dokumentasi audit.
-- PR #147 sudah merged. GitHub Actions run [#44708456273](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44708456273) lulus 3/3 job: instalasi NPM pelanggan, build/guard frontend dan image Docker, serta migration replay, API, pgTAP, Storage dan backup/restore pada Supabase lokal terisolasi.
-- Hasil CI membuktikan pemeriksaan source pada lingkungan sintetis; bukan DDL Production, backup/restore Production, login atau UAT pada hosting.
-- Pada pemeriksaan awal setelah PR #147 dan sebelum PR #148, tidak ada PR terbuka di repository.
+- Branch `main` berada pada merge commit dokumentasi PR #148, `83d796833f9529ed856c7b3637a89edf47a84331`. PR #148 sudah merged. Snapshot GitHub sebelum PR #149 dibuat menunjukkan **0 PR terbuka**; PR #149 adalah pembaruan dokumentasi lanjutan. PR #148 hanya mengubah dokumentasi.
+- Source aplikasi dan migrasi tetap pada `a138895783f7118a657a0d5bd94e5872f60f2cba`; PR #148 tidak mengubahnya.
+- Pada checkout bersih commit `83d7968`, `npm ci`, `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase` berhasil. Guard memeriksa 167 modul, 26 route Supabase, penutupan 26 route migrasi yang dipensiunkan, dan kebijakan penyimpanan browser.
+- Build menghasilkan peringatan chunk PDF sekitar 1,46 MB dan beberapa komentar anotasi `zod` yang diabaikan bundler. Audit dependency penuh sebelumnya mencatat dua advisori rendah dan satu tinggi pada dependency pengembangan; audit dependency produksi bersih. Advisory tinggi berada pada `xlsx` yang hanya dipakai layar legacy yang tidak masuk bundle aktif, tetapi tetap menjadi pekerjaan supply-chain.
+- Preview lokal memakai konfigurasi VQE dan `/health/ready` merespons HTTP 200. Ini membuktikan pemeriksaan runtime Supabase yang dipakai endpoint identitas, bukan koneksi PostgreSQL pooler, seluruh CRUD, atau UAT browser. Proses preview lokal tidak lagi berjalan setelah sesi pengujian berakhir.
+- Hasil CI pada lingkungan sintetis tidak membuktikan DDL Production, pemulihan backup Production, login, atau UAT pada hosting.
 
 ### Status database dan skema
 
@@ -22,6 +24,7 @@
 - Source aktif menggunakan Supabase; CI menjaga Firebase tidak masuk ke graph frontend aktif maupun dependency produksi. Kode lama dan alat/adapter arsip masih ada untuk kompatibilitas atau dokumentasi, tetapi bukan fallback runtime aktif.
 - Pengujian otomatis mencakup alur lintas modul terpilih; belum membuktikan setiap menu, tombol, peran, dan CRUD melalui UAT browser.
 - Pemilik melaporkan domain erp4-pesantren.tlusur.com telah dideploy. Commit, konfigurasi server, dan UAT terkini pada domain tersebut belum diverifikasi dalam checkpoint ini.
+- Koneksi PostgreSQL langsung ke staging VQE belum diuji. `SUPABASE_DB_POOLER_HOST` di `.env` lokal belum terisi; hostname perlu disalin persis dari dialog **Connect** Supabase, bukan ditebak dari region.
 - Produk belum dinyatakan siap Production atau komersial. Gerbang yang belum dibuktikan: diff DDL Production, rekonsiliasi migrasi dan rehearsal terkontrol, backup/restore Production, UAT pada target hosting, serta penerimaan operasional.
 - Tidak ada persentase total yang dapat dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Angka 100/163 (61,3%) hanya coverage ledger Production, bukan persentase fitur ERP.
 
@@ -275,5 +278,3 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
-
-
