@@ -4,7 +4,7 @@
 
 Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan katalog PostgreSQL pada VQE staging serta PTSAS Production. Tujuannya menentukan langkah rekonsiliasi yang aman; hasil ini bukan izin untuk menerapkan seluruh migrasi.
 
-- Source main: commit 9a631a120d8cfdaf0e9e242aaa26350a430f1352, 163 file migrasi.
+- Source main saat audit: commit 9dc3d32cadbaa36e5e363d10e4fdac994d22651c, 163 file migrasi (PR #133 hanya memperbarui dokumentasi).
 - VQE staging (vqemuyzveuirlkvdggjd): 150 entri ledger.
 - PTSAS Production (ptsasgdvgrbdtgyqieie): 100 entri ledger, terakhir 20270316000000.
 - Kredensial database VQE terbaru berhasil membuka koneksi. supabase db push --dry-run --skip-vault berhenti pada pemeriksaan ledger, sebelum menyusun daftar migrasi yang akan diterapkan.
@@ -67,28 +67,15 @@ Kemiripan nama menunjukkan kandidat relasi, bukan bukti bahwa SQL, efek data, at
 
 ### Pemeriksaan katalog baca-saja
 
-### Perbandingan definisi RPC terpilih
-
-Perbandingan baca-saja antara source migration terkini dan `pg_proc.prosrc` VQE untuk 13 fungsi Tahfidz/CBT menemukan:
-
-- **11 dari 13** isi fungsi cocok setelah normalisasi whitespace. Delapan fungsi CBT (dashboard, ringkasan paket soal, halaman soal/santri/tugas/ujian dan hitungan assignment) serta RPC pengaturan CBT, katalog Surah, dan target Tahfidz satuan cocok.
-- **2 dari 13** berbeda dari source saat ini:
-  - `list_tahfidz_leaderboard`: VQE belum memuat metrik hari aktif dan ringkasan bulanan pada source migration `20270401000000_tahfidz_monthly_leaderboard`.
-  - `record_tahfidz_daily_targets_bulk`: VQE belum menolak nilai halaman dengan lebih dari dua angka desimal untuk target Ziyadah dan Murojaah. Perbaikannya ada di `20270402000000_tahfidz_bulk_target_precision_guard` (PR #132).
-- Seluruh 13 fungsi punya satu overload. Hak `EXECUTE` tidak diberikan ke `anon` atau `authenticated`; fungsi aplikasi memberi hak ke `service_role`. Fungsi validasi katalog adalah trigger helper tanpa grant tersebut. Hanya leaderboard yang `SECURITY DEFINER`, dan grant-nya tetap terbatas ke `service_role`.
-
-Ini membuktikan kecocokan isi untuk 11 fungsi yang diperiksa dan dua perbedaan perilaku yang spesifik. Ini tidak membuktikan seluruh DDL, trigger, indeks, policy, atau efek data pada database sama dengan source.
-
-
-Katalog VQE menunjukkan objek berikut tersedia:
-
-- quran_surahs dan tahfidz_target_bulk_write_requests ada, RLS dan FORCE ROW LEVEL SECURITY aktif, serta kolom dan constraint utama terlihat.
+- `quran_surahs` dan `tahfidz_target_bulk_write_requests` tersedia; RLS dan FORCE ROW LEVEL SECURITY aktif.
 - Indeks halaman CBT assignments/exams dan leaderboard Tahfidz terlihat.
-- Fungsi CBT yang diperiksa tersedia, tidak memakai SECURITY DEFINER, dan hanya memberi EXECUTE ke service_role.
-- Fungsi leaderboard Tahfidz memakai SECURITY DEFINER, dengan EXECUTE hanya untuk service_role; definisi tetap perlu ditinjau sebagai fungsi berhak istimewa.
-- Fungsi record_tahfidz_daily_targets_bulk pada VQE tidak memiliki dua validasi presisi desimal (ziyadah dan murojaah). Fungsi satu-target memiliki keduanya. Perbaikan maju sudah masuk main melalui PR #132, tetapi migrasinya 20270402000000 belum tercatat di VQE maupun Production.
+- Perbandingan `pg_proc.prosrc` dengan source migration terkini mencakup 13 fungsi Tahfidz/CBT, masing-masing satu overload. Isi 11 fungsi cocok setelah normalisasi whitespace: delapan fungsi CBT (dashboard, ringkasan paket soal, halaman soal/santri/tugas/ujian dan hitungan assignment), RPC pengaturan CBT, validasi katalog Surah, serta target Tahfidz satuan.
+- Dua isi fungsi berbeda dari source:
+  - `list_tahfidz_leaderboard` pada VQE belum mencakup metrik hari aktif dan ringkasan bulanan dari migration `20270401000000_tahfidz_monthly_leaderboard`.
+  - `record_tahfidz_daily_targets_bulk` pada VQE belum menolak target Ziyadah dan Murojaah dengan lebih dari dua angka desimal. Migration koreksi `20270402000000_tahfidz_bulk_target_precision_guard` dari PR #132 menambahkan kedua pemeriksaan itu.
+- Semua 13 fungsi tidak memberi hak `EXECUTE` kepada `anon` atau `authenticated`; fungsi aplikasi memberi hak kepada `service_role`. Fungsi validasi katalog adalah trigger helper dan tidak memberi grant tersebut. Hanya leaderboard memakai `SECURITY DEFINER`, dengan grant terbatas ke `service_role`.
 
-Pemeriksaan ini memastikan keberadaan sejumlah objek dan kontrol akses katalog. Pemeriksaan ini belum membuktikan kesetaraan penuh definisi semua fungsi, trigger, constraint, indeks, policy, dan efek data dengan seluruh file source.
+Perbandingan isi fungsi ini tidak membuktikan kesetaraan seluruh signature, DDL, trigger, constraint, indeks, policy, atau efek data dengan source. Karena itu selisih ledger tetap perlu direkonsiliasi sebelum `db push`; keberadaan fungsi saja bukan alasan untuk melewati migrasi atau mengubah ledger.
 
 ## PTSAS Production
 
