@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { readTahfidzLeaderboardParticipantCount } from "../src/lib/tahfidzLeaderboardResponse.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270401000000_tahfidz_monthly_leaderboard.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270403000000_tahfidz_unique_memorization_leaderboard.sql"), "utf8");
 const service = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
 const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
@@ -21,10 +21,14 @@ assert.match(migration, /record\.tenant_id = p_tenant_id[\s\S]*?record\.student_
   "Persisted setoran queries are tenant and student scoped.");
 assert.match(migration, /halaqah\.ustadz_user_id = p_actor_user_id[\s\S]*?record\.halaqah_id = student\.halaqah_id/,
   "Ustadz results and counts stay inside currently assigned halaqah.");
-assert.match(migration, /count\(DISTINCT \(record\.performed_at AT TIME ZONE v_time_zone\)::DATE\)[\s\S]*?AS ziyadah_active_days/i,
-  "Active study days use the pesantren time zone.");
-assert.match(migration, /ORDER BY ziyadah_records DESC, ziyadah_ayahs DESC, ziyadah_active_days DESC, student_name, id/,
-  "Ranking order is stable and based on stored scores.");
+assert.match(migration, /count\(DISTINCT \(progress\.surah_number, progress\.ayah_number\)\)/i,
+  "Lifetime memorization counts distinct Surah/Ayah pairs.");
+assert.match(migration, /ORDER BY unique_memorized_ayahs DESC, ziyadah_records DESC,[\s\S]*?ziyadah_active_days DESC, student_name, id/,
+  "Ranking prioritizes unique memorized ayat with stable tie-breakers.");
+assert.match(migration, /first_performed_at < v_business_cutoff/,
+  "Future-dated records are excluded from the business-date snapshot.");
+assert.match(migration, /tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I/,
+  "Projection access stays limited to the trusted routine owner.");
 assert.match(migration, /REVOKE ALL ON FUNCTION public\.list_tahfidz_leaderboard[\s\S]*?FROM PUBLIC, anon, authenticated/,
   "Browser roles cannot invoke the privileged SQL function directly.");
 assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.list_tahfidz_leaderboard[\s\S]*?TO service_role/,
@@ -35,26 +39,34 @@ assert.match(service, /readTahfidzLeaderboardParticipantCount\(result\)/,
   "Server normalizes participant counts for empty and current leaderboard payloads.");
 assert.match(service, /\["Admin", "SuperAdmin", "Ustadz"\]\.includes\(role\)/,
   "Only staff roles receive cross-student leaderboard data.");
+assert.match(service, /student\.uniqueMemorizedAyahs > 6236/,
+  "Server rejects impossible Quran-wide unique-ayah totals.");
 assert.match(service, /student\.ziyadahActiveDays > student\.ziyadahRecords/,
   "Server rejects impossible activity-day metrics.");
 assert.match(server, /app\.get\("\/api\/tahfidz\/leaderboard", requireAuth/,
   "Leaderboard route requires an authenticated session.");
 assert.match(server, /listSupabaseTahfidzLeaderboard\(\s*actor\.tenantId, actor\.uid, actor\.role/,
   "Route derives tenant and role from the verified profile.");
-assert.match(dashboard, /Peringkat Setoran Ziyadah/,
-  "The product dashboard retains the reference Tahfidz leaderboard.");
-assert.match(dashboard, /student\.ziyadahRecords[\s\S]*?student\.ziyadahAyahs[\s\S]*?student\.ziyadahActiveDays/,
-  "Dashboard shows saved setoran, ayah, and active-day metrics.");
+assert.equal((dashboard.match(/Peringkat Hafalan Terbanyak/g) || []).length, 1,
+  "The dashboard contains one lifetime memorization leaderboard.");
+assert.match(dashboard, /student\.uniqueMemorizedAyahs[\s\S]*?student\.ziyadahRecords[\s\S]*?student\.ziyadahActiveDays/,
+  "Dashboard emphasizes unique ayat before activity metrics.");
+assert.match(dashboard, /Ayat yang sama hanya dihitung sekali/,
+  "Dashboard explains duplicate-ayah handling.");
 assert.match(dashboard, /isTahfidzViewScopeCurrent\(leaderboardScope, currentLeaderboardScopeKey\)/,
   "Leaderboard results fail closed when the active tenant, user, role, or module access changes.");
 assert.match(page, /\/api\/tahfidz\/leaderboard\?limit=\$\{limit\}/,
   "Dashboard fetches ranking data from the authenticated API.");
-assert.match(dbTests, /ranking uses tenant-local active days to break equal setoran and ayah totals/,
-  "pgTAP checks the ranking tie-breaker.");
+assert.match(dbTests, /ranking prioritizes the student with the most unique Ziyadah ayat/,
+  "pgTAP checks unique-ayah ranking.");
+assert.match(dbTests, /overlapping ayah ranges and prior setoran count once/,
+  "pgTAP checks lifetime deduplication.");
 assert.match(dbTests, /Ustadz cannot see students outside assigned halaqahs/,
   "pgTAP checks teacher isolation.");
 assert.match(dbTests, /ranking response excludes student NIS/,
   "pgTAP checks that the ranking never returns student NIS.");
+assert.match(dbTests, /Ustadz totals include only unique ayat from their assigned halaqah/,
+  "pgTAP checks instructor-specific ayah scope.");
 const planned = Number(dbTests.match(/^SELECT\s+plan\((\d+)\);$/m)?.[1]);
 const assertions = dbTests.match(/^SELECT\s+(?:is|ok|throws_ok)\s*\(/gm)?.length ?? 0;
 assert.equal(planned, assertions, "pgTAP plan matches all Tahfidz assertions.");
