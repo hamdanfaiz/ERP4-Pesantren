@@ -65,7 +65,20 @@ Kemiripan nama menunjukkan kandidat relasi, bukan bukti bahwa SQL, efek data, at
     20270401000000_tahfidz_monthly_leaderboard
     20270402000000_tahfidz_bulk_target_precision_guard
 
-### Pemeriksaan katalog baca-saja\n\n### Perbandingan definisi RPC terpilih\n\nPerbandingan baca-saja antara source migration terkini dan `pg_proc.prosrc` VQE untuk 13 fungsi Tahfidz/CBT menemukan:\n\n- **11 dari 13** isi fungsi cocok setelah normalisasi whitespace. Delapan fungsi CBT (dashboard, ringkasan paket soal, halaman soal/santri/tugas/ujian dan hitungan assignment) serta RPC pengaturan CBT, katalog Surah, dan target Tahfidz satuan cocok.\n- **2 dari 13** berbeda dari source saat ini:\n  - `list_tahfidz_leaderboard`: VQE belum memuat metrik hari aktif dan ringkasan bulanan pada source migration `20270401000000_tahfidz_monthly_leaderboard`.\n  - `record_tahfidz_daily_targets_bulk`: VQE belum menolak nilai halaman dengan lebih dari dua angka desimal untuk target Ziyadah dan Murojaah. Perbaikannya ada di `20270402000000_tahfidz_bulk_target_precision_guard` (PR #132).\n- Seluruh 13 fungsi punya satu overload. Hak `EXECUTE` tidak diberikan ke `anon` atau `authenticated`; fungsi aplikasi memberi hak ke `service_role`. Fungsi validasi katalog adalah trigger helper tanpa grant tersebut. Hanya leaderboard yang `SECURITY DEFINER`, dan grant-nya tetap terbatas ke `service_role`.\n\nIni membuktikan kecocokan isi untuk 11 fungsi yang diperiksa dan dua perbedaan perilaku yang spesifik. Ini tidak membuktikan seluruh DDL, trigger, indeks, policy, atau efek data pada database sama dengan source.\n
+### Pemeriksaan katalog baca-saja
+
+### Perbandingan definisi RPC terpilih
+
+Perbandingan baca-saja antara source migration terkini dan `pg_proc.prosrc` VQE untuk 13 fungsi Tahfidz/CBT menemukan:
+
+- **11 dari 13** isi fungsi cocok setelah normalisasi whitespace. Delapan fungsi CBT (dashboard, ringkasan paket soal, halaman soal/santri/tugas/ujian dan hitungan assignment) serta RPC pengaturan CBT, katalog Surah, dan target Tahfidz satuan cocok.
+- **2 dari 13** berbeda dari source saat ini:
+  - `list_tahfidz_leaderboard`: VQE belum memuat metrik hari aktif dan ringkasan bulanan pada source migration `20270401000000_tahfidz_monthly_leaderboard`.
+  - `record_tahfidz_daily_targets_bulk`: VQE belum menolak nilai halaman dengan lebih dari dua angka desimal untuk target Ziyadah dan Murojaah. Perbaikannya ada di `20270402000000_tahfidz_bulk_target_precision_guard` (PR #132).
+- Seluruh 13 fungsi punya satu overload. Hak `EXECUTE` tidak diberikan ke `anon` atau `authenticated`; fungsi aplikasi memberi hak ke `service_role`. Fungsi validasi katalog adalah trigger helper tanpa grant tersebut. Hanya leaderboard yang `SECURITY DEFINER`, dan grant-nya tetap terbatas ke `service_role`.
+
+Ini membuktikan kecocokan isi untuk 11 fungsi yang diperiksa dan dua perbedaan perilaku yang spesifik. Ini tidak membuktikan seluruh DDL, trigger, indeks, policy, atau efek data pada database sama dengan source.
+
 
 Katalog VQE menunjukkan objek berikut tersedia:
 
