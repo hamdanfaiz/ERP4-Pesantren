@@ -1,11 +1,15 @@
 # Panduan UAT Antarmuka dan Alur Lintas Modul ERP4 Pesantren
 
-Tanggal checkpoint: 21 November 2026  
-Status: **UAT browser lintas role dan semua modul belum lengkap.** Fixture sintetis VQE yang terdokumentasi mencakup Data Induk, beberapa submodul Asrama, target Tahfidz, dan Dokumen Digital; alur Wali/Ustadz, PPDB, Keuangan, Akademik, CBT/LMS, dan modul operasional lain masih perlu bukti sesuai checklist. Jangan menyebutnya lulus sebelum benar-benar diuji.
-Source `main`: commit `1346c2a4f232edb40d4862eb24e3b65c8e3e1874` (merge PR #169; dokumentasi saja sejak perubahan source terakhir PR #164).
-Bukti otomatis terbaru: [GitHub Actions run 44784260746](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44784260746), lulus **3/3 job** pada head PR #169. Tes tersebut menggunakan Supabase lokal terisolasi dan fixture sintetis; bukan bukti UAT browser, backup/restore cloud, atau migrasi Production.
+Tanggal checkpoint: 21 November 2026, 03.47 WIB  
+Status: **UAT browser lintas role dan semua modul belum lengkap.** Fixture sintetis VQE yang terdokumentasi mencakup Data Induk, sebagian submodul Asrama, target Tahfidz, dan Dokumen Digital. Bukti UAT menyeluruh untuk Wali/Ustadz, PPDB, Keuangan, Akademik, CBT/LMS, dan seluruh modul operasional belum tersedia.
 
-Dokumen ini menjadi panduan eksekusi untuk tim backend/operator. CI yang lulus membuktikan build, migrasi lokal, tes database/API sintetis, instalasi paket, dan uji image pelanggan. Itu belum menggantikan UAT melalui browser dengan akun dan tenant uji.
+Source aplikasi `main`: merge PR #178, commit `60d64d7c71685dcbfadb459519026ee7eeed8478`. Perubahan terakhir menyamarkan error teknis pada sejumlah modul dan menambah guard untuk pemesanan fasilitas serta error kebijakan baris data.
+
+CI terbaru pada head PR #178 lulus **3/3 job**: [GitHub Actions run 44812763648](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44812763648). Uji berjalan terhadap Supabase lokal terisolasi, termasuk build, instalasi pelanggan, API/tenant, migrasi/pgTAP, Storage, backup/restore lokal sintetis. CI tersebut bukan UAT browser, bukti pemulihan cloud, atau pemeriksaan DDL Production.
+
+Pemeriksaan baca-saja VQE menunjukkan 163 versi ledger dan 179 tabel `public`; data telah ada di sejumlah modul, tetapi belum dipetakan ulang per tenant dan skenario UAT. Inventaris PTSAS menunjukkan 100 versi ledger dan 162 tabel `public`. Production tidak diubah. Sebelum membuat fixture baru, petakan data yang ada agar tidak menduplikasi atau menimpa record; jangan gunakan PTSAS untuk data uji.
+
+Dokumen ini menjadi panduan eksekusi UAT setelah operator dapat melakukan operasi manual. Catat build/commit yang diuji dan hasil setiap checklist. Kelulusan CI tidak menggantikan pengujian alur pada browser dengan akun serta tenant staging.
 
 ## 1. Batas dan keamanan pengujian
 
