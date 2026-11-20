@@ -1,6 +1,29 @@
 # Audit paritas migrasi Supabase — 20 November 2026
 
-## Ringkasan
+## Status terkini setelah rekonsiliasi alias — 20 November 2026
+
+- `main` terkini: commit `7bccf1dcdb494def2abffddcf9b318f781d150fb`, dengan 163 file migration.
+- VQE staging: 140 entri ledger, terakhir `20270308000000`. Sepuluh versi alias yang sudah diverifikasi SQL-nya ditandai `reverted` pada ledger VQE saja; DDL dan data aplikasi tidak disentuh oleh repair tersebut.
+- PTSAS Production: 100 entri ledger, terakhir `20270316000000`. Production tidak diubah.
+- `supabase db push --dry-run --include-all --skip-vault` versi CLI `2.122.0` berhasil membaca target VQE dan menampilkan 23 migration. Ini hanya daftar rencana; tidak ada migration yang diterapkan. `--include-all` diperlukan karena satu migration tertunda (`20270215500000`) berada sebelum versi ledger terakhir.
+- Katalog PostgreSQL staging mengonfirmasi `tahfidz_target_bulk_write_requests` telah ada dari alias lama, dengan 12 kolom, presisi numerik `(6,2)`, constraint, RLS/FORCE RLS, dan grant yang sesuai fixture SQL lama.
+- File kanonis `20270328000000_tahfidz_bulk_daily_target_write_api.sql` semula menjalankan `CREATE TABLE` biasa, sehingga akan gagal setelah alias ledger dibersihkan karena tabelnya sudah ada. Perubahan yang menyertainya menjadikan deklarasi tabel idempoten dengan `CREATE TABLE IF NOT EXISTS`; bagian RPC tetap memakai `CREATE OR REPLACE FUNCTION` untuk memperbarui validasi presisi.
+
+### Dampak data dari 23 migration tertunda
+
+Tidak ada perintah `DELETE` atau `TRUNCATE` pada kelompok migration tertunda yang ditinjau. Beberapa file tetap mengubah data atau memasukkan fixture contoh:
+
+- `20270215500000`: mengisi grade yang masih kosong pada record kelas.
+- `20270310000000`–`20270312000000`: memasukkan katalog contoh jika belum ada, membuat semester/KKTP default bila belum ada, dan mengisi kode jenjang NIS yang kosong.
+- `20270313000000`: mengisi relasi kamar/gedung/kelas/unit yang kosong dan memasukkan contoh operasional Asrama, CBT, Tahfidz, LMS, serta Perpustakaan.
+- `20270314000000`: memberi NIS pada santri yang belum memilikinya, mengikat Ustadz ke halaqah bernama contoh, serta memasukkan beberapa record contoh asrama/fasilitas. Pembaruan halaqah tidak dibatasi pada `ustadz_user_id IS NULL`.
+- `20270315000000`: memasukkan contoh tugas dan jawaban LMS. Untuk progres pada materi contoh, `ON CONFLICT DO UPDATE` memperbarui `position_seconds` dan `updated_at`.
+- `20270316000000`: membuat tabel dan fungsi komunikasi; operasi INSERT/UPDATE di dalam badan fungsi hanya berjalan saat fungsi dipanggil.
+- Sepuluh migration kanonis pengganti alias dan empat migration berikutnya membentuk/memperbarui fungsi, tabel, atau indeks runtime. `20270328000000` idempoten setelah perubahan sumber di atas.
+
+VQE adalah staging dengan data dummy sesuai keterangan pemilik. Meski demikian, seed di atas dapat menambah fixture dan beberapa pembaruan dapat mengganti nilai fixture yang sudah ada. Belum ada satu pun dari 23 migration ini yang diterapkan; staging harus diverifikasi lagi setelah perubahan sumber digabung dan sebelum promosi ke Production.
+
+## Baseline awal sebelum rekonsiliasi alias
 
 Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan katalog PostgreSQL pada VQE staging serta PTSAS Production. Tujuannya menentukan langkah rekonsiliasi yang aman; hasil ini bukan izin untuk menerapkan seluruh migrasi.
 

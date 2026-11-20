@@ -3,7 +3,7 @@
 -- rules remain identical for every selected student.
 BEGIN;
 
-CREATE TABLE public.tahfidz_target_bulk_write_requests (
+CREATE TABLE IF NOT EXISTS public.tahfidz_target_bulk_write_requests (
   tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   client_request_id UUID NOT NULL,
   created_by_user_id UUID NOT NULL,
