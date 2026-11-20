@@ -3,7 +3,7 @@
 ## Pembaruan terbaru — 20 November 2026, setelah PR #147
 
 - Branch main berada pada b72450777c78d848bb5c79f39481a163a621754b; PR #147 adalah perubahan dokumentasi dan sudah merged. Source aplikasi/migrasi terakhir tetap a138895783f7118a657a0d5bd94e5872f60f2cba.
-- Tidak ada PR terbuka ketika repository diperiksa.
+- Pada pemeriksaan awal setelah PR #147 dan sebelum PR #148, tidak ada PR terbuka di repository.
 - PR #147 CI lulus 3/3 job pada [run #44708456273](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44708456273): install paket pelanggan, build/guard frontend dan Docker, serta migration replay, API auth/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi. Ini bukan bukti restore atau UAT Production.
 - Source main memuat 163 file migrasi sampai 20270402000000. VQE staging (vqemuyzveuirlkvdggjd) mencatat 163 versi tersebut tanpa versi source yang hilang atau versi ledger-only.
 - PTSAS Production (ptsasgdvgrbdtgyqieie) mencatat 100 versi sampai 20270316000000; 63 file source belum tercatat. Nama ledger kosong pada tiga versi: 20261205000000, 20261206000000, dan 20270118000000.
