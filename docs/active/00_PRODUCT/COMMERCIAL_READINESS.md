@@ -1,37 +1,35 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status aktual — revalidasi 20 November 2026, setelah PR #148
+## Status otoritatif — revalidasi 20 November 2026, setelah PR #151
 
 ### Source dan pemeriksaan otomatis
 
-- Branch `main` berada pada merge commit dokumentasi PR #148, `83d796833f9529ed856c7b3637a89edf47a84331`. PR #148 sudah merged. Snapshot GitHub sebelum PR #149 dibuat menunjukkan **0 PR terbuka**; PR #149 adalah pembaruan dokumentasi lanjutan. PR #148 hanya mengubah dokumentasi.
-- Source aplikasi dan migrasi tetap pada `a138895783f7118a657a0d5bd94e5872f60f2cba`; PR #148 tidak mengubahnya.
-- Pada checkout bersih commit `83d7968`, `npm ci`, `npm run lint`, `npm run build`, dan `npm run test:supabase-runtime-no-firebase` berhasil. Guard memeriksa 167 modul, 26 route Supabase, penutupan 26 route migrasi yang dipensiunkan, dan kebijakan penyimpanan browser.
-- Seluruh 53 langkah uji non-database dari bagian awal job frontend CI lulus, termasuk pemeriksaan coverage dan dependency produksi; `npm run test:runtime-config-http` juga lulus. Uji trusted-proxy sempat ditolak izin loopback sandbox, lalu lulus setelah pengulangan dengan izin loopback terbatas. Tidak ada uji dalam rangkaian ini yang menulis ke Supabase.
-- Build menghasilkan peringatan chunk PDF sekitar 1,46 MB dan beberapa komentar anotasi `zod` yang diabaikan bundler. Audit dependency penuh sebelumnya mencatat dua advisori rendah dan satu tinggi pada dependency pengembangan; audit dependency produksi bersih. Advisory tinggi berada pada `xlsx` yang hanya dipakai layar legacy yang tidak masuk bundle aktif, tetapi tetap menjadi pekerjaan supply-chain.
-- Preview lokal memakai konfigurasi VQE dan `/health/ready` merespons HTTP 200. Ini membuktikan pemeriksaan runtime Supabase yang dipakai endpoint identitas, bukan koneksi PostgreSQL pooler, seluruh CRUD, atau UAT browser. Proses preview lokal tidak lagi berjalan setelah sesi pengujian berakhir.
-- GitHub Actions run [#44710901908](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44710901908) pada PR #148 lulus 3/3 job: instalasi NPM, build/guard frontend, dan replay migrasi serta tes API/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi dengan baseline 6 November 2026.
-- Hasil CI pada lingkungan sintetis tidak membuktikan DDL Production, pemulihan backup Production, login, atau UAT pada hosting.
+- Branch kanonis `main` berada pada merge commit dokumentasi PR #151, `a611bb8fb8a95bbf50814eee03d9ec124cea5d88`. PR #151 sudah merged dan pencarian GitHub setelah merge menemukan **0 PR terbuka**.
+- PR #148–#151 hanya mengubah dokumentasi. Commit terakhir yang mengubah source `src` adalah `3ca67fc0e0adfa0b71f98c8b31a0ccca85f981b6`; commit terakhir yang mengubah migrasi adalah `0459967c638ad02b89f6aaf25ebcee4c8b3a9326`.
+- Checkout bersih `83d7968` lulus `npm ci`, lint, build, guard tanpa Firebase, 53 langkah uji non-database, dan `test:runtime-config-http`. Source serta migrasi pada snapshot itu identik dengan `main` saat ini; perbedaan sesudahnya hanya dokumentasi.
+- Build memberi peringatan chunk PDF sekitar 1,46 MB dan anotasi komentar Zod yang diabaikan bundler. Audit sebelumnya menemukan dua advisori rendah dan satu tinggi pada dependency pengembangan; audit dependency produksi bersih. Advisory tinggi terkait `xlsx` pada layar legacy yang tidak masuk bundle aktif, namun tetap perlu ditangani sebagai pekerjaan supply-chain.
+- GitHub Actions run [#44710901908](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44710901908) lulus **3/3 job**: instalasi NPM, build/guard frontend, dan replay migrasi serta tes API/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi dengan baseline 6 November 2026.
+- Bukti CI sintetis tidak membuktikan DDL live, login/UAT hosting, atau pemulihan Production.
 
-### Status database dan skema
+### Database dan keamanan live — baca-saja
 
-- Source main berisi 163 file migrasi sampai 20270402000000.
-- VQE staging memiliki 163 versi ledger yang semuanya cocok dengan versi source hingga 20270402000000.
-- PTSAS Production memiliki 100 entri ledger sampai 20270316000000; 63 versi source belum tercatat dan tiga entri Production tidak memiliki nama: 20261205000000, 20261206000000, dan 20270118000000.
-- Perbandingan katalog public terarah: VQE 179 tabel, PTSAS 162; 17 tabel, 10 kolom, dan empat kontrak constraint yang diperiksa berbeda atau belum tersedia di PTSAS. Flag RLS pada 162 tabel bersama cocok, tetapi isi policy/grant dan DDL keseluruhan belum dibandingkan.
-- Lima dari 63 migrasi tertunda berisi perubahan data saat penerapan, termasuk tanda terima idempotensi, snapshot awal asrama, pengisian email wali, dan katalog/nama surah. Detail dan urutan verifikasi ada di [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- Source `main` memuat 163 file migrasi hingga `20270402000000`.
+- VQE staging `vqemuyzveuirlkvdggjd` berstatus `ACTIVE_HEALTHY`; ledger saat ini memuat 163 versi yang cocok dengan source.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` berstatus `ACTIVE_HEALTHY`; ledger memuat 100 versi hingga `20270316000000`. Sebanyak 63 versi source belum tercatat dan tiga nama ledger kosong: `20261205000000`, `20261206000000`, dan `20270118000000`.
+- Perbandingan katalog terarah sebelumnya menemukan 17 tabel, 10 kolom, dan empat kontrak constraint yang ada di VQE tetapi belum cocok pada PTSAS. Ini bukan diff DDL lengkap. Lima migrasi tertunda memiliki efek tulis saat penerapan; detailnya ada pada [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- Advisor terbaru PTSAS melaporkan 157 tabel RLS tanpa policy (INFO), satu fungsi dengan search path yang dapat berubah, empat fungsi SECURITY DEFINER yang dapat dijalankan pengguna terautentikasi, dan perlindungan sandi bocor nonaktif. Advisor performa juga melaporkan 269 FK tanpa indeks pendukung, dua policy initplan, 89 indeks belum terpakai, dan satu pasangan indeks duplikat. VQE melaporkan 174 tabel RLS tanpa policy (INFO), perlindungan sandi bocor nonaktif, 261 FK tanpa indeks pendukung, dan 100 indeks belum terpakai. Temuan harus ditinjau terhadap grant, route server, pola beban, dan source; jangan mengubah grant atau indeks massal hanya dari Advisor.
 
-### Status produk dan keputusan kesiapan
+### Produk, deployment, dan gerbang berikutnya
 
-- Source aktif menggunakan Supabase; CI menjaga Firebase tidak masuk ke graph frontend aktif maupun dependency produksi. Kode lama dan alat/adapter arsip masih ada untuk kompatibilitas atau dokumentasi, tetapi bukan fallback runtime aktif.
-- Pengujian otomatis mencakup alur lintas modul terpilih; belum membuktikan setiap menu, tombol, peran, dan CRUD melalui UAT browser.
-- Pemilik melaporkan domain erp4-pesantren.tlusur.com telah dideploy. Commit, konfigurasi server, dan UAT terkini pada domain tersebut belum diverifikasi dalam checkpoint ini.
-- Koneksi PostgreSQL langsung ke staging VQE belum diuji. `SUPABASE_DB_POOLER_HOST` di `.env` lokal belum terisi; hostname perlu disalin persis dari dialog **Connect** Supabase, bukan ditebak dari region.
-- Produk belum dinyatakan siap Production atau komersial. Gerbang yang belum dibuktikan: diff DDL Production, rekonsiliasi migrasi dan rehearsal terkontrol, backup/restore Production, UAT pada target hosting, serta penerimaan operasional.
-- Tidak ada persentase total yang dapat dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Angka 100/163 (61,3%) hanya coverage ledger Production, bukan persentase fitur ERP.
+- Runtime aktif menggunakan Supabase; CI menjaga Firebase tidak masuk ke graph frontend aktif maupun dependency produksi. Kode Firebase lama yang masih ada bukan fallback runtime.
+- Otomatisasi menguji alur lintas modul terpilih; UAT browser untuk semua menu, tombol, role, serta simpan-baca modul belum terbukti.
+- Pemilik melaporkan `erp4-pesantren.tlusur.com` sudah dideploy. Commit build, konfigurasi runtime, dan UAT terkini pada domain itu belum diverifikasi.
+- Koneksi PostgreSQL langsung ke VQE belum diuji. `SUPABASE_DB_POOLER_HOST` belum terisi pada `.env`, dan `supabase`, `psql`, serta `docker` tidak tersedia pada PATH workspace yang diperiksa. Hostname pooler harus disalin persis dari dialog **Connect** VQE; jangan ditebak dari region.
+- Belum ada perubahan database pada checkpoint ini. Tidak dilakukan migrasi, repair ledger, perubahan Auth, atau penulisan data di VQE maupun PTSAS.
+- Produk **belum dinyatakan siap Production atau komersial**. Pekerjaan yang masih terbuka: UAT browser dan transaksi lintas modul di staging; preflight/rehearsal staging dari CLI; diff DDL Production dan rencana migrasi berurutan; bukti backup/restore Production; verifikasi commit dan konfigurasi hosting; serta keputusan operasional, support, lisensi, dan pilot.
+- Tidak ada persentase keseluruhan yang dapat dipertanggungjawabkan tanpa denominator fitur/UAT. Rasio 100/163 adalah coverage ledger Production, bukan persentase fitur ERP.
 
-Tidak ada migrasi, ledger repair, perubahan data, atau perubahan konfigurasi Production yang dilakukan. Untuk koneksi PostgreSQL langsung yang diperlukan tim, salin hostname/URI pooler tepat dari dialog Connect project target; jangan menebak cluster.
-
+Hostname yang diperlukan untuk menguji koneksi pooler staging cukup dibagikan sebagai hostname saja. Jangan kirim password, secret, atau URL koneksi lengkap.
 ---
 
 Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
