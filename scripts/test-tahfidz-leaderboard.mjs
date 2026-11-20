@@ -25,7 +25,9 @@ assert.match(migration, /count\(DISTINCT \(progress\.surah_number, progress\.aya
   "Lifetime memorization counts distinct Surah/Ayah pairs.");
 assert.match(migration, /ORDER BY unique_memorized_ayahs DESC, ziyadah_records DESC,[\s\S]*?ziyadah_active_days DESC, student_name, id/,
   "Ranking prioritizes unique memorized ayat with stable tie-breakers.");
-assert.match(migration, /FOREIGN KEY \(tenant_id, student_id\)[\s\S]*?ON DELETE CASCADE[\s\S]*?FOREIGN KEY \(tenant_id, halaqah_id\)[\s\S]*?ON DELETE CASCADE/,\n  "Derived ayah projection follows student and halaqah fixture cleanup.");\nassert.match(migration, /first_performed_at < v_business_cutoff/,
+assert.match(migration, /FOREIGN KEY \(tenant_id, student_id\)[\s\S]*?ON DELETE CASCADE[\s\S]*?FOREIGN KEY \(tenant_id, halaqah_id\)[\s\S]*?ON DELETE CASCADE/,
+  "Derived ayah projection follows student and halaqah fixture cleanup.");
+assert.match(migration, /first_performed_at < v_business_cutoff/,
   "Future-dated records are excluded from the business-date snapshot.");
 assert.match(migration, /tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I[\s\S]*?tenant_id = NULLIF\(pg_catalog\.current_setting\(%L, true\), %L\)/,
   "Projection RLS requires the trusted routine to set the matching tenant scope.");
