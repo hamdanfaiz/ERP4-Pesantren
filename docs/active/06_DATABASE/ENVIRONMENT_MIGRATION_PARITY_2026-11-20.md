@@ -2,7 +2,7 @@
 
 ## Status terkini setelah PR #146 — 20 November 2026
 
-- `main` berada pada commit `a138895783f7118a657a0d5bd94e5872f60f2cba`; repository berisi 163 file migration. PR #146 hanya mencatat temuan Advisor Production; source migration tetap berjumlah 163. PR #139 membuat migration bulk Tahfidz replay-safe dan sudah merged.
+- `main` kini berada pada commit `f53b003e4c95f77e98be4101f2f9bd6a1dc8e3e6` setelah PR #153. PR #147–#152 memperbarui audit/readiness; PR #153 menyelaraskan pesan antarmuka dan tidak mengubah migrasi. Source tetap berisi 163 file migrasi; PR #139 membuat migrasi bulk Tahfidz replay-safe.
 - VQE staging memiliki 163 entri ledger hingga `20270402000000`; semua 163 file migration source tercatat. Setelah merge, perintah CLI `db push --include-all --skip-vault` dengan URL pooler VQE yang baru diperbarui melaporkan database sudah up to date. Perintah tersebut tidak menjalankan migration karena tidak ada yang tertunda.
 - Sebelum merge, dry-run VQE menampilkan 23 migration. Pembacaan metadata setelah merge mengonfirmasi 23 versi itu kini tercatat di ledger VQE. Penyebab atau mekanisme yang menerapkannya tidak disimpulkan dari pemeriksaan ini.
 - Pemeriksaan katalog VQE mengonfirmasi `tahfidz_target_bulk_write_requests` memiliki 12 kolom, angka target `numeric(6,2)`, RLS dan FORCE RLS aktif; RPC `record_tahfidz_daily_targets_bulk` berstatus SECURITY INVOKER.
