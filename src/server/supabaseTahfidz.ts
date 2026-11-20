@@ -2,6 +2,7 @@ import { listGuardianStudentIds } from "./identityStore";
 import { findSupabaseQuranSurah, isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs } from "./supabaseQuranCatalog";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
+import { readTahfidzLeaderboardParticipantCount } from "../lib/tahfidzLeaderboardResponse.mjs";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
@@ -431,10 +432,11 @@ export async function listSupabaseTahfidzLeaderboard(
       p_limit: pageSize,
     }),
   });
+  const participants = readTahfidzLeaderboardParticipantCount(result);
   if (!result || typeof result !== "object" || !Array.isArray(result.students)
     || result.students.length > pageSize || typeof result.hasMore !== "boolean"
-    || !Number.isSafeInteger(Number(result.participants)) || Number(result.participants) < result.students.length
-    || (result.hasMore && Number(result.participants) <= result.students.length)
+    || participants === null || participants < result.students.length
+    || (result.hasMore && participants <= result.students.length)
     || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.periodStart || ""))
     || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.businessDate || ""))) {
     throw new SupabaseTahfidzError(503, "Peringkat Tahfidz belum dapat dimuat.");
@@ -463,7 +465,7 @@ export async function listSupabaseTahfidzLeaderboard(
     businessDate: String(result.businessDate),
     students,
     hasMore: result.hasMore,
-    participants: Number(result.participants),
+    participants,
   };
 }
 
