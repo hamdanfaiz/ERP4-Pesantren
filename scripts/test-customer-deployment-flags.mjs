@@ -67,6 +67,15 @@ assert.match(publicError, /if \(status >= 500\) return GENERIC_SERVER_ERROR;[\s\
 assert.equal(sanitizePublicErrorPayload({ error: "SQLSTATE 23505: duplicate key value violates unique constraint" }, 500).error,
   "Layanan ini sedang mengalami kendala. Silakan coba kembali nanti.",
   "Server failures must not reveal SQLSTATE details");
+
+assert.equal(
+  sanitizePublicErrorPayload({ error: "Santri tidak ditemukan atau tidak unik pada tenant akun ini." }, 404).error,
+  "Santri tidak ditemukan atau tidak unik pada pesantren yang terhubung dengan akun ini.",
+  "Public errors must describe the account's pesantren without exposing the tenant term");
+assert.equal(
+  sanitizePublicErrorPayload({ error: "Tagihan tidak ditemukan pada tenant ini." }, 404).error,
+  "Tagihan tidak ditemukan pada pesantren ini.",
+  "Public errors must use natural Indonesian for tenant-scoped records");
 assert.match(server, /res\.statusCode\s*>=\s*400\s*\?\s*sanitizePublicErrorPayload\(payload,\s*res\.statusCode\)/,
   "Typed server failures must pass through the status-aware error sanitizer");
 assert.doesNotMatch(server, /error:\s*["'`][^"'`]*(?:Supabase|runtime|migration|konfigurasi|flag runtime|belum disiapkan|menunggu audit|diaktifkan oleh pengelola)/i,
