@@ -40,6 +40,16 @@ Flag RLS cocok pada 162 tabel yang namanya sama; pemeriksaan ini tidak membandin
 
 Temuan membuktikan selisih skema terpilih dan menguatkan perlunya diff DDL menyeluruh sebelum promosi. Tidak ada migration, ledger repair, atau perubahan data yang dilakukan pada PTSAS atau VQE dalam pemeriksaan ini.
 
+### Perbandingan foreign key baca-saja — 20 November 2026
+
+Perbandingan metadata katalog dari `list_tables(verbose=true)` pada VQE dan PTSAS menemukan 559 definisi foreign key di VQE dan 515 di PTSAS. Ada 44 definisi yang tercatat di VQE tetapi tidak di PTSAS; tidak ditemukan definisi Production-only atau definisi bernama sama dengan target/kolom berbeda pada snapshot ini.
+
+- 43 dari 44 foreign key yang hanya tampak di VQE berasal dari tabel sumber yang belum ada di PTSAS; perbedaan ini terkait tabel-tabel baru dalam inventaris 17 tabel di atas.
+- Satu foreign key berasal dari tabel yang sudah ada pada kedua project: `tahfidz_records_surah_number_fk`, dari `public.tahfidz_records.surah_number` ke `public.quran_surahs.surah_number`. Katalog `public.quran_surahs` belum ada di PTSAS.
+- Metadata yang sama menunjukkan tidak ada perbedaan primary key pada tabel bersama. Ini bukan diff DDL penuh: daftar indeks, definisi semua check constraint, fungsi, trigger, policy, grant, dan validitas setiap constraint belum dibandingkan menyeluruh.
+
+Temuan ini memperkuat bahwa ledger saja tidak cukup untuk promosi. Jangan menambahkan foreign key secara manual atau mendorong semua migrasi sampai urutan migrasi, dependensi, preflight data, dan rehearsal backup/restore ditinjau. Ini hanya pembacaan katalog; tidak ada perubahan database Production.
+
 ### Helper RLS tenant yang belum diinternalisasi
 
 PTSAS masih memiliki empat helper `SECURITY DEFINER` pada schema `public`, dengan `EXECUTE` hanya untuk `authenticated` (tidak untuk `PUBLIC`/`anon`), sementara VQE sudah menempatkannya di `private` melalui source migration `20270210000000_internalize_tenant_rls_helpers` yang belum tercatat di ledger Production. Definisi Production yang diperiksa menggunakan `auth.uid()` dan profil/tenant aktif; ini tidak menunjukkan akses lintas tenant, tetapi tidak sesuai hardening source. Schema `public` otomatis exposed secara default menurut dokumentasi Supabase; actual setting exposed-schema Production belum diperiksa, jadi akses HTTP RPC belum dikonfirmasi. Promosikan migration melalui rehearsal/backup terkontrol, bukan revoke manual, karena RLS policies tetap memerlukan fungsi helper. Detail: [audit helper RLS](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md).
