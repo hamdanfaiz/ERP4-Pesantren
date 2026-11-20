@@ -1,4 +1,6 @@
-# Checkpoint Pasca-Merge — 20 November 2026
+# Arsip Checkpoint Pasca-Merge PR #122 — 20 November 2026
+
+> Snapshot ini dibuat sebelum PR #148–#151. Untuk status terkini, gunakan [kesiapan komersial](COMMERCIAL_READINESS.md), yang mencatat `main` pada `a611bb8` dan hasil pemeriksaan Supabase terbaru.
 
 ## Source code
 
