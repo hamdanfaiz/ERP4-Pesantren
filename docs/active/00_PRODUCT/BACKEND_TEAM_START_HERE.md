@@ -17,7 +17,7 @@ CI hijau dan ledger lengkap VQE belum membuktikan UAT browser setiap modul/role 
 ## Pembaruan terdahulu — 20 November 2026
 
 Bagian berikutnya merupakan snapshot lama dan dapat memuat angka staging/source yang sudah disupersede oleh pembaruan di atas.
-## Pembaruan terbaru — 13 November 2026
+## Snapshot historis — 13 November 2026
 
 - PR #112 (`codex/cbt-scale-main-20261113`) memuat paginasi/admin API CBT dan enam migration baru. GitHub Actions run #1617 pada head `834ec73cb61f441af13525adac41857bd154044f` lulus pada ketiga job required; Supabase Preview dilewati karena preview branch dinonaktifkan. PR tetap draft untuk tinjauan.
 - Ledger Production PTSAS yang baru dibaca read-only memuat **100 versi** hingga `20270316000000`; **56 versi source belum tercatat**. Nama tidak dikembalikan untuk tiga versi: `20261205000000`, `20261206000000`, dan `20270118000000`. Pembacaan ini tidak membuktikan DDL atau isi `statements` cocok.
