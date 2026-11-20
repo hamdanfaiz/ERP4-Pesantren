@@ -19,7 +19,7 @@ Ledger membuktikan versi yang pernah direkam, bukan bahwa DDL saat ini identik d
 
 ### Pemeriksaan katalog terarah setelah snapshot ledger
 
-Pemeriksaan baca-saja 20 November menemukan 13/13 nama indeks komposit source valid/ready pada VQE, tetapi tidak menemukan nama persisnya pada PTSAS. Katalog Surah, validator, serta dua RPC Tahfidz terpilih juga ditemukan di VQE dan tidak ditemukan di PTSAS. Nama berbeda dengan definisi setara belum dikesampingkan; ini bukan DDL diff penuh dan bukan izin menerapkan migration. Lihat [catatan pemeriksaan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Tidak ada perubahan Production.
+Pemeriksaan baca-saja lanjutan menemukan 13/13 indeks target valid/ready di VQE, sementara PTSAS tidak memiliki indeks B-tree tak bersyarat yang mendukung urutan key dari satu pun dari 13 FK terkait. Seluruh 13 FK itu sendiri ada dan tervalidasi di kedua project. Ini kesenjangan indeks pendukung nyata pada constraint inti yang tercakup, bukan audit seluruh schema atau izin menerapkan migration. Ukuran tabel PTSAS yang tercatat di laporan hanya statistik snapshot. Katalog Surah, validator, dan dua RPC Tahfidz terpilih juga ada di VQE tetapi tidak di PTSAS. Lihat [catatan pemeriksaan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Production tidak diubah.
 
 ## Temuan statis pada 63 file yang belum tercatat
 

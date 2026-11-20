@@ -18,7 +18,7 @@
 
 ### Pemeriksaan katalog terarah terbaru
 
-Pemeriksaan baca-saja pada 20 November menemukan 13/13 nama indeks komposit dari migration `20270330000000_add_core_composite_fk_indexes` valid dan siap di VQE; tidak satu pun dari nama persis itu ditemukan di PTSAS. Ketiadaan nama belum membuktikan tidak ada indeks dengan definisi setara. Katalog `quran_surahs`, validator Surah, dan dua RPC Tahfidz terpilih ditemukan di VQE, tetapi tidak ditemukan di PTSAS. Ini temuan objek terpilih, bukan bukti DDL Production lengkap.
+Pemeriksaan baca-saja menemukan 13/13 indeks target valid/ready di VQE. Di PTSAS, seluruh 13 foreign key terkait ada dan tervalidasi, tetapi katalog tidak menemukan indeks B-tree tak bersyarat dengan urutan key yang mendukung satu pun dari 13 FK itu—kesenjangan indeks aktual pada tabel `academic_records`, `boarding_attendance_records`, dan `students`. Estimasi ukuran saat pemeriksaan masing-masing 272 kB, 88 kB, dan 368 kB; estimasi baris katalog bukan hitungan presisi. `quran_surahs`, validator Surah, dan dua RPC Tahfidz terpilih ditemukan di VQE tetapi tidak di PTSAS. Ini temuan terarah, bukan DDL diff lengkap.
 
 Rincian, batas bukti, dan tindakan yang disarankan ada di [pemeriksaan katalog terarah VQE–PTSAS](../06_DATABASE/VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md), [audit paritas migrasi](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md), dan [runbook promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
