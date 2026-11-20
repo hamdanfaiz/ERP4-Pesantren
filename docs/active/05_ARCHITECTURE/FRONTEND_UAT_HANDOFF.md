@@ -1,9 +1,9 @@
 # Panduan UAT Antarmuka dan Alur Lintas Modul ERP4 Pesantren
 
-Tanggal: 8 November 2026  
-Status: **UAT browser sedang berjalan. Login Admin staging, navigasi awal, dan pemulihan antrean Akademik selesai; UAT lintas role dan transaksi UI masih terbuka.**
-Baseline kode utama: `main` commit `ef8ce28e9541137e2154d025211db574dc2eef94`; perbaikan UAT saat ini disiapkan pada branch PR #90.
-Bukti otomatis baseline: [GitHub Actions run 42445243553](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42445243553).
+Tanggal checkpoint: 21 November 2026  
+Status: **UAT browser lintas role dan semua modul belum lengkap.** Fixture sintetis VQE yang terdokumentasi mencakup Data Induk, beberapa submodul Asrama, target Tahfidz, dan Dokumen Digital; alur Wali/Ustadz, PPDB, Keuangan, Akademik, CBT/LMS, dan modul operasional lain masih perlu bukti sesuai checklist. Jangan menyebutnya lulus sebelum benar-benar diuji.
+Source `main`: commit `1346c2a4f232edb40d4862eb24e3b65c8e3e1874` (merge PR #169; dokumentasi saja sejak perubahan source terakhir PR #164).
+Bukti otomatis terbaru: [GitHub Actions run 44784260746](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44784260746), lulus **3/3 job** pada head PR #169. Tes tersebut menggunakan Supabase lokal terisolasi dan fixture sintetis; bukan bukti UAT browser, backup/restore cloud, atau migrasi Production.
 
 Dokumen ini menjadi panduan eksekusi untuk tim backend/operator. CI yang lulus membuktikan build, migrasi lokal, tes database/API sintetis, instalasi paket, dan uji image pelanggan. Itu belum menggantikan UAT melalui browser dengan akun dan tenant uji.
 
