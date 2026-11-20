@@ -29,6 +29,7 @@ const guardedModuleFiles = [
   "src/pages/SupabaseCBTManager.tsx",
   "src/pages/SupabaseDashboardOverview.tsx",
   "src/components/SupabaseNamingSeriesManager.tsx",
+  "src/components/SupabaseFacilityBooking.tsx",
   "src/pages/SupabaseCommunicationHub.tsx",
   "src/pages/SupabaseGeneralAffairsAssets.tsx",
   "src/pages/SettingsManager.tsx",
