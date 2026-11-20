@@ -1832,7 +1832,7 @@ export function TahfidzManager() {
   );
 
   const renderSupabaseDashboard = () => {
-    const currentLeaderboard = leaderboardScope === currentLeaderboardScopeKey
+    const currentLeaderboard = isTahfidzViewScopeCurrent(leaderboardScope, currentLeaderboardScopeKey)
       ? leaderboard
       : null;
     const today = currentTenantDate();
@@ -1884,7 +1884,7 @@ export function TahfidzManager() {
       { label: "Cakupan Target", value: targetCoverage, tone: "amber" },
     ];
     const showLeaderboard = ["Admin", "SuperAdmin", "Ustadz"].includes(role)
-      && leaderboardScope === currentLeaderboardScopeKey;
+      && isTahfidzViewScopeCurrent(leaderboardScope, currentLeaderboardScopeKey);
     const leaderboardPeriod = leaderboard?.periodStart
       ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })
         .format(new Date(`${leaderboard.periodStart}T00:00:00Z`))
