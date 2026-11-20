@@ -221,5 +221,53 @@ Ledger membuktikan migrasi tersebut pernah dicatat, tetapi tidak membuktikan bar
 - CI PR #132 lulus pada migration/database tests, frontend/build, dan instalasi paket customer. PR #132 merged ke main pada commit 9a631a120d8cfdaf0e9e242aaa26350a430f1352.
 - CI lokal/terisolasi membuktikan source dapat diuji pada baseline yang dikonfigurasi; itu tidak membuktikan kesetaraan live VQE atau pemulihan Production.
 - Pemeriksaan ini belum membuktikan UAT seluruh modul, backup/restore cloud, migrasi Production, atau kesiapan deploy final.
+## Revalidasi baca-saja setelah rotasi kredensial VQE — 20 November 2026
 
+Source preflight telah diperbarui melalui PR #137 dan digabung ke `main` pada commit `dea089d31a1c82971c7ed9293da107210da8c70b`. Setelah password database VQE diganti, koneksi pooler pada `.env` lokal berhasil dipakai untuk satu transaksi `BEGIN READ ONLY` yang hanya membaca `supabase_migrations.schema_migrations`. Password tidak dicetak atau disimpan di laporan.
 
+| Pemeriksaan VQE | Hasil |
+| --- | ---: |
+| Migrasi sumber di main | 163 |
+| Entri ledger VQE | 150 |
+| Versi ledger terbaru | `20270329000000` |
+| Alias dengan nama dan SQL yang cocok | 10 |
+| Alias ledger lama yang masih menunggu repair | 10 |
+| Versi remote tanpa source | 0 |
+| Ketidakcocokan nama atau SQL | 0 |
+| Migrasi source belum tercatat | 13 |
+| Migrasi source yang out of order | 9 |
+| Lolos gerbang staging | Tidak |
+
+Koneksi langsung setelah rotasi membuktikan kredensial pooler saat ini dapat membaca ledger. Ini belum sama dengan menjalankan ulang `supabase db push --dry-run` memakai CLI. Tidak ada migration repair, DDL, atau perubahan data yang diterapkan.
+
+Sepuluh alias yang SQL-nya cocok berdasarkan source dan ledger VQE:
+
+| Versi ledger VQE | Versi source | Nama |
+| --- | --- | --- |
+| 20261109145507 | 20270320000000 | `tahfidz_quran_surah_catalog` |
+| 20261109145522 | 20270327000000 | `tahfidz_persisted_leaderboard` |
+| 20261109145534 | 20270328000000 | `tahfidz_bulk_daily_target_write_api` |
+| 20270312000000 | 20270329000000 | `tahfidz_target_decimal_precision` |
+| 20270314000000 | 20270321000000 | `cbt_tenant_settings_write_api` |
+| 20270315000000 | 20270322000000 | `cbt_admin_dashboard_summary` |
+| 20270316000000 | 20270323000000 | `cbt_admin_question_keyset_pages` |
+| 20270317000000 | 20270324000000 | `cbt_admin_student_roster_pages` |
+| 20270318000000 | 20270325000000 | `cbt_admin_assignment_pages` |
+| 20270319000000 | 20270326000000 | `cbt_admin_exam_pages` |
+
+Sembilan migrasi source tertunda yang berada sebelum versi ledger terbaru adalah `20270215500000_sample_class_grade_labels`, `20270309000000_academic_report_card`, `20270310000000_academic_sample_catalog`, `20270311000000_academic_sample_term`, `20270312000000_sample_nis_grade_codes`, `20270313000000_education_boarding_operational_seed`, `20270314000000_education_boarding_operational_fill`, `20270315000000_lms_dashboard_operational_fill`, dan `20270316000000_communication_ops_runtime`. Empat migrasi lain yang belum tercatat berada setelah versi ledger terbaru.
+
+### Temuan seed pada ledger Production
+
+Pemeriksaan baca-saja PTSAS menunjukkan ledger mencatat migrasi `20270310000000` sampai `20270316000000` dengan nama source kanonis:
+
+- `academic_sample_catalog`, `academic_sample_term`, dan `sample_nis_grade_codes`;
+- `education_boarding_operational_seed` dan `education_boarding_operational_fill`;
+- `lms_dashboard_operational_fill`;
+- `communication_ops_runtime`.
+
+File source untuk migrasi tersebut berisi DML seed contoh pada katalog akademik, semester, NIS, asrama, CBT, Tahfidz, LMS, perpustakaan, dan komunikasi. Beberapa memakai pilihan Admin per tenant dan UUID permintaan tetap. Ledger mengonfirmasi migrasi berstatus terapan; laporan ini **tidak** membaca baris operasional atau menghitung berapa record yang terdampak. Tidak ada perubahan atau penghapusan data Production.
+
+Karena migrasi tersebut sudah tercatat di Production, isi file migrasi historis tidak boleh diedit untuk menghapus seed. Setiap koreksi harus berupa migration baru yang forward-only dan memiliki kriteria record yang sangat spesifik; jangan menghapus record sampel sebelum pemilik data memastikan record tersebut aman dihapus.
+
+Pada VQE, beberapa migration seed yang sama masih tertunda. Jangan menjalankan `db push` ke VQE sebelum alias direkonsiliasi dan dampak data seed ditinjau terhadap fixture yang sudah dimasukkan tim. Urutan aman berikutnya: tinjau daftar pending, putuskan kebijakan data contoh, susun skrip repair ledger beserta verifikasi sebelum/sesudah, lalu lakukan rehearsal staging. Production tetap dilarang menerima migrasi sampai urutan dan dampak data ini dinyatakan jelas.
