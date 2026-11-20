@@ -96,6 +96,13 @@ Empat migration sample/seed pertama tidak boleh diterapkan otomatis ke tenant st
 
 ## PTSAS Production
 
+### Kesenjangan katalog Surah Tahfidz
+
+- VQE memiliki 114 baris katalog Surah yang unik (nomor 1–114) dan setiap baris memiliki jumlah ayat. Fungsi validator referensinya ada dan isinya cocok dengan source.
+- Di PTSAS Production, katalog `public.quran_surahs` dan fungsi `public.validate_tahfidz_quran_reference()` belum ada.
+- Source migration `20270320000000_tahfidz_quran_surah_catalog` belum tercatat di ledger Production. Ini bukti skema/fitur katalog Tahfidz belum dipasang di Production; tidak membuktikan kondisi seluruh modul.
+
+
 ### Posisi ledger
 
 - Ledger berisi 100 migrasi, dari 20260603000000 sampai 20270316000000.
