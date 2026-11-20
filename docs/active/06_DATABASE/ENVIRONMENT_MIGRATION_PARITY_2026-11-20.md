@@ -1,6 +1,6 @@
 # Audit paritas migrasi Supabase — 20 November 2026
 
-## Status terkini setelah PR #139 — 20 November 2026
+## Status terkini setelah PR #146 — 20 November 2026
 
 - `main` berada pada commit `a138895783f7118a657a0d5bd94e5872f60f2cba`; repository berisi 163 file migration. PR #146 hanya mencatat temuan Advisor Production; source migration tetap berjumlah 163. PR #139 membuat migration bulk Tahfidz replay-safe dan sudah merged.
 - VQE staging memiliki 163 entri ledger hingga `20270402000000`; semua 163 file migration source tercatat. Setelah merge, perintah CLI `db push --include-all --skip-vault` dengan URL pooler VQE yang baru diperbarui melaporkan database sudah up to date. Perintah tersebut tidak menjalankan migration karena tidak ada yang tertunda.
