@@ -19,18 +19,7 @@ CREATE INDEX tahfidz_student_ayah_progress_leaderboard_idx
   ON public.tahfidz_student_ayah_progress (tenant_id, student_id, first_performed_at)
   INCLUDE (halaqah_id, surah_number, ayah_number);
 
-ALTER TABLE public.tahfidz_student_ayah_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tahfidz_student_ayah_progress FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.tahfidz_student_ayah_progress FROM PUBLIC, anon, authenticated, service_role;
-
-DO $policy$
-BEGIN
-  EXECUTE format(
-    'CREATE POLICY tahfidz_student_ayah_progress_owner_all ON public.tahfidz_student_ayah_progress FOR ALL TO %I USING (true) WITH CHECK (true)',
-    current_user
-  );
-END
-$policy$;
 
 COMMENT ON TABLE public.tahfidz_student_ayah_progress IS
   'Private deduplicated projection of saved Ziyadah ayat by tenant, student and halaqah. Read only inside trusted Tahfidz server routines.';
@@ -50,6 +39,8 @@ BEGIN
   IF NOT FOUND OR NEW.ayah_start < 1 OR NEW.ayah_end < NEW.ayah_start OR NEW.ayah_end > v_ayah_count THEN
     RAISE EXCEPTION 'Setoran Ziyadah tidak terhubung ke rentang ayat yang valid' USING ERRCODE = '23514';
   END IF;
+  PERFORM pg_catalog.set_config('app.tahfidz_progress_tenant_id', NEW.tenant_id::TEXT, TRUE);
+
   INSERT INTO public.tahfidz_student_ayah_progress (
     tenant_id, student_id, halaqah_id, surah_number, ayah_number, first_performed_at
   )
@@ -98,6 +89,18 @@ DO UPDATE SET first_performed_at = LEAST(
   tahfidz_student_ayah_progress.first_performed_at, EXCLUDED.first_performed_at
 );
 
+ALTER TABLE public.tahfidz_student_ayah_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tahfidz_student_ayah_progress FORCE ROW LEVEL SECURITY;
+DO $policy$
+BEGIN
+  EXECUTE format(
+    'CREATE POLICY tahfidz_student_ayah_progress_owner_all ON public.tahfidz_student_ayah_progress FOR ALL TO %I USING (tenant_id = NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID) WITH CHECK (tenant_id = NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID)',
+    current_user, 'app.tahfidz_progress_tenant_id', '',
+    'app.tahfidz_progress_tenant_id', ''
+  );
+END
+$policy$;
+
 CREATE OR REPLACE FUNCTION public.list_tahfidz_leaderboard(
   p_tenant_id UUID, p_actor_user_id UUID, p_expected_role TEXT,
   p_business_date DATE, p_limit INTEGER DEFAULT 5
@@ -133,6 +136,7 @@ BEGIN
   v_scope_check := public.list_tahfidz_roster_page(
     p_tenant_id, p_actor_user_id, p_expected_role, p_business_date, NULL, NULL, 1, FALSE
   );
+  PERFORM pg_catalog.set_config('app.tahfidz_progress_tenant_id', p_tenant_id::TEXT, TRUE);
   v_business_cutoff := ((p_business_date + 1)::TIMESTAMP AT TIME ZONE v_time_zone);
 
   WITH eligible_students AS (
