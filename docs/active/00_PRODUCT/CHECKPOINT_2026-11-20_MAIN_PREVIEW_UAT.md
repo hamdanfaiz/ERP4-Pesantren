@@ -35,6 +35,15 @@ Preview yang diperiksa: https://lightgreen-jay-425688.hostingersite.com/
 - Tenant staging saat pemeriksaan tidak memiliki santri, kamar, permohonan izin, atau catatan operasional. Layar kosong tersebut adalah kondisi tanpa data; pemeriksaan ini tidak membuktikan alur tulis-baca dengan record.
 - Referensi https://erp4-pesantren.ai.studio/ menampilkan beranda publik dan portal login. Konten menu internal tidak dapat dibandingkan tanpa sesi uji pada referensi.
 
+## Pemeriksaan domain produksi
+
+Domain https://erp4-pesantren.tlusur.com diperiksa secara baca-saja:
+
+- Beranda merespons HTTP 200. HTML mencatat Last-Modified 13 November 2026 07:48 UTC.
+- Entry bundle yang dirujuk adalah index-RZ8AWqJa.js, yang memuat main-E7t2elqR.js.
+- Bundle main domain produksi tidak memuat teks error-boundary yang ada pada build main saat ini, dan entry bundle tidak merujuk chunk Asrama C7RLle2m yang dipakai Hostinger preview.
+- Ini bukti bahwa aset domain produksi berbeda dari bundle main yang diuji pada checkpoint ini. Belum membuktikan commit lengkap yang terpasang atau status konfigurasi runtime. Tidak ada deploy ke domain ini. Tim deploy perlu menerbitkan satu paket build konsisten setelah gerbang database/UAT yang mereka miliki terpenuhi.
+
 ## Batas perubahan
 
 - Tidak ada migrasi, perubahan Auth, Storage, atau penulisan data ke VQE maupun PTSAS Production.
