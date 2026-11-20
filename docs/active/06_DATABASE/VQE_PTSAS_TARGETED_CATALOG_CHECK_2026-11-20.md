@@ -34,6 +34,16 @@ Statistik katalog saat pemeriksaan PTSAS memperkirakan `academic_records` 13 bar
 
 Ini adalah pemeriksaan keberadaan nama objek terpilih, bukan perbandingan isi fungsi, signature lengkap, grant, policy, atau hasil alur aplikasi. Ledger Production mencatat 100 versi dari 163 migration source; 63 versi source belum tercatat. Objek yang tidak ditemukan perlu dipetakan ke urutan migration dan ledger, bukan langsung diterapkan atau ditandai selesai.
 
+## Hardening helper RLS pada PTSAS Production
+
+Inventaris baca-saja menemukan empat fungsi helper tenant masih berada di schema `public` pada PTSAS: `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, dan `is_tenant_admin()`. Keempatnya `SECURITY DEFINER`, `search_path`-nya `pg_catalog, public`, dan `EXECUTE` diberikan hanya kepada `authenticated`; tidak ada grant `PUBLIC` atau `anon` pada fungsi-fungsi ini. Definisi yang dibaca mengikat hasil ke profil aktif milik `auth.uid()` dan tenant berstatus aktif. Pemeriksaan ini tidak menemukan bukti dari definisi tersebut bahwa pengguna dapat memilih tenant orang lain.
+
+Pada VQE, schema `private` ada dan keempat helper telah dipindahkan ke sana; tidak ada helper dengan nama-nama itu di `public`. Ini sesuai source migration `20270210000000_internalize_tenant_rls_helpers.sql`, yang belum tercatat pada ledger PTSAS. Source mempertahankan `EXECUTE` untuk `authenticated` di schema internal karena helper dipakai policy RLS, tetapi mengeluarkannya dari schema API publik.
+
+Implikasi perlu dirumuskan terbatas: Supabase mendokumentasikan schema `public` sebagai schema yang otomatis terekspos pada Data API secara default, fungsi memerlukan grant `EXECUTE`, dan RLS tidak mengendalikan pemanggilan function. Karena setting exposed-schema PTSAS tidak dibaca dalam audit ini, keterjangkauan HTTP RPC aktual belum dibuktikan. Namun kondisi katalog Production berbeda dari hardening source dan menambah permukaan RPC helper. Rujukan: [Securing your API](https://supabase.com/docs/guides/api/securing-your-api) dan [Using Custom Schemas](https://supabase.com/docs/guides/api/using-custom-schemas).
+
+Jangan mencabut grant `authenticated` secara ad hoc atau menghapus helper: policy RLS existing mengandalkannya. Masukkan migration source ini ke urutan promosi setelah backup/restore dan rehearsal, lalu validasi policy, role/tenant, serta akses Data API sesudah migrasi. Production tidak diubah dalam audit ini.
+
 ## Tindak lanjut aman
 
 1. Tim backend membandingkan definisi indeks Production berdasarkan tabel, urutan kolom, kondisi/predicate, metode, dan validitas—bukan hanya nama.
