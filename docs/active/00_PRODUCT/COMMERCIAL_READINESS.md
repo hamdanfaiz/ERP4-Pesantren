@@ -10,6 +10,7 @@
 - Seluruh 53 langkah uji non-database dari bagian awal job frontend CI lulus, termasuk pemeriksaan coverage dan dependency produksi; `npm run test:runtime-config-http` juga lulus. Uji trusted-proxy sempat ditolak izin loopback sandbox, lalu lulus setelah pengulangan dengan izin loopback terbatas. Tidak ada uji dalam rangkaian ini yang menulis ke Supabase.
 - Build menghasilkan peringatan chunk PDF sekitar 1,46 MB dan beberapa komentar anotasi `zod` yang diabaikan bundler. Audit dependency penuh sebelumnya mencatat dua advisori rendah dan satu tinggi pada dependency pengembangan; audit dependency produksi bersih. Advisory tinggi berada pada `xlsx` yang hanya dipakai layar legacy yang tidak masuk bundle aktif, tetapi tetap menjadi pekerjaan supply-chain.
 - Preview lokal memakai konfigurasi VQE dan `/health/ready` merespons HTTP 200. Ini membuktikan pemeriksaan runtime Supabase yang dipakai endpoint identitas, bukan koneksi PostgreSQL pooler, seluruh CRUD, atau UAT browser. Proses preview lokal tidak lagi berjalan setelah sesi pengujian berakhir.
+- GitHub Actions run [#44710901908](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44710901908) pada PR #148 lulus 3/3 job: instalasi NPM, build/guard frontend, dan replay migrasi serta tes API/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi dengan baseline 6 November 2026.
 - Hasil CI pada lingkungan sintetis tidak membuktikan DDL Production, pemulihan backup Production, login, atau UAT pada hosting.
 
 ### Status database dan skema
