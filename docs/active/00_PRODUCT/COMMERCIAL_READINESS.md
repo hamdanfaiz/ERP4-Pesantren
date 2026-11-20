@@ -1,10 +1,10 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026, 02.43 WIB
+## Status otoritatif — 21 November 2026, 02.49 WIB
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- `main` sekarang berada pada merge commit PR #175, `2a318bb5b795d80cc0d3fb833afb029342736b5c`. Pemeriksaan GitHub pada checkpoint ini menemukan **tidak ada PR terbuka**.
+- Source aplikasi di `main` berada pada merge commit PR #175, `2a318bb5b795d80cc0d3fb833afb029342736b5c`. Saat checkpoint ini dicatat, PR #176 sedang terbuka untuk pembaruan dokumen kesiapan ini; tidak ada PR perubahan aplikasi lain yang terbuka.
 - PR #175 memperbaiki isolasi state antartenant dan akun: komponen modul dimuat ulang saat konteks identitas/izin berubah, dan cache pencapaian serta leaderboard Tahfidz hanya ditampilkan untuk tenant, pengguna, role, dan izin yang sesuai.
 - CI sebelum merge pada run [#44801493606](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44801493606) lulus 3/3 job. CI pascamerge [#44803159172](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44803159172) selesai dan lulus 3/3 job, termasuk migrasi/API/pgTAP pada database lokal terisolasi.
 - PR #175 hanya mengubah source dan pemeriksaan otomatis. Tidak ada migrasi, perubahan data, atau perubahan Production.
