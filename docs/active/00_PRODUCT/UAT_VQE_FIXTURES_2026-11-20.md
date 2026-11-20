@@ -29,7 +29,7 @@ Tidak ada NIK/NISN, kontak pribadi, akun Auth tambahan, pembayaran, tagihan, tra
 
 Pembacaan publik `/runtime-config.json` pada preview staging menunjukkan Data Induk, Asrama beserta submodul izin/kedisiplinan/kehadiran/penugasan/operasional fasilitas, dan Tahfidz terbuka. Flag frontend untuk PPDB, impor, dan beberapa fitur lain belum aktif/tersedia pada preview ini. Konfigurasi server lokal juga menutup banyak runtime lain, termasuk Akademik, Keuangan, CBT, LMS, HRIS, Kesehatan, Perpustakaan, Koperasi, Laundry, Donasi, Marketplace, dan lainnya. Fixture tidak dibuat pada modul tertutup agar data tidak tersimpan tanpa jalur UI yang bisa diuji.
 
-Tenant hanya memiliki satu profil Admin aktif. Karena belum ada profil Ustadz, halaqah UAT dibuat nonaktif dan tidak dapat dipakai untuk mencatat setoran. Alur UAT role Ustadz, Santri, dan Wali belum terbukti. Target Tahfidz hanya menguji pengaturan target oleh Admin; leaderboard dan alur setoran belum diuji.
+Tenant hanya memiliki satu profil Admin aktif. Karena belum ada profil Ustadz, halaqah UAT dibuat nonaktif dan tidak dapat dipakai untuk mencatat setoran. Alur UAT role Ustadz, Santri, dan Wali belum terbukti. Target Tahfidz hanya menguji pengaturan target oleh Admin; leaderboard dan alur setoran belum diuji. Dokumen Digital memiliki fixture yang terbaca melalui backend, tetapi flag server pada hosting tidak dapat dipastikan dari konfigurasi publik; alur UI dokumen belum dianggap lulus UAT.
 
 ## Cara menjalankan UAT
 
@@ -37,8 +37,8 @@ Tenant hanya memiliki satu profil Admin aktif. Karena belum ada profil Ustadz, h
 2. Di **Data Induk**, cari NIS `2026910001`, lalu periksa tab kelas/jenjang serta relasi kamar dan gedung.
 3. Di **Asrama**, periksa permohonan izin, catatan kedisiplinan, kehadiran bertanggal 20 November 2026, audit kebersihan, dan tiket fasilitas bertanda UAT.
 4. Di **Tahfidz**, periksa target santri. Halaqah UAT berstatus nonaktif; jangan mengubahnya menjadi aktif tanpa profil Ustadz yang sah.
-5. Di **Dokumen Digital**, cari perihal `UAT ERP4 — dokumen internal simulasi`. Dokumen tersebut tidak memiliki lampiran.
-6. Gunakan record UAT untuk menguji perubahan status yang didukung. Catat hasil dan jangan menyalin fixture ke Production.
+5. Di **Dokumen Digital**, hanya lanjut jika halaman berhasil memuat data pada preview VQE. Cari perihal `UAT ERP4 — dokumen internal simulasi`; dokumen ini tanpa lampiran. Jika halaman menunjukkan layanan belum tersedia atau error, catat UI sebagai belum teruji. Jangan menganggap nilai `.env` lokal sebagai konfigurasi Hostinger, dan jangan mengaktifkan flag server tanpa memastikan proyeknya VQE.
+6. Gunakan record UAT yang tersedia untuk menguji perubahan status yang didukung. Catat hasil dan jangan menyalin fixture ke Production.
 
 Fixture dibiarkan di VQE agar tersedia untuk UAT mandiri. Setelah UAT selesai, hapus/arsipkan fixture melalui alur aplikasi atau cleanup terkontrol dan verifikasi setiap relasi; jangan menghapus data lain di tenant.
 
