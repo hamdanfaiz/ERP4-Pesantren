@@ -1,8 +1,8 @@
 # Audit paritas migrasi Supabase — 20 November 2026
 
-## Status terkini setelah PR #139 — 20 November 2026
+## Status terkini setelah PR #146 — 20 November 2026
 
-- `main` berada pada commit `0459967c638ad02b89f6aaf25ebcee4c8b3a9326`; repository berisi 163 file migration. PR #139 membuat migration bulk Tahfidz replay-safe dan sudah merged.
+- `main` berada pada commit `a138895783f7118a657a0d5bd94e5872f60f2cba`; repository berisi 163 file migration. PR #146 hanya mencatat temuan Advisor Production; source migration tetap berjumlah 163. PR #139 membuat migration bulk Tahfidz replay-safe dan sudah merged.
 - VQE staging memiliki 163 entri ledger hingga `20270402000000`; semua 163 file migration source tercatat. Setelah merge, perintah CLI `db push --include-all --skip-vault` dengan URL pooler VQE yang baru diperbarui melaporkan database sudah up to date. Perintah tersebut tidak menjalankan migration karena tidak ada yang tertunda.
 - Sebelum merge, dry-run VQE menampilkan 23 migration. Pembacaan metadata setelah merge mengonfirmasi 23 versi itu kini tercatat di ledger VQE. Penyebab atau mekanisme yang menerapkannya tidak disimpulkan dari pemeriksaan ini.
 - Pemeriksaan katalog VQE mengonfirmasi `tahfidz_target_bulk_write_requests` memiliki 12 kolom, angka target `numeric(6,2)`, RLS dan FORCE RLS aktif; RPC `record_tahfidz_daily_targets_bulk` berstatus SECURITY INVOKER.
@@ -12,6 +12,8 @@
 ### Pemeriksaan katalog terarah terbaru — 20 November 2026
 
 Pemeriksaan baca-saja tambahan membandingkan 13 nama indeks dari `20270330000000_add_core_composite_fk_indexes`: VQE memiliki 13/13 dalam keadaan valid/ready, sedangkan PTSAS tidak memiliki nama persis tersebut. Ini belum memeriksa indeks berbeda nama dengan definisi setara. Katalog `quran_surahs`, validator referensi Surah, leaderboard Tahfidz, dan RPC target harian massal juga ditemukan di VQE tetapi tidak di PTSAS. Detail dan batas bukti ada pada [catatan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Temuan ini bukan izin untuk menerapkan migration; Production tetap tidak diubah.
+
+Perbandingan katalog publik lanjutan menemukan 17 tabel, 10 kolom, dan empat kontrak constraint yang ada di VQE tetapi tidak cocok dengan PTSAS. Flag RLS pada 162 tabel bersama cocok, tetapi policy dan seluruh DDL belum dibandingkan. Audit ulang 63 file yang belum tercatat juga menemukan lima migration yang menulis data saat diterapkan, termasuk backfill email wali dan pemanggilan fungsi snapshot baseline asrama. Detail dan batas bukti ada di [runbook rekonsiliasi Production](PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Tidak ada perubahan database.
 
 ### Dampak data dari 23 migration yang sebelumnya tertunda di VQE
 

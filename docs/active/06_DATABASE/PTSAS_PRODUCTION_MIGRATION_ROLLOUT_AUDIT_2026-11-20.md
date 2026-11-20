@@ -8,7 +8,7 @@ Dokumen ini menjadi panduan kerja tim backend untuk merekonsiliasi source migras
 
 | Fakta | Nilai |
 | --- | --- |
-| Commit source yang diaudit | `0459967c638ad02b89f6aaf25ebcee4c8b3a9326` |
+| Commit source yang diaudit | `a138895783f7118a657a0d5bd94e5872f60f2cba` |
 | File migrasi source | 163, berakhir pada `20270402000000` |
 | Ledger PTSAS Production | 100 entri, terakhir `20270316000000` |
 | Migrasi source yang belum tercatat di Production | 63; daftar lengkap ada di [laporan paritas](ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md) |
@@ -21,6 +21,25 @@ Ledger membuktikan versi yang pernah direkam, bukan bahwa DDL saat ini identik d
 
 Pemeriksaan baca-saja lanjutan menemukan 13/13 indeks target valid/ready di VQE, sementara PTSAS tidak memiliki indeks B-tree tak bersyarat yang mendukung urutan key dari satu pun dari 13 FK terkait. Seluruh 13 FK itu sendiri ada dan tervalidasi di kedua project. Ini kesenjangan indeks pendukung nyata pada constraint inti yang tercakup, bukan audit seluruh schema atau izin menerapkan migration. Ukuran tabel PTSAS yang tercatat di laporan hanya statistik snapshot. Katalog Surah, validator, dan dua RPC Tahfidz terpilih juga ada di VQE tetapi tidak di PTSAS. Lihat [catatan pemeriksaan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Production tidak diubah.
 
+### Perbandingan katalog publik tambahan — 20 November 2026
+
+Perbandingan baca-saja nama tabel dan metadata kolom/constraint menemukan 179 tabel di VQE dan 162 di PTSAS. Tidak ditemukan tabel yang hanya ada di PTSAS; 17 tabel source yang ada di VQE belum ada di PTSAS:
+
+`library_book_import_batches`, `hris_employee_import_batches`, `library_circulation_import_batches`, `marketplace_mutation_requests`, `donation_mutation_requests`, `lms_submission_requests`, `lms_submission_grade_events`, `lms_learning_record_requests`, `cooperative_financial_import_batches`, `cooperative_financial_import_records`, `ppdb_document_access_events`, `ppdb_document_upload_requests`, `ppdb_document_upload_events`, `finance_legacy_unit_assignment_requests`, `guardian_candidate_accounts`, `quran_surahs`, dan `tahfidz_target_bulk_write_requests`.
+
+Pada tujuh tabel yang sama, sepuluh kolom berikut ada di VQE tetapi tidak di PTSAS: `candidates.public_submission_fingerprint`; `tahfidz_records.surah_number`; `library_books.source_fingerprint`; `library_circulations.source_fingerprint`; `hris_employees.source_system`, `source_record_id`, `source_fingerprint`, `legacy_details`; `cooperative_sale_items.cost_snapshot_known`; serta `cooperative_wallet_ledger.entry_sequence`.
+
+Empat perbedaan kontrak kolom/constraint yang diperiksa:
+
+- `cooperative_sale_items.cost_price`: nullable di VQE, tetapi NOT NULL di PTSAS.
+- `cooperative_wallet_ledger.entry_type_check`: VQE menerima `opening_balance`, PTSAS belum.
+- `student_room_assignment_history.event_type_check`: VQE menerima `baseline_snapshot`, PTSAS belum.
+- `student_room_assignment_history.change_source_check`: VQE menerima `migration_baseline`, PTSAS belum.
+
+Flag RLS cocok pada 162 tabel yang namanya sama; pemeriksaan ini tidak membandingkan isi policy, grant, definisi fungsi/trigger, semua constraint/index, atau perilaku endpoint. Dampak yang perlu diuji: jalur katalog Surah dan target massal Tahfidz merujuk ke objek yang belum ada; import finansial koperasi source memakai `cost_snapshot_known` dan dapat mengirim `cost_price = NULL`, berlawanan dengan kontrak PTSAS; fitur impor legacy lain merujuk ke tabel/kolom yang hilang. Ini pemetaan source ke katalog, bukan bukti bahwa semua UI tersebut aktif atau kegagalan live sudah terjadi.
+
+Temuan membuktikan selisih skema terpilih dan menguatkan perlunya diff DDL menyeluruh sebelum promosi. Tidak ada migration, ledger repair, atau perubahan data yang dilakukan pada PTSAS atau VQE dalam pemeriksaan ini.
+
 ### Helper RLS tenant yang belum diinternalisasi
 
 PTSAS masih memiliki empat helper `SECURITY DEFINER` pada schema `public`, dengan `EXECUTE` hanya untuk `authenticated` (tidak untuk `PUBLIC`/`anon`), sementara VQE sudah menempatkannya di `private` melalui source migration `20270210000000_internalize_tenant_rls_helpers` yang belum tercatat di ledger Production. Definisi Production yang diperiksa menggunakan `auth.uid()` dan profil/tenant aktif; ini tidak menunjukkan akses lintas tenant, tetapi tidak sesuai hardening source. Schema `public` otomatis exposed secara default menurut dokumentasi Supabase; actual setting exposed-schema Production belum diperiksa, jadi akses HTTP RPC belum dikonfirmasi. Promosikan migration melalui rehearsal/backup terkontrol, bukan revoke manual, karena RLS policies tetap memerlukan fungsi helper. Detail: [audit helper RLS](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md).
@@ -31,11 +50,15 @@ Pemindaian source migration tidak menemukan perintah migrasi `DELETE` atau `TRUN
 
 ### DML yang berjalan ketika file migrasi dieksekusi
 
-- `20261213000000_marketplace_mutation_payload_guard`: membuat tanda terima idempotensi dari transaksi marketplace yang sudah tercatat. Insert memakai `ON CONFLICT DO NOTHING`; transaksi sumber tidak dihapus.
-- `20261214000000_donation_mutation_payload_guard`: membuat tanda terima idempotensi dari audit donasi dan menghubungkan tanda terima dengan donasi yang masih ada. Karena audit lama tidak menyimpan payload lengkap, fingerprint historis bernilai `NULL`. Insert memakai `ON CONFLICT DO NOTHING`.
-- `20270320000000_tahfidz_quran_surah_catalog`: memasukkan atau memperbarui 114 baris referensi surah, lalu mengisi nomor surah pada setoran Tahfidz yang nama surahnya cocok. Periksa nama yang tidak cocok dan duplikat nama sebelum promosi.
+Pemindaian ulang atas 63 file source yang belum tercatat di PTSAS memisahkan perintah SQL langsung, pemanggilan fungsi tingkat migrasi, dan badan fungsi yang baru berjalan ketika RPC dipanggil. Tidak ditemukan `DELETE` atau `TRUNCATE` pada pemindaian ini. Lima migration tetap dapat menulis atau mengubah data saat diterapkan:
 
-Di luar butir di atas, definisi fungsi dapat memuat operasi tulis yang baru berjalan saat RPC dipanggil; itu bukan DML saat migrasi. Tinjau izin EXECUTE dan skenario pemanggilan terpisah.
+- `20261213000000_marketplace_mutation_payload_guard`: empat insert membentuk tanda terima idempotensi dari produk dan pergerakan stok runtime, pesanan runtime, serta event perubahan status. Targetnya tabel baru `marketplace_mutation_requests`; setiap insert memakai `ON CONFLICT DO NOTHING`. Data sumber tidak dihapus.
+- `20261214000000_donation_mutation_payload_guard`: insert membentuk tanda terima dari event audit kampanye, donatur, aset wakaf, serta donasi dibuat/dibatalkan. Targetnya `donation_mutation_requests`; fingerprint historis `NULL` karena payload lama tidak tersedia. Insert memakai `ON CONFLICT DO NOTHING`.
+- `20270109000000_boarding_room_history_baseline`: migration memanggil `SELECT public.backfill_student_room_assignment_history_baseline()`. Fungsi tersebut menambahkan snapshot pada `student_room_assignment_history` untuk santri yang saat ini memiliki `room_id` atau `building_id`; konflik unik diabaikan. Ini snapshot kondisi saat cutover, bukan rekonstruksi perpindahan historis.
+- `20270205000000_guardian_self_registration`: satu `UPDATE` mengisi `guardians.details.email` hanya bila email wali masih kosong dan email kandidat PPDB yang terkait valid. Nilai kontak wali yang sudah ada dipertahankan.
+- `20270320000000_tahfidz_quran_surah_catalog`: mengisi/memperbarui 114 baris katalog surah, lalu menetapkan `tahfidz_records.surah_number` untuk record dengan nama surah yang cocok setelah trim dan normalisasi huruf. Pembaruan tidak dibatasi pada nilai `NULL`, sehingga nilai lama yang cocok dapat ditimpa dengan nomor katalog.
+
+Daftar ini tidak menghitung DML di dalam definisi function/trigger sebagai efek migrasi langsung. Definisi itu perlu audit terpisah untuk hak EXECUTE dan perilaku saat dipanggil. Sebelum promosi, rehearsal perlu mencatat jumlah baris yang akan terpengaruh untuk setiap target dan jumlah setoran Tahfidz yang tidak cocok ke katalog. Jumlah Production belum dibaca dalam audit ini.
 
 ### Perubahan struktural yang perlu pemeriksaan khusus
 
