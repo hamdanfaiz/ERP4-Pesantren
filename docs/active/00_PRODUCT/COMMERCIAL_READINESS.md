@@ -1,12 +1,12 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026, 02.35 WIB
+## Status otoritatif — 21 November 2026, 02.43 WIB
 
 ### Source, PR, dan pemeriksaan otomatis
 
 - `main` sekarang berada pada merge commit PR #175, `2a318bb5b795d80cc0d3fb833afb029342736b5c`. Pemeriksaan GitHub pada checkpoint ini menemukan **tidak ada PR terbuka**.
 - PR #175 memperbaiki isolasi state antartenant dan akun: komponen modul dimuat ulang saat konteks identitas/izin berubah, dan cache pencapaian serta leaderboard Tahfidz hanya ditampilkan untuk tenant, pengguna, role, dan izin yang sesuai.
-- CI sebelum merge pada run [#44801493606](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44801493606) lulus 3/3 job. CI pascamerge [#44803159172](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44803159172) terakhir diperiksa pada 02.35 WIB: build frontend dan instalasi NPM lulus; job migrasi/API/pgTAP masih menjalankan reset database uji lokal. Tunggu hingga run berakhir sebelum menyebut CI pascamerge sepenuhnya hijau.
+- CI sebelum merge pada run [#44801493606](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44801493606) lulus 3/3 job. CI pascamerge [#44803159172](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44803159172) selesai dan lulus 3/3 job, termasuk migrasi/API/pgTAP pada database lokal terisolasi.
 - PR #175 hanya mengubah source dan pemeriksaan otomatis. Tidak ada migrasi, perubahan data, atau perubahan Production.
 - CI mencakup build/runtime, instalasi NPM pelanggan, autentikasi API, aturan isolasi tenant, migrasi/pgTAP, dan backup/restore lokal sintetis. Ini bukan UAT browser lintas modul, bukti backup/restore cloud, atau verifikasi DDL Production.
 - Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih ada di repository.
@@ -31,13 +31,12 @@
 
 ### Langkah berikutnya
 
-1. Pastikan job pascamerge #44803159172 selesai dan semua job lulus.
-2. Setelah operator aktif, lanjutkan UAT browser di VQE untuk modul, submodul, tampilan, dan alur simpan-baca lintas role; gunakan hanya data sintetis staging.
-3. Lengkapi fixture per modul setelah skenario dan prasyarat modul lulus; jangan menaruh fixture uji di PTSAS.
-4. Tim backend menuntaskan diff DDL Production, tiga nama ledger kosong, dan rehearsal aman atas 63 migrasi yang belum tercatat.
-5. Verifikasi hosting, clean install/upgrade, serta backup/restore di environment target sebelum status rilis dinilai ulang.
+1. Setelah operator aktif, lanjutkan UAT browser di VQE untuk modul, submodul, tampilan, dan alur simpan-baca lintas role; gunakan hanya data sintetis staging.
+2. Lengkapi fixture per modul setelah skenario dan prasyarat modul lulus; jangan menaruh fixture uji di PTSAS.
+3. Tim backend menuntaskan diff DDL Production, tiga nama ledger kosong, dan rehearsal aman atas 63 migrasi yang belum tercatat.
+4. Verifikasi hosting, clean install/upgrade, serta backup/restore di environment target sebelum status rilis dinilai ulang.
 
-**Status:** source PR #175 sudah terintegrasi ke `main`; tidak ada PR terbuka saat pemeriksaan. Dua job pascamerge lulus dan satu masih berjalan. Ini belum menyatakan semua fitur lolos UAT, Production siap dimigrasikan, atau produk siap komersial.
+**Status:** source PR #175 sudah terintegrasi ke `main`; CI pascamerge lulus 3/3 job. PR #176 adalah pembaruan dokumentasi ini dan sedang diuji. Ini belum menyatakan semua fitur lolos UAT, Production siap dimigrasikan, atau produk siap komersial.
 
 ## Addendum otoritatif — checkpoint 14 November 2026
 
