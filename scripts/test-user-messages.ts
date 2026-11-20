@@ -52,6 +52,7 @@ assert.equal(toERPUserMessage(new Error("Session expired"), fallback), "Sesi And
 assert.equal(toERPUserMessage(new Error("403 permission denied"), fallback), "Anda tidak memiliki akses untuk melakukan tindakan ini.");
 assert.equal(toERPUserMessage(new Error("Data changed since preview. 409"), fallback), "Data berubah sejak terakhir diperiksa. Muat ulang pratinjau sebelum melanjutkan.");
 assert.equal(toERPUserMessage(new Error("Supabase RPC cbt_admin failed with PGRST202"), fallback), fallback, "provider diagnostics stay out of customer-facing messages");
+assert.equal(toERPUserMessage(new Error('new row violates row-level security policy for table "students"'), fallback), fallback, "database policy details stay out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("Hasil roster belum dapat dimuat."), fallback), fallback, "roster terminology stays out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("https://service.example.invalid/api/private"), fallback), fallback, "service URLs stay out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("Silakan pilih tanggal ujian."), fallback), "Silakan pilih tanggal ujian.", "safe Indonesian validation copy remains actionable");
