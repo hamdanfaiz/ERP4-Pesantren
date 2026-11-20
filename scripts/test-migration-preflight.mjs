@@ -150,22 +150,123 @@ for (const aliasCase of [
     to: '20270328000000',
     name: 'tahfidz_bulk_daily_target_write_api',
     fileName: '20270328000000_tahfidz_bulk_daily_target_write_api.sql',
+    appliedSqlFixture: '../supabase/fixtures/applied-migrations/20261109145534_tahfidz_bulk_daily_target_write_api.sql',
+  },
+  {
+    from: '20270312000000',
+    to: '20270329000000',
+    name: 'tahfidz_target_decimal_precision',
+    fileName: '20270329000000_tahfidz_target_decimal_precision.sql',
+    collidingSourceVersion: true,
+  },
+  {
+    from: '20270314000000',
+    to: '20270321000000',
+    name: 'cbt_tenant_settings_write_api',
+    fileName: '20270321000000_cbt_tenant_settings_write_api.sql',
+    collidingSourceVersion: true,
+  },
+  {
+    from: '20270315000000',
+    to: '20270322000000',
+    name: 'cbt_admin_dashboard_summary',
+    fileName: '20270322000000_cbt_admin_dashboard_summary.sql',
+    collidingSourceVersion: true,
+  },
+  {
+    from: '20270316000000',
+    to: '20270323000000',
+    name: 'cbt_admin_question_keyset_pages',
+    fileName: '20270323000000_cbt_admin_question_keyset_pages.sql',
+    collidingSourceVersion: true,
+  },
+  {
+    from: '20270317000000',
+    to: '20270324000000',
+    name: 'cbt_admin_student_roster_pages',
+    fileName: '20270324000000_cbt_admin_student_roster_pages.sql',
+  },
+  {
+    from: '20270318000000',
+    to: '20270325000000',
+    name: 'cbt_admin_assignment_pages',
+    fileName: '20270325000000_cbt_admin_assignment_pages.sql',
+  },
+  {
+    from: '20270319000000',
+    to: '20270326000000',
+    name: 'cbt_admin_exam_pages',
+    fileName: '20270326000000_cbt_admin_exam_pages.sql',
   },
 ]) {
   const canonical = sourceMigrationsWithSql.find(({ fileName }) => fileName === aliasCase.fileName);
   assert(canonical, `Canonical migration is missing: ${aliasCase.fileName}`);
-  const aliasReport = compareMigrationVersions([canonical], [{
+  const appliedSql = aliasCase.appliedSqlFixture
+    ? readFileSync(new URL(aliasCase.appliedSqlFixture, import.meta.url), 'utf8')
+    : canonical.statements.join(';\n');
+  const aliasReport = compareMigrationVersions(sourceMigrationsWithSql, [{
     version: aliasCase.from,
     name: aliasCase.name,
-    statements: canonical.statements,
+    statements: canonicalizeMigrationStatements(appliedSql),
   }]);
   assert.deepEqual(aliasReport.unknownApplied, []);
-  assert.equal(aliasReport.statementMismatches.length, 0, `${aliasCase.name} staging SQL must match exactly.`);
+  assert.deepEqual(aliasReport.nameMismatches, [], `${aliasCase.name} alias name must match the source target.`);
+  assert.deepEqual(aliasReport.statementMismatches, [], `${aliasCase.name} VQE SQL must match the pinned source or legacy fingerprint.`);
   assert.deepEqual(aliasReport.migrationAliasesPendingRepair, [{
     from: aliasCase.from, to: aliasCase.to, name: aliasCase.name,
   }]);
-  assert.equal(aliasReport.canContinueToStagingReview, false, `${aliasCase.name} remains blocked pending ledger reconciliation.`);
+  assert.deepEqual(aliasReport.validatedMigrationAliases, [{
+    from: aliasCase.from, to: aliasCase.to, name: aliasCase.name,
+  }]);
+  assert.equal(aliasReport.pending.some(({ version }) => version === aliasCase.to), false,
+    `${aliasCase.name} target must be recognized as already applied under its verified alias.`);
+  if (aliasCase.collidingSourceVersion) {
+    assert.equal(aliasReport.pending.some(({ version }) => version === aliasCase.from), true,
+      `${aliasCase.name} must leave the different source migration at the colliding version pending.`);
+    assert.equal(aliasReport.outOfOrderPending.some(({ version }) => version === aliasCase.from), true,
+      `${aliasCase.name} colliding source migration must remain an out-of-order gate.`);
+  }
+  assert.equal(aliasReport.canContinueToStagingReview, false,
+    `${aliasCase.name} remains blocked pending ledger reconciliation and ordered migration review.`);
 }
+const canonicalProductionCollisionVersions = [
+  '20270312000000',
+  '20270314000000',
+  '20270315000000',
+  '20270316000000',
+  '20270321000000',
+  '20270322000000',
+  '20270323000000',
+  '20270324000000',
+  '20270325000000',
+  '20270326000000',
+  '20270328000000',
+  '20270329000000',
+];
+const canonicalProductionCollisionLedger = canonicalProductionCollisionVersions.map((version) => {
+  const migration = sourceMigrationsWithSql.find((candidate) => candidate.version === version);
+  assert(migration, `Canonical production migration is missing: ${version}`);
+  return {
+    version,
+    name: migration.fileName.replace(/^\d{14}_/, '').replace(/\.sql$/i, ''),
+    statements: migration.statements,
+  };
+});
+const canonicalProductionCollisionReport = compareMigrationVersions(
+  sourceMigrationsWithSql,
+  canonicalProductionCollisionLedger,
+);
+assert.deepEqual(canonicalProductionCollisionReport.migrationAliasesPendingRepair, [],
+  'Canonical production migrations at source and colliding timestamps must not be treated as VQE aliases.');
+assert.deepEqual(canonicalProductionCollisionReport.validatedMigrationAliases, [],
+  'Canonical production migrations must not be reported as validated VQE aliases.');
+assert.deepEqual(canonicalProductionCollisionReport.repairedMigrationAliases, [],
+  'Canonical production migrations must not be reported as repaired VQE aliases.');
+assert.deepEqual(canonicalProductionCollisionReport.nameMismatches, []);
+assert.deepEqual(canonicalProductionCollisionReport.statementMismatches, []);
+assert(canonicalProductionCollisionVersions.every((version) =>
+  !canonicalProductionCollisionReport.pending.some((migration) => migration.version === version)),
+'Canonical production migrations must remain recognized as applied at their original versions.');
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270306000000_library_book_category_reference_writes.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270401000000_tahfidz_monthly_leaderboard.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270328000000_tahfidz_bulk_daily_target_write_api.sql'));
