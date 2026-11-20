@@ -32,7 +32,7 @@ const guardedModuleFiles = [
   "src/pages/SupabaseCommunicationHub.tsx",
   "src/pages/SupabaseGeneralAffairsAssets.tsx",
 ];
-const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|instanceof\s+Error)/;
+const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|\.message|instanceof\s+Error)/;
 for (const relativePath of guardedModuleFiles) {
   const source = fs.readFileSync(path.join(root, relativePath), "utf8");
   assert.match(source, /import\s+\{\s*toERPUserMessage\s*\}\s+from\s+["\'][^"\']*userMessages["\']/, `${relativePath} imports the shared customer-safe error mapper`);
