@@ -1081,7 +1081,7 @@ function LiveTrackingView() {
         if (dist > GEOFENCE_RADIUS_M && staff.status === 'On-Site') {
            setGeofenceLogs(logs => [{
              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-             message: `${staff.name} breached geofence boundary. Automated check-out initiated.`
+             message: `${staff.name} berada di luar area kerja. Proses pencatatan pulang otomatis dimulai.`
            }, ...logs]);
            return { ...staff, location: newLocation, status: 'Auto-Checked Out', autoCheckoutAlert: true, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
         }

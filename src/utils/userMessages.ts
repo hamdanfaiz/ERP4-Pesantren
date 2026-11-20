@@ -38,7 +38,7 @@ export function toERPUserMessage(error: unknown, fallback: string): string {
     return "Data berubah sejak terakhir diperiksa. Muat ulang pratinjau sebelum melanjutkan.";
   }
 
-  const technicalDetail = /supabase|postgres(?:ql)?|sqlstate|firebase|firestore|rest\/v\d|\/api\/|\brpc\b|\bjwt\b|\bbearer\b|\btoken\b|\brls\b|\btenant\b|\b(?:backend|server|runtime|operator|fingerprint|migrasi|migration)\b|stack trace|traceback|exception|syntax error|invalid input syntax|constraint|column .* does not exist|relation .* does not exist|http\s?\d{3}|\bPGRST\d+\b|(?:^|\b)(?:type|reference|syntax|range|network|abort)error\b/i;
+  const technicalDetail = /supabase|postgres(?:ql)?|sqlstate|firebase|firestore|rest\/v\d|\/api\/|\brpc\b|\bjwt\b|\bbearer\b|\btoken\b|\brls\b|\btenant\b|\broster\b|\b(?:backend|server|runtime|operator|fingerprint|migrasi|migration)\b|stack trace|traceback|exception|syntax error|invalid input syntax|constraint|column .* does not exist|relation .* does not exist|http\s?\d{3}|\bPGRST\d+\b|(?:^|\b)(?:type|reference|syntax|range|network|abort)error\b/i;
   if (message.length > 220 || technicalDetail.test(message) || /https?:\/\//i.test(message)) return fallback;
   return message;
 }

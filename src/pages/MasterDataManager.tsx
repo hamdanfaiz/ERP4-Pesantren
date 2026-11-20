@@ -1,4 +1,5 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
+import { toERPUserMessage } from "../utils/userMessages";
 import { useAuth } from '../contexts/AuthContext';
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -347,7 +348,7 @@ export function MasterDataManager() {
         result.errors?.length ? "error" : "success");
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Impor arsip Data Induk belum dapat diproses.", "error");
+      showToast(toERPUserMessage(error, "Impor Data Induk belum dapat diproses. Periksa data lalu coba kembali."), "error");
     } finally {
       setLegacyMigrationBusy(null);
     }
@@ -676,7 +677,7 @@ export function MasterDataManager() {
       if (selectedRecord?.id === record.id) setSelectedRecord(null);
       showToast(`Data "${record.name}" berhasil diarsipkan atau dihapus.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Perubahan data gagal.", "error");
+      showToast(toERPUserMessage(error, "Perubahan data belum dapat disimpan. Coba kembali."), "error");
     } finally {
       setRecordToDelete(null);
     }
@@ -901,7 +902,7 @@ export function MasterDataManager() {
       setIsModalOpen(false);
       showToast(`Data "${savedRecord.name}" berhasil ${modalMode === "add" ? "disimpan" : "diperbarui"}.`, "success");
     } catch (error: any) {
-      showToast(error?.message || "Gagal menyimpan data.", "error");
+      showToast(toERPUserMessage(error, "Data belum dapat disimpan. Periksa kembali isian lalu coba lagi."), "error");
     }
   };
 
@@ -1533,10 +1534,10 @@ export function MasterDataManager() {
                       )}
                       {typeof preview.legacyGuardianCount === "number" && <p>Data Wali sumber {preview.legacyGuardianCount}</p>}
                       {(preview.errors || []).slice(0, 4).map((item: any, index: number) => (
-                        <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {item.message}</p>
+                        <p key={"error-" + index} className="rounded-md bg-rose-50 px-2 py-1.5 text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{item.category || "Konflik"} · {toERPUserMessage(item.message, "Periksa data pada baris ini sebelum melanjutkan.")}</p>
                       ))}
                       {(preview.warnings || []).slice(0, 3).map((item: any, index: number) => (
-                        <p key={"warning-" + index} className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{item.category || "Catatan"} · {item.message}</p>
+                        <p key={"warning-" + index} className="rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{item.category || "Catatan"} · {toERPUserMessage(item.message, "Tinjau catatan pada baris ini.")}</p>
                       ))}
                       {(preview.errors || []).length > 4 && <p>Dan {(preview.errors || []).length - 4} konflik lainnya.</p>}
                       {(preview.warnings || []).length > 3 && <p>Dan {(preview.warnings || []).length - 3} catatan lainnya.</p>}
