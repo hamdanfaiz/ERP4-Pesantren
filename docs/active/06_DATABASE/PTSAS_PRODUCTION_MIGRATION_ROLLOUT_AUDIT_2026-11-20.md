@@ -172,6 +172,17 @@ Snapshot Advisor Production sekitar 15.36–15.37 WIB melaporkan:
 
 Production dan VQE tidak diubah. Advisor memakai metadata/katalog, bukan isi data operasional; statistik index yang belum dipakai bergantung pada periode dan beban yang teramati. Snapshot ini menambah daftar tindakan rekonsiliasi, bukan persetujuan untuk mengubah Production.
 
+## Revalidasi katalog Surah Tahfidz (baca-saja, 21 November 2026)
+
+Pemeriksaan ini hanya membaca metadata dan agregat katalog referensi; tidak ada row data santri, perubahan schema, atau DDL Production yang dilakukan.
+
+- **VQE staging:** `public.quran_surahs` berisi 114 baris dengan 114 nomor unik, rentang 1–114, tanpa nomor hilang atau nilai yang gagal validasi dasar. RLS dan FORCE RLS aktif; `anon` serta `authenticated` tidak memiliki hak `SELECT` langsung, sedangkan `service_role` dapat membaca katalog melalui backend.
+- **PTSAS Production:** pemeriksaan katalog mengembalikan bahwa `public.quran_surahs` belum ada. Ledger Production juga tidak mencatat migration `20270320000000_tahfidz_quran_surah_catalog`.
+- Source `main` menyediakan `GET /api/tahfidz/references/surahs` yang mewajibkan autentikasi dan memuat profil akses Tahfidz; UI memakai hasilnya untuk pilihan Surah serta batas ayat. Form setoran dinonaktifkan jika katalog tidak tersedia atau tidak lengkap. Karena itu, Tahfidz Production belum siap menerima setoran melalui alur baru sampai migrasi ini direncanakan dan diterapkan.
+- Migration mengisi katalog 114 Surah dan memperbarui `tahfidz_records.surah_number` untuk record lama yang nama Surah-nya cocok setelah normalisasi. Tinjau efek backfill tersebut dalam rehearsal; jangan menerapkan migration ini terpisah dari urutan migrasi dan bukti pemulihan Production.
+
+VQE dan PTSAS tidak diubah.
+
 ## Hal yang belum dibuktikan
 
 - Kesetaraan seluruh DDL Production dengan commit source.
