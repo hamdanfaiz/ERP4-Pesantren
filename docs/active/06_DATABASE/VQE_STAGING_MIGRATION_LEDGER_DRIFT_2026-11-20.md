@@ -62,7 +62,14 @@ Karena Supabase CLI melacak versi timestamp, bukan kesetaraan SQL, filename yang
 
 ## Status dry-run dan hambatan
 
-URL di `.env` telah lolos pemeriksaan struktur dan menunjuk ref VQE serta Session Pooler. Dry-run CLI belum mencapai database: `npx` gagal mengambil paket `supabase` dari `registry.npmjs.org` dengan `ENOTFOUND`. Tidak ada perubahan pada staging. Dry-run saat tersedia hanya memetakan versi yang menurut CLI belum tercatat; ia tidak membuktikan SQL dari versi alias telah menghasilkan DDL yang sama.
+URL di `.env` menunjuk ref VQE serta Session Pooler. Encoding password pada URL diperbaiki hanya untuk representasi karakter khusus; password database tidak diubah. CLI terpatok `2.122.1` berhasil mencapai database dan mengembalikan `DbPushMissingLocalError` karena versi remote berikut tidak ditemukan di direktori source:
+
+```text
+20261109145507 20261109145522 20261109145534
+20270317000000 20270318000000 20270319000000
+```
+
+CLI memberi saran `supabase migration repair --status reverted` untuk keenam versi itu atau `supabase db pull`. Saran tersebut **belum dijalankan**: menghapus versi dari history atau menarik DDL live tanpa mengetahui asal dan ekuivalensi migration dapat membuat source/ledger lebih tidak konsisten. Perintah dijalankan dengan `--dry-run`; tidak ada migration atau data yang berubah. Dry-run ini berhenti sebelum menghasilkan daftar migrasi yang akan diterapkan dan tidak membuktikan DDL alias setara.
 
 ## Urutan tindakan tim backend
 

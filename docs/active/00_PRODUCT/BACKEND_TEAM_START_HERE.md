@@ -5,7 +5,7 @@
 - PR #130 (kompatibilitas respons leaderboard Tahfidz lama) sudah merged ke `main` pada commit `3ca67fc0e0adfa0b71f98c8b31a0ccca85f981b6`. Ini perubahan aplikasi; tidak membawa migration database.
 - Pemeriksaan baca-saja MCP pada VQE (`vqemuyzveuirlkvdggjd`) menghasilkan 150 versi ledger sampai `20270319000000`. Source `main` saat ini memuat 162 file migration sampai `20270401000000`.
 - Rekonsiliasi versi menemukan 18 file source yang tidak tercatat dengan versi sama di VQE, 6 versi VQE yang tidak ada di source dengan nomor sama, dan 4 versi yang nama ledger-nya berbeda dari file source. Tiga keluarga Tahfidz dan stack CBT mengindikasikan alias/renumbering, tetapi kesetaraan SQL/DDL belum dibuktikan. Rincian lengkap ada di [snapshot drift VQE 20 November](../06_DATABASE/VQE_STAGING_MIGRATION_LEDGER_DRIFT_2026-11-20.md).
-- `db push --dry-run` belum berhasil dijalankan: lingkungan ini gagal mengakses `registry.npmjs.org` saat mencoba mengambil Supabase CLI. Perintah berhenti sebelum terhubung ke database. Tidak ada migration, repair, atau perubahan database yang dilakukan.
+- `db push --dry-run` berhasil mencapai VQE, lalu berhenti dengan `DbPushMissingLocalError` karena enam versi remote tidak memiliki file source bernomor sama. CLI menyarankan `migration repair --status reverted` atau `db pull`; keduanya belum dijalankan. Tidak ada migration, repair, atau perubahan database yang dilakukan.
 - Jangan menerapkan semua gap atau menjalankan `migration repair` berdasarkan hitungan/nama saja. Selesaikan rekonsiliasi lineage dan pemeriksaan DDL staging terlebih dahulu. PTSAS Production tetap target terpisah; VQE tidak menjadi bukti kesetaraan Production.
 
 ## Pembaruan terbaru — 13 November 2026
