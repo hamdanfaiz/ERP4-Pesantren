@@ -4,10 +4,10 @@
 
 Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan katalog PostgreSQL pada VQE staging serta PTSAS Production. Tujuannya menentukan langkah rekonsiliasi yang aman; hasil ini bukan izin untuk menerapkan seluruh migrasi.
 
-- Source main saat audit: commit 9dc3d32cadbaa36e5e363d10e4fdac994d22651c, 163 file migrasi (PR #133 hanya memperbarui dokumentasi).
+- Source main saat pembaruan: commit `bbf0b9cf08d71144ada4ed2fbe29ce220bcc50fe`, 163 file migrasi. File migrasi tidak berubah dari snapshot preflight `9a631a1`; PR #133–#134 hanya memperbarui dokumentasi.
 - VQE staging (vqemuyzveuirlkvdggjd): 150 entri ledger.
 - PTSAS Production (ptsasgdvgrbdtgyqieie): 100 entri ledger, terakhir 20270316000000.
-- Kredensial database VQE terbaru berhasil membuka koneksi. supabase db push --dry-run --skip-vault berhenti pada pemeriksaan ledger, sebelum menyusun daftar migrasi yang akan diterapkan.
+- Setelah reset password database VQE, Supabase CLI `2.122.1` berhasil terhubung menggunakan URL pooler dari `.env`. `db push --dry-run --skip-vault` tetap berhenti dengan `DbPushMissingLocalError` pada enam versi remote-only; ini membuktikan koneksi/kredensial berhasil, bukan membuktikan migrasi siap diterapkan. Snapshot SQL yang diuji memiliki 163 file migrasi dan sama dengan `main` saat ini.
 - Tidak ada migrasi atau perbaikan ledger yang dijalankan. Tidak ada baris operasional santri, wali, keuangan, akademik, atau modul lain yang dibaca.
 
 ## VQE staging
@@ -21,7 +21,7 @@ Pemeriksaan ini membandingkan file SQL pada main dengan metadata ledger dan kata
 | Versi sama, tetapi nama migrasi berbeda | 4 |
 | File source yang belum tercatat dengan versi/nama yang sama | 19 |
 
-CLI 2.122.0 mengembalikan DbPushMissingLocalError untuk enam versi remote-only:
+CLI 2.122.1 mengembalikan `DbPushMissingLocalError` untuk enam versi remote-only:
 
 | Versi VQE | Nama ledger |
 | --- | --- |
@@ -93,6 +93,15 @@ Pemeriksaan SQL source menemukan operasi data tingkat migrasi berikut di antara 
 - `20270320000000_tahfidz_quran_surah_catalog`: memasukkan katalog referensi Surah dan mengisi `surah_number` pada riwayat Tahfidz yang cocok berdasarkan nama Surah.
 
 Empat migration sample/seed pertama tidak boleh diterapkan otomatis ke tenant staging yang sudah memiliki data. Katalog Surah merupakan referensi produk, tetapi backfill dan cakupan katalog perlu diperiksa sebelum replay. Source migration lain pada daftar pending berisi perubahan skema, fungsi, constraint, atau indeks; masing-masing tetap perlu uji urutan dan idempotensi. Tidak ada DML tersebut yang dijalankan saat audit.
+
+### Advisori keamanan dan performa VQE (baca-saja, 20 November 2026)
+
+- Security Advisor melaporkan `auth_leaked_password_protection` berstatus `WARN` (nonaktif). Organisasi VQE berada pada paket Free; dokumentasi Supabase menyatakan fitur pemeriksaan kata sandi bocor tersedia pada Pro atau lebih tinggi. Tidak ada perubahan paket atau pengaturan Auth yang dilakukan. Lihat [dokumentasi keamanan kata sandi Supabase](https://supabase.com/docs/guides/auth/password-security).
+- Security Advisor juga mencatat 164 tabel dengan RLS aktif tanpa policy (`INFO`). Pemeriksaan grant menunjukkan akses tabel langsung untuk `authenticated` hanya SELECT pada lima tabel: `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Masing-masing memiliki satu policy SELECT; policy membatasi akses dengan tenant aktif, profil sendiri, role Admin, serta izin modul yang sesuai. Tidak ditemukan grant tabel untuk `PUBLIC` atau `anon`. Temuan tanpa policy pada tabel operasional lain perlu dibaca bersama model server-only dan kerahasiaan `service_role`; jangan menambahkan grant klien umum.
+- Performance Advisor mencatat 260 foreign key tanpa indeks penutup dan 82 indeks yang belum pernah digunakan (`INFO`). Migration source `20270330000000_add_core_composite_fk_indexes` berisi 13 indeks inti yang belum ada di katalog VQE. Ini kandidat perbaikan performa, bukan alasan untuk membuat seluruh indeks secara otomatis. Migration memakai `CREATE INDEX` biasa dan perlu menilai ukuran tabel serta dampak lock sebelum penerapan.
+- Health Advisor tidak mengembalikan temuan.
+
+Temuan ini khusus staging VQE. Tidak ada DDL, pengaturan Auth, data operasional, atau Production yang diubah/dibaca dalam pemeriksaan advisori ini.
 
 ## PTSAS Production
 
