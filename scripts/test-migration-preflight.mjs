@@ -172,10 +172,10 @@ assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '202703280000
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270329000000_tahfidz_target_decimal_precision.sql'));
 const bulkPrecisionGuardMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270402000000_tahfidz_bulk_target_precision_guard.sql');
 assert(bulkPrecisionGuardMigration, 'VQE batch RPC precision drift needs a forward-only correction.');
-assert.match(bulkPrecisionGuardMigration.statements.join('\\n'), /p_ziyadah_pages_per_day <> trunc\\(p_ziyadah_pages_per_day, 2\\)/);
-assert.match(bulkPrecisionGuardMigration.statements.join('\\n'), /p_murojaah_pages_per_day <> trunc\\(p_murojaah_pages_per_day, 2\\)/);
-assert.match(bulkPrecisionGuardMigration.statements.join('\\n'), /REVOKE ALL ON FUNCTION public\\.record_tahfidz_daily_targets_bulk[\\s\\S]*?FROM PUBLIC, anon, authenticated/i);
-assert.match(bulkPrecisionGuardMigration.statements.join('\\n'), /GRANT EXECUTE ON FUNCTION public\\.record_tahfidz_daily_targets_bulk[\\s\\S]*?TO service_role/i);
+assert.match(bulkPrecisionGuardMigration.statements.join('\n'), /p_ziyadah_pages_per_day <> trunc\(p_ziyadah_pages_per_day, 2\)/);
+assert.match(bulkPrecisionGuardMigration.statements.join('\n'), /p_murojaah_pages_per_day <> trunc\(p_murojaah_pages_per_day, 2\)/);
+assert.match(bulkPrecisionGuardMigration.statements.join('\n'), /REVOKE ALL ON FUNCTION public\.record_tahfidz_daily_targets_bulk[\s\S]*?FROM PUBLIC, anon, authenticated/i);
+assert.match(bulkPrecisionGuardMigration.statements.join('\n'), /GRANT EXECUTE ON FUNCTION public\.record_tahfidz_daily_targets_bulk[\s\S]*?TO service_role/i);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270203000000_boarding_unit_scope.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270204000000_tahfidz_achievement_summary.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270205000000_guardian_self_registration.sql'));
@@ -577,5 +577,6 @@ assert.match(READ_ONLY_LEDGER_QUERY, /COMMIT/);
 assert.doesNotMatch(READ_ONLY_LEDGER_QUERY, /\b(?:INSERT|UPDATE|DELETE|ALTER|DROP|CREATE|TRUNCATE)\b/i);
 
 console.log('Supabase migration preflight logic passed: version/name/SQL lineage comparison, safe SQL parsing, duplicate/unknown versions, TLS enforcement, and read-only SQL.');
+
 
 
