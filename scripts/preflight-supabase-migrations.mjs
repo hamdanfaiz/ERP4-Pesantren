@@ -59,6 +59,44 @@ const MIGRATION_VERSION_ALIASES = Object.freeze([
     from: '20261109145534',
     to: '20270328000000',
     name: 'tahfidz_bulk_daily_target_write_api',
+    // VQE's applied RPC predates the current source form. Accept only this exact
+    // canonical statement fingerprint; later precision corrections stay pending.
+    legacyStatementsSha256: '4e13ee19f25b18c1dd636ec6e0043aedf1906cbd3db50f9b597f2fdaeec89bbf',
+  }),
+  Object.freeze({
+    from: '20270312000000',
+    to: '20270329000000',
+    name: 'tahfidz_target_decimal_precision',
+  }),
+  Object.freeze({
+    from: '20270314000000',
+    to: '20270321000000',
+    name: 'cbt_tenant_settings_write_api',
+  }),
+  Object.freeze({
+    from: '20270315000000',
+    to: '20270322000000',
+    name: 'cbt_admin_dashboard_summary',
+  }),
+  Object.freeze({
+    from: '20270316000000',
+    to: '20270323000000',
+    name: 'cbt_admin_question_keyset_pages',
+  }),
+  Object.freeze({
+    from: '20270317000000',
+    to: '20270324000000',
+    name: 'cbt_admin_student_roster_pages',
+  }),
+  Object.freeze({
+    from: '20270318000000',
+    to: '20270325000000',
+    name: 'cbt_admin_assignment_pages',
+  }),
+  Object.freeze({
+    from: '20270319000000',
+    to: '20270326000000',
+    name: 'cbt_admin_exam_pages',
   }),
 ]);
 
@@ -375,12 +413,24 @@ export function compareMigrationVersions(migrations, appliedMigrations) {
       statements: Array.isArray(row?.statements)
         ? canonicalizeAppliedStatements(row.statements)
         : null,
-    }).map((row) => ({
+  }).map((row) => {
+    const oldAlias = aliasesByOldVersion.get(row.version);
+    const targetAlias = aliasesByNewVersion.get(row.version);
+    // These aliases describe one staging ledger lineage, not a global rewrite
+    // for every Supabase environment. Preserve the source migration when a
+    // production row at the same timestamp has its canonical source name.
+    const alias = oldAlias && row.name === oldAlias.name
+      ? oldAlias
+      : targetAlias && row.name === null
+        ? targetAlias
+        : null;
+    return {
       ...row,
       ledgerVersion: row.version,
-      version: aliasesByOldVersion.get(row.version)?.to ?? row.version,
-      alias: aliasesByOldVersion.get(row.version) ?? aliasesByNewVersion.get(row.version) ?? null,
-    }));
+      version: alias?.from === row.version ? alias.to : row.version,
+      alias,
+    };
+  });
   const appliedVersions = applied.map(({ version }) => version);
   const invalidApplied = appliedVersions.filter((version) => !VERSION_PATTERN.test(version));
   if (invalidApplied.length > 0) {
