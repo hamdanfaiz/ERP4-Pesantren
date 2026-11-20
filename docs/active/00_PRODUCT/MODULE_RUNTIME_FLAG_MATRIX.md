@@ -1,4 +1,4 @@
-# Matriks Runtime Modul dan Visibilitas — 15 November 2026
+# Matriks Runtime Modul dan Visibilitas — 20 November 2026
 
 ## Tujuan
 
@@ -45,6 +45,7 @@ Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.en
 | Keuangan — bukti pembayaran | `SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED` bersama runtime Keuangan | — | Perlu bucket privat, policy Storage, dan uji unggah/akses tenant. |
 | Manajemen Multi-Unit | `SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED` | — | Mengaktifkan operasi yang mendukung unit/organisasi pada jalur terkait; validasi skema dan izin unit. |
 | Tahfidz | `SUPABASE_TAHFIDZ_RUNTIME_ENABLED` | `VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED` | Perlu migrasi Tahfidz, tenant/Admin dan profil Auth, serta uji role dan alur setoran. Impor lama tidak dibutuhkan untuk tenant baru. |
+| Tahfidz — target massal | `SUPABASE_TAHFIDZ_RUNTIME_ENABLED` dan `SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED` | `VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED` dan `VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED` | Gerbang massal berdiri terpisah dari layar Tahfidz umum. Aktifkan hanya setelah migrasi `20270328000000_tahfidz_bulk_daily_target_write_api` dan `20270402000000_tahfidz_bulk_target_precision_guard` diverifikasi di staging; uji transaksi serentak all-or-nothing, role, tenant, keanggotaan halaqah, serta idempotensi. |
 | Data Alumni | `SUPABASE_ALUMNI_RUNTIME_ENABLED` | — | Perlu migrasi dan uji alur kelulusan pada tenant. |
 | Perpustakaan | `SUPABASE_LIBRARY_RUNTIME_ENABLED` | — | Perlu uji katalog, sirkulasi, stok, dan relasi santri dengan record tenant baru. |
 | Perpustakaan — aset digital | `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED` | — | Gerbang tambahan untuk aset digital; validasi Storage dan policy secara khusus. |
