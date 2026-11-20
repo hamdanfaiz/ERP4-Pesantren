@@ -6,6 +6,7 @@ import { readTahfidzLeaderboardParticipantCount } from "../src/lib/tahfidzLeader
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270403000000_tahfidz_unique_memorization_leaderboard.sql"), "utf8");
+const performanceMigration = fs.readFileSync(path.join(root, "supabase/migrations/20270404000000_tahfidz_unique_ayah_projection_indexes.sql"), "utf8");
 const service = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
 const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
@@ -27,6 +28,12 @@ assert.match(migration, /ORDER BY unique_memorized_ayahs DESC, ziyadah_records D
   "Ranking prioritizes unique memorized ayat with stable tie-breakers.");
 assert.match(migration, /FOREIGN KEY \(tenant_id, student_id\)[\s\S]*?ON DELETE CASCADE[\s\S]*?FOREIGN KEY \(tenant_id, halaqah_id\)[\s\S]*?ON DELETE CASCADE/,
   "Derived ayah projection follows student and halaqah fixture cleanup.");
+assert.match(performanceMigration, /ON public\.tahfidz_student_ayah_progress \(tenant_id, halaqah_id, student_id\)/,
+  "Projection has an index for tenant and halaqah foreign-key cleanup.");
+assert.match(performanceMigration, /ON public\.tahfidz_student_ayah_progress \(surah_number\)/,
+  "Projection has an index for the Quran catalog foreign key.");
+assert.match(performanceMigration, /USING \(tenant_id = \(SELECT NULLIF\(pg_catalog\.current_setting/,
+  "Projection RLS reads its tenant context once per statement.");
 assert.match(migration, /first_performed_at < v_business_cutoff/,
   "Future-dated records are excluded from the business-date snapshot.");
 assert.match(migration, /tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I[\s\S]*?tenant_id = NULLIF\(pg_catalog\.current_setting\(%L, true\), %L\)/,
