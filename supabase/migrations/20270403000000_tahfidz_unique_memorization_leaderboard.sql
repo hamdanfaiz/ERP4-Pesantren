@@ -11,8 +11,8 @@ CREATE TABLE public.tahfidz_student_ayah_progress (
   ayah_number SMALLINT NOT NULL CHECK (ayah_number BETWEEN 1 AND 286),
   first_performed_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, student_id, halaqah_id, surah_number, ayah_number),
-  FOREIGN KEY (tenant_id, student_id) REFERENCES public.students (tenant_id, id) ON DELETE RESTRICT,
-  FOREIGN KEY (tenant_id, halaqah_id) REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE RESTRICT
+  FOREIGN KEY (tenant_id, student_id) REFERENCES public.students (tenant_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (tenant_id, halaqah_id) REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE CASCADE
 );
 
 CREATE INDEX tahfidz_student_ayah_progress_leaderboard_idx
