@@ -9,6 +9,10 @@
 - PTSAS Production tetap memiliki 100 entri ledger, terakhir `20270316000000`. Perbandingan set versi dengan 163 file source menemukan 63 migration source belum tercatat di Production; daftar versi dan nama file ada pada bagian **PTSAS Production → Migrasi source yang belum tercatat** di bawah. Tidak ada operasi tulis Production yang dilakukan.
 - CI PR #139 lulus, termasuk replay migration pada database CI terisolasi, pengujian API/tenant, Tahfidz, Storage dan backup/restore lokal. Supabase Preview check berstatus skipped karena pembuatan branch preview dinonaktifkan. Hasil CI tidak membuktikan restore Production atau UAT live seluruh modul.
 
+### Pemeriksaan katalog terarah terbaru — 20 November 2026
+
+Pemeriksaan baca-saja tambahan membandingkan 13 nama indeks dari `20270330000000_add_core_composite_fk_indexes`: VQE memiliki 13/13 dalam keadaan valid/ready, sedangkan PTSAS tidak memiliki nama persis tersebut. Ini belum memeriksa indeks berbeda nama dengan definisi setara. Katalog `quran_surahs`, validator referensi Surah, leaderboard Tahfidz, dan RPC target harian massal juga ditemukan di VQE tetapi tidak di PTSAS. Detail dan batas bukti ada pada [catatan katalog terarah](VQE_PTSAS_TARGETED_CATALOG_CHECK_2026-11-20.md). Temuan ini bukan izin untuk menerapkan migration; Production tetap tidak diubah.
+
 ### Dampak data dari 23 migration yang sebelumnya tertunda di VQE
 
 Sebelum merge, source SQL 23 migration diperiksa untuk DML: tidak ada perintah `DELETE` atau `TRUNCATE`, tetapi beberapa migration menambah fixture atau mengubah nilai data contoh:
