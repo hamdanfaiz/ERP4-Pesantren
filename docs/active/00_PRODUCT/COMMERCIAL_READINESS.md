@@ -1,6 +1,6 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026, 03.46 WIB
+## Status otoritatif — 21 November 2026, 03.52 WIB
 
 ### Source dan hasil pengembangan
 
@@ -17,7 +17,7 @@
 
 - Source `main` memuat 163 file migrasi hingga `20270402000000`.
 - VQE staging `vqemuyzveuirlkvdggjd` memiliki 163 entri migrasi hingga versi yang sama; pemeriksaan sebelumnya menyebut ledger `upToDate`. Ini hanya membuktikan paritas ledger, bukan kesetaraan penuh DDL atau kelulusan modul.
-- Inventaris VQE menunjukkan 179 tabel `public` dan RLS aktif pada semuanya. Hitungan baris metadata memperlihatkan data pada sejumlah modul, tetapi belum dipetakan ulang per tenant dan skenario UAT. Karena itu, jangan menambahkan fixture secara buta atau menimpa data yang sudah ada.
+- Inventaris VQE menunjukkan 179 tabel `public`, semuanya mengaktifkan RLS. Pemeriksaan per tenant pada 177 tabel dengan kolom `tenant_id` menemukan record pada 43 tabel di tenant UAT yang terdokumentasi; rincian dan kekosongan modul ada di [inventaris fixture VQE](UAT_VQE_FIXTURES_2026-11-20.md). Angka tersebut tidak membuktikan UAT UI lulus. Gunakan data yang sudah ada dan tambahkan hanya yang terbukti kurang.
 - PTSAS Production `ptsasgdvgrbdtgyqieie` masih memiliki 100 entri ledger sampai `20270316000000`, dibanding 163 file source. Ada 63 versi source yang belum tercatat, termasuk tiga entri tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`). Inventaris baca-saja menampilkan 162 tabel `public`, semuanya dengan RLS aktif.
 - Perbandingan katalog terakhir mencatat 17 tabel source belum ada di PTSAS serta perbedaan kolom, constraint, foreign key, indeks, trigger, fungsi, dan ekspresi policy. Rincian: [audit rollout Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Ini bukan diff DDL lengkap atau bukti perilaku aplikasi.
 - Production tidak diubah. Rehearsal migrasi, penjelasan tiga nama ledger kosong, dan bukti backup/restore tetap harus ditangani sebelum cutover; jangan mengejar jumlah ledger dengan menjalankan seluruh 63 migrasi.
