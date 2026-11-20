@@ -15,6 +15,17 @@ Pemeriksaan baca-saja tambahan membandingkan 13 nama indeks dari `20270330000000
 
 Perbandingan katalog publik lanjutan menemukan 17 tabel, 10 kolom, dan empat kontrak constraint yang ada di VQE tetapi tidak cocok dengan PTSAS. Flag RLS pada 162 tabel bersama cocok, tetapi policy dan seluruh DDL belum dibandingkan. Audit ulang 63 file yang belum tercatat juga menemukan lima migration yang menulis data saat diterapkan, termasuk backfill email wali dan pemanggilan fungsi snapshot baseline asrama. Detail dan batas bukti ada di [runbook rekonsiliasi Production](PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Tidak ada perubahan database.
 
+### Revalidasi fungsi Tahfidz pada staging dan Production — 20 November 2026
+
+Pemeriksaan baca-saja melalui Supabase MCP memeriksa definisi fungsi dan metadata ledger saja; baris operasional tidak dibaca dan tidak ada perubahan database.
+
+- Pada VQE, versi `20270401000000 | tahfidz_monthly_leaderboard` dan `20270402000000 | tahfidz_bulk_target_precision_guard` ada di ledger. Definisi `list_tahfidz_leaderboard` memuat periode bulanan dan metrik hari aktif; definisi `record_tahfidz_daily_targets_bulk` memvalidasi presisi maksimal dua desimal untuk Ziyadah dan Murojaah.
+- Hak `EXECUTE` kedua fungsi di VQE tersedia untuk `service_role`, dan tidak tersedia untuk `authenticated` maupun `anon`. Pengecekan ini membuktikan kontrak fungsi yang ditinjau, bukan UAT alur UI.
+- Pada PTSAS, kueri yang sama tidak menemukan kedua versi ledger maupun kedua fungsi. Tabel dan fungsi dasar untuk target/roster tersedia, tetapi `tahfidz_target_bulk_write_requests` belum ada. Migrasi `20270328000000_tahfidz_bulk_daily_target_write_api` membuat tabel tersebut; karena itu `20270402000000` tidak dapat diterapkan sendiri.
+- PTSAS masih memiliki 63 migrasi source yang belum tercatat. Jangan menerapkan dua migrasi Tahfidz tersebut secara terpisah atau melewati urutan sebelum dependensi, ledger, dan rehearsal Production direkonsiliasi. Tidak ada migrasi yang diterapkan pada pemeriksaan ini.
+
+Catatan selisih isi dua fungsi pada bagian **Baseline awal sebelum rekonsiliasi alias** di bawah adalah snapshot historis; hasil baca-saja di atas menggambarkan kondisi VQE saat ini.
+
 ### Dampak data dari 23 migration yang sebelumnya tertunda di VQE
 
 Sebelum merge, source SQL 23 migration diperiksa untuk DML: tidak ada perintah `DELETE` atau `TRUNCATE`, tetapi beberapa migration menambah fixture atau mengubah nilai data contoh:
