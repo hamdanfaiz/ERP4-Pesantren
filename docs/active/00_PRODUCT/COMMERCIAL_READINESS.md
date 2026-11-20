@@ -1,44 +1,44 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 20 November 2026, source aplikasi setelah PR #164
+## Status otoritatif — 21 November 2026
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- Source aplikasi pada `main` telah memuat PR #164 (merge commit `e5aa032828e0c6a244d4a3249b5459b87637d3d7`). PR #159–#163 memperbarui catatan kesiapan, fixture VQE, akses UI Dokumen Digital, dan gerbang target massal Tahfidz; PR #164 merapikan pesan error terlingkup pesantren tanpa mengubah otorisasi. PR #153–#164 telah merged; pemeriksaan GitHub setelah #164 menemukan **0 PR terbuka**.
-- Audit status PR: #1–#11 tetap closed tanpa merge; audit terdahulu (#78, #85, #88) memetakan branch lama sebagai digantikan oleh PR #13 dan implementasi lanjutan, sehingga migrasi branch lama tidak boleh dijalankan ulang. PR #38–#40 sudah merged.
-- PR #122 mengonsolidasikan perubahan dari PR #91, #92, #112, #114, #115, dan #121. PR #93–#100 dan #102 ditutup sebagai superseded oleh jalur CBT #112; #107 digantikan oleh #108; leaderboard alternatif #116 tidak digabung karena benturan versi dan digantikan kontrak kanonis #91/#121. Tidak ada patch dari PR-PR tersebut yang perlu digabung terpisah.
-- CI PR #164, run [#44768135014](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44768135014), lulus seluruh 3 job: build/guard frontend, instalasi NPM pelanggan, dan uji migrasi/API/auth/pgTAP/Storage/backup-restore pada Supabase lokal terisolasi. Ini bukan UAT live, bukan bukti restore cloud, dan bukan pemeriksaan database Production.
-- Runtime frontend aktif menjaga Firebase tidak masuk dependency produksi dan graph runtime; CI memeriksa guard ini. Pemeriksaan ini tidak menyatakan seluruh string atau kode legacy Firebase telah dihapus dari repository.
-- Persentase kesiapan keseluruhan tidak ditetapkan karena belum ada denominator penerimaan fitur/UAT yang disepakati.
+- Source aplikasi terakhir berubah pada PR #164, merge commit `e5aa032828e0c6a244d4a3249b5459b87637d3d7`. Main kini berada di `593328a3299e74b70dc804760b973a7ae6907a6e`; PR #166 dan #167 sesudah perubahan source hanya memperbarui dokumentasi.
+- PR #166 merapikan hitungan gerbang runtime di matriks modul. PR #167 mencatat perbandingan katalog foreign key Production dan staging. Keduanya sudah merged; pemeriksaan GitHub terbaru menemukan **0 PR terbuka**.
+- CI PR #167, run [#44777844019](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44777844019), lulus **3/3 job**: build/guard Firebase frontend, instalasi paket NPM pelanggan, serta migrasi, API/auth, dan pgTAP. Job database menyelesaikan replay migrasi Production-baseline sintetis, pengujian API/isolasi tenant, Tahfidz, Finance/Storage, pemulihan database lokal, dan tes lain pada Supabase terisolasi.
+- Hasil CI menguji source dan lingkungan sintetis. Ini bukan UAT antarmuka lintas modul pada hosting, bukan bukti backup/restore cloud, dan bukan verifikasi migrasi Production.
+- Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih dapat berada di repository.
+- Tidak ada persentase kesiapan keseluruhan yang diklaim: denominator penerimaan fitur dan UAT belum ditetapkan.
 
-### Supabase staging dan Production — bukti baca-saja
+### Supabase staging dan Production — pemeriksaan baca-saja
 
-- Source `main` berisi 163 file migrasi hingga `20270402000000`.
-- VQE staging `vqemuyzveuirlkvdggjd`: setelah hostname Session pooler disalin persis, `supabase db push --dry-run --include-all --skip-vault` berhasil dengan `upToDate: true`, tanpa migrasi, seed, atau role tertunda. Ini memverifikasi kredensial koneksi dan paritas ledger yang dihitung CLI terhadap source pada checkout; tidak membuktikan kesetaraan seluruh DDL, fungsi, policy, maupun perilaku UI.
-- PTSAS Production `ptsasgdvgrbdtgyqieie`: pemeriksaan ledger baca-saja menemukan 100 versi dari 163 source, 63 versi source belum tercatat, tiga versi ledger tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`), dan nol versi ledger-only.
-- Pemeriksaan katalog terarah menemukan perbedaan skema dan objek lintas proyek; DDL Production secara penuh belum dibandingkan dengan source. Lima migrasi pending berisi DML saat diterapkan. Detail dan urutan ada pada [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
-- Tidak ada perubahan database Production. Kesamaan ledger VQE dengan source tidak dapat dipakai sebagai bukti aman untuk menerapkan 63 migrasi ke Production.
+- Source `main` memiliki 163 file migrasi sampai `20270402000000`.
+- VQE staging `vqemuyzveuirlkvdggjd` memiliki 163 entri ledger. CLI sebelumnya melaporkan `upToDate: true`; ini membuktikan paritas ledger untuk source yang diuji, bukan kesamaan seluruh DDL atau kelulusan semua modul.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` memiliki 100 entri ledger; 63 versi source belum tercatat, termasuk tiga entri ledger tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`). Tidak ditemukan versi ledger-only pada perbandingan terakhir.
+- Katalog `public` yang baru diperiksa berisi 179 tabel di VQE dan 162 di PTSAS; RLS aktif pada seluruh tabel yang dilaporkan di masing-masing proyek. Perbandingan menunjukkan 17 tabel source belum ada di PTSAS, serta perbedaan 10 kolom dan empat kontrak constraint.
+- Perbandingan foreign key terbaru menemukan 559 definisi unik di VQE dan 515 di PTSAS. Ada 44 definisi yang tidak terlihat di PTSAS; 43 berasal dari tabel sumber yang belum ada di Production, dan satu adalah FK Tahfidz pada tabel yang sama-sama ada tetapi merujuk ke katalog Surah yang belum ada di Production. Ini snapshot katalog, bukan diff DDL penuh.
+- Tidak ada perubahan Production. Jangan menerapkan seluruh 63 migrasi hanya untuk menyamakan ledger; urutan, dampak DML, definisi DDL, dan kondisi data harus direkonsiliasi dahulu. Rincian ada di [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
 ### Produk dan kesiapan rilis pelanggan
 
-- Otomatisasi CI mencakup build dan jalur API/tenant terpilih pada backend lokal sintetis. Fixture Admin staging untuk Data Induk, Asrama, target Tahfidz, dan Dokumen Digital telah dibuat serta dibaca ulang; inventaris dan panduan ada pada [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). PR #160 menegaskan bahwa pembacaan fixture Dokumen Digital melalui backend berhasil, tetapi akses UI pada Hostinger staging belum dikonfirmasi. PR #164 memperbaiki pesan error terlingkup pesantren dan menambahkan regresi; ini tidak membuktikan UAT browser. UAT browser menyeluruh untuk semua menu, submodul, peran, transaksi, Storage, serta proses pemulihan belum terbukti.
-- Pemilik melaporkan aplikasi telah dideploy ke `erp4-pesantren.tlusur.com`; commit build dan environment aktif di hosting tersebut belum diverifikasi langsung pada checkpoint ini.
-- Bukti backup dan restore yang ada berasal dari lingkungan CI lokal sintetis; backup/restore VQE maupun Production belum dibuktikan.
-- PTSAS Production belum siap menerima promosi source sampai tim backend menyelesaikan diff DDL, memetakan semua 63 migrasi dan DML-nya, merekonsiliasi tiga nama ledger kosong, melakukan rehearsal terkontrol, serta membuktikan backup/restore sesuai runbook.
-- Kesiapan komersial self-hosted juga membutuhkan drill instalasi, upgrade, backup/restore, pemulihan secret, support/operasional, kebijakan data, lisensi, dan pilot pesantren besar.
+- Fixture Admin sintetis staging yang sudah dibaca ulang mencakup Data Induk, beberapa alur Asrama, target Tahfidz, dan Dokumen Digital; rinciannya ada di [catatan fixture UAT VQE](UAT_VQE_FIXTURES_2026-11-20.md). Belum ada fixture UAT yang membuktikan seluruh alur PPDB, Keuangan, Akademik, CBT/LMS, dan modul operasional lain.
+- Matriks flag memiliki 38 gerbang runtime server. Nilai `.env.example` sengaja `false`; aktivasi perlu dilakukan per modul di staging setelah prasyarat skema, Auth/tenant, izin, dan Storage diperiksa. Jangan menyalakan semua flag serentak atau flag impor hanya untuk membuat menu terlihat. Lihat [matriks gerbang runtime](MODULE_RUNTIME_FLAG_MATRIX.md).
+- UAT browser lintas peran (Admin, Ustadz, Santri, Wali, dan petugas keuangan), simpan-baca lintas modul, transaksi, unggah berkas, pemulihan sesi, dan tampilan responsif belum terbukti menyeluruh. Panduannya ada di [handoff UAT antarmuka](../05_ARCHITECTURE/FRONTEND_UAT_HANDOFF.md).
+- Commit dan konfigurasi aktif pada hosting belum diverifikasi kembali dalam checkpoint ini. Build yang berjalan pada domain pelanggan harus dicocokkan dengan source release serta flag environment-nya.
+- Bukti backup/restore saat ini berasal dari CI lokal sintetis. Backup/restore VQE dan Production belum dibuktikan.
+- Selain migrasi Production dan UAT, kesiapan komersial self-hosted masih memerlukan clean install, upgrade, pemulihan database serta Storage, penetapan support/operasi, kebijakan data dan lisensi, serta pilot pada pesantren target.
 
 ### Langkah kerja berikutnya
 
-1. Tim backend dapat mereview source `main` sekarang; tidak ada PR terbuka yang menahan source.
-2. Untuk staging, CLI melaporkan tidak ada migrasi tertunda. Lanjutkan UAT transaksi dan antarmuka dengan akun/tenant uji, menggunakan [panduan fixture VQE](UAT_VQE_FIXTURES_2026-11-20.md).
-3. Untuk Production, ikuti runbook rekonsiliasi dan lakukan promosi hanya setelah diff DDL, dampak DML, rehearsal, serta bukti pemulihan tersedia.
-4. Verifikasi commit, konfigurasi, dan smoke test di hosting dari source `main` yang disepakati.
+1. Tim backend dapat mengambil source `main` sekarang; tidak ada PR terbuka.
+2. Lanjutkan UAT VQE lewat browser dan aktifkan hanya flag staging yang dibutuhkan untuk skenario yang sedang diuji. Jangan gunakan PTSAS untuk fixture.
+3. Minta tim yang mengelola Production menyelesaikan diff DDL dan rekonsiliasi tiga nama ledger kosong, lalu meninjau 63 file migrasi beserta efek data dalam rehearsal yang dapat dipulihkan.
+4. Verifikasi backup dan restore cloud, commit/configurasi pada hosting, serta clean install/upgrade di environment target.
 
-**Status:** source terintegrasi dan CI hijau; staging ledger up-to-date; Production migration, UAT end-to-end, restore cloud, dan verifikasi hosting/operasi pelanggan masih menjadi pekerjaan terbuka. Produk belum dinyatakan siap Production atau komersial.
+**Status:** source terintegrasi dan CI hijau; ledger VQE sejalan dengan source yang diuji. Production belum siap dipromosikan, UAT semua modul belum selesai, dan produk belum dinyatakan siap Production atau komersial.
 
----
 
-Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
 ## Addendum otoritatif — checkpoint 14 November 2026
 
 Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
