@@ -4,12 +4,12 @@
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- Source aplikasi terakhir berubah pada PR #164, merge commit `e5aa032828e0c6a244d4a3249b5459b87637d3d7`. Main berada di `ae703a26fd8af52090b94e73b9d689f826bd8e1b` setelah PR #168; PR #166–#168 sesudah perubahan source hanya memperbarui dokumentasi.
-- PR #166 merapikan hitungan gerbang runtime di matriks modul, PR #167 mencatat perbandingan katalog foreign key Production dan staging, dan PR #168 memperbarui status kesiapan beserta temuan katalog terbaru. Ketiganya sudah merged; pemeriksaan GitHub terbaru menemukan **0 PR terbuka**.
-- CI PR #167, run [#44777844019](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44777844019), lulus **3/3 job**: build/guard Firebase frontend, instalasi paket NPM pelanggan, serta migrasi, API/auth, dan pgTAP. Job database menyelesaikan replay migrasi Production-baseline sintetis, pengujian API/isolasi tenant, Tahfidz, Finance/Storage, pemulihan database lokal, dan tes lain pada Supabase terisolasi.
-- CI PR #168, run [#44780568116](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44780568116), juga lulus **3/3 job**.
-- Hasil CI menguji source dan lingkungan sintetis. Ini bukan UAT antarmuka lintas modul pada hosting, bukan bukti backup/restore cloud, dan bukan verifikasi migrasi Production.
-- Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih dapat berada di repository.
+- `main` berada pada merge commit PR #173 `42897db6c39bda744e691f3c81f393938bf6fc09`; tidak ada PR terbuka. Tim backend dapat mengambil source ini untuk diperiksa.
+- Perubahan aplikasi terakhir ada pada PR #171, merge commit `cf6ddc46d12b494bf9796c80dbb5a086a03e2085`, yang melokalkan lima label tab Tahfidz. PR #172 memperbarui matriks status flag impor arsip; PR #173 memperjelas catatan `.env.example` dan Docker Compose. PR #172/#173 tidak mengubah aplikasi atau database.
+- CI PR #171, run [#44789024748](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44789024748), lulus 3/3 job. CI PR #172, run [#44792557213](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44792557213), dan PR #173, run [#44794653440](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44794653440), masing-masing juga lulus 3/3 job.
+- Rangkaian CI mencakup build/runtime, instalasi NPM pelanggan, migrasi/pgTAP, auth dan isolasi tenant, transaksi bersamaan, Storage HTTP, serta backup/restore database lokal sintetis. Hasil tersebut menguji source dan lingkungan otomatis; bukan UAT browser lintas modul, bukti backup/restore cloud, ataupun verifikasi migrasi Production.
+- Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih berada di repository.
+- Dokumentasi operator kini menyatakan bahwa variabel impor arsip yang masih ada di `.env.example` tidak menyalakan importer. Source mengunci impor arsip lama; impor CSV manual Data Induk adalah alur terpisah.
 - Tidak ada persentase kesiapan keseluruhan yang diklaim: denominator penerimaan fitur dan UAT belum ditetapkan.
 
 ### Supabase staging dan Production — pemeriksaan baca-saja
