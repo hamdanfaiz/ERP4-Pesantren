@@ -4,9 +4,10 @@
 
 ### Source, PR, dan pemeriksaan otomatis
 
-- Source aplikasi terakhir berubah pada PR #164, merge commit `e5aa032828e0c6a244d4a3249b5459b87637d3d7`. Main kini berada di `593328a3299e74b70dc804760b973a7ae6907a6e`; PR #166 dan #167 sesudah perubahan source hanya memperbarui dokumentasi.
-- PR #166 merapikan hitungan gerbang runtime di matriks modul. PR #167 mencatat perbandingan katalog foreign key Production dan staging. Keduanya sudah merged; pemeriksaan GitHub terbaru menemukan **0 PR terbuka**.
+- Source aplikasi terakhir berubah pada PR #164, merge commit `e5aa032828e0c6a244d4a3249b5459b87637d3d7`. Main berada di `ae703a26fd8af52090b94e73b9d689f826bd8e1b` setelah PR #168; PR #166–#168 sesudah perubahan source hanya memperbarui dokumentasi.
+- PR #166 merapikan hitungan gerbang runtime di matriks modul, PR #167 mencatat perbandingan katalog foreign key Production dan staging, dan PR #168 memperbarui status kesiapan beserta temuan katalog terbaru. Ketiganya sudah merged; pemeriksaan GitHub terbaru menemukan **0 PR terbuka**.
 - CI PR #167, run [#44777844019](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44777844019), lulus **3/3 job**: build/guard Firebase frontend, instalasi paket NPM pelanggan, serta migrasi, API/auth, dan pgTAP. Job database menyelesaikan replay migrasi Production-baseline sintetis, pengujian API/isolasi tenant, Tahfidz, Finance/Storage, pemulihan database lokal, dan tes lain pada Supabase terisolasi.
+- CI PR #168, run [#44780568116](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44780568116), juga lulus **3/3 job**.
 - Hasil CI menguji source dan lingkungan sintetis. Ini bukan UAT antarmuka lintas modul pada hosting, bukan bukti backup/restore cloud, dan bukan verifikasi migrasi Production.
 - Runtime frontend aktif tidak memakai Firebase sebagai backend; guard CI memeriksa dependency produksi dan graph bundle. String, arsip, serta kode legacy Firebase yang tidak aktif masih dapat berada di repository.
 - Tidak ada persentase kesiapan keseluruhan yang diklaim: denominator penerimaan fitur dan UAT belum ditetapkan.
@@ -17,7 +18,7 @@
 - VQE staging `vqemuyzveuirlkvdggjd` memiliki 163 entri ledger. CLI sebelumnya melaporkan `upToDate: true`; ini membuktikan paritas ledger untuk source yang diuji, bukan kesamaan seluruh DDL atau kelulusan semua modul.
 - PTSAS Production `ptsasgdvgrbdtgyqieie` memiliki 100 entri ledger; 63 versi source belum tercatat, termasuk tiga entri ledger tanpa nama (`20261205000000`, `20261206000000`, `20270118000000`). Tidak ditemukan versi ledger-only pada perbandingan terakhir.
 - Katalog `public` yang baru diperiksa berisi 179 tabel di VQE dan 162 di PTSAS; RLS aktif pada seluruh tabel yang dilaporkan di masing-masing proyek. Perbandingan menunjukkan 17 tabel source belum ada di PTSAS, serta perbedaan 10 kolom dan empat kontrak constraint.
-- Perbandingan foreign key terbaru menemukan 559 definisi unik di VQE dan 515 di PTSAS. Ada 44 definisi yang tidak terlihat di PTSAS; 43 berasal dari tabel sumber yang belum ada di Production, dan satu adalah FK Tahfidz pada tabel yang sama-sama ada tetapi merujuk ke katalog Surah yang belum ada di Production. Ini snapshot katalog, bukan diff DDL penuh.
+- Pemeriksaan baca-saja katalog diperluas pada 21 November: selain 17 tabel dan 10 kolom yang belum ada di PTSAS, ditemukan empat perbedaan kontrak kolom/constraint (nullable `cost_price` dan tiga CHECK), 44 foreign key VQE-only, 13 constraint VQE-only pada tabel bersama, 55 indeks VQE-only pada tabel bersama, enam trigger source-only pada tabel bersama, 69 fingerprint fungsi bersama yang berbeda, serta ekspresi lima policy yang berbeda setelah helper RLS dipindah ke schema `private`. Lihat [hasil diff katalog lengkap](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md). Perbandingan ini tetap bukan diff DDL langsung dari source SQL atau bukti perilaku aplikasi.
 - Tidak ada perubahan Production. Jangan menerapkan seluruh 63 migrasi hanya untuk menyamakan ledger; urutan, dampak DML, definisi DDL, dan kondisi data harus direkonsiliasi dahulu. Rincian ada di [runbook rekonsiliasi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
 ### Produk dan kesiapan rilis pelanggan
