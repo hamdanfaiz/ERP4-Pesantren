@@ -4,7 +4,7 @@
 
 Dokumen ini menjelaskan mengapa modul atau sebagian alurnya dapat terlihat belum tersedia pada sebuah deployment ERP4 Pesantren, serta flag mana yang mengendalikan API server dan bagian antarmuka. Sumber pemeriksaan adalah `.env.example`, `server.ts`, `src/publicRuntimeConfigKeys.ts`, dan penggunaan konfigurasi runtime oleh halaman klien pada branch integrasi.
 
-Pada source yang diperiksa, terdapat **37 gerbang runtime sisi server**. Nilai contoh semuanya `false` agar fitur gagal secara aman sebelum database, tenant, autentikasi, izin, Storage, dan alur terkait siap. Nilai contoh ini bukan bukti bahwa semua modul gagal di semua environment; nilai environment staging dan produksi dapat berbeda.
+Pada source yang diperiksa, terdapat **38 gerbang runtime sisi server**. Nilai contoh semuanya `false` agar fitur gagal secara aman sebelum database, tenant, autentikasi, izin, Storage, dan alur terkait siap. Nilai contoh ini bukan bukti bahwa semua modul gagal di semua environment; nilai environment staging dan produksi dapat berbeda.
 
 ## Cara kerja gerbang
 
