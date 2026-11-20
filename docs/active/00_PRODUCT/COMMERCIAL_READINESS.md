@@ -1,25 +1,40 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status aktual — checkpoint 15 November 2026, setelah pembaruan Hostinger
+## Status aktual — checkpoint 20 November 2026, setelah PR #141
 
-Source aplikasi `main` berada pada commit `c8f2372f1530b0864d00d8d57136054edd2edb0a`. Hostinger preview `lightgreen-jay-425688.hostingersite.com` terhubung ke repo `hamdanfaiz/ERP4-Pesantren`, branch `main`; deployment commit ini tercatat **Completed / Current** pada 15 November 2026 pukul 21.33 WIB. Ini preview Hostinger, bukan bukti deploy domain produksi `erp4-pesantren.tlusur.com`.
+### Source, PR, dan verifikasi otomatis
 
-Pemeriksaan antarmuka baca-saja dengan sesi Admin UAT menunjukkan navigasi modul utama tersedia. Di modul Asrama, kontainer sudah memakai tema gelap dan tab submodul berada di area gulir horizontal. Layar yang terlihat berstatus kosong karena tenant staging tidak memiliki santri/kamar aktif. Pemeriksaan ini hanya visual; belum membuktikan seluruh fungsi simpan-baca, seluruh submodul, atau konsistensi istilah pada setiap layar.
+- PR #141 menambahkan runbook rekonsiliasi migrasi Production dan sudah merged ke `main` pada commit `a59f39f3e130a71202bed1db5e4ed441a17ebf73`.
+- Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka.
+- CI PR #141 lulus pada tiga job: replay migrasi dan pgTAP pada Supabase lokal terisolasi, build/guard frontend termasuk tes cakupan terpilih, dan instalasi paket pelanggan. Job database juga memeriksa isolasi API/tenant, Storage, serta backup/restore lokal.
+- CI tersebut tidak membuktikan DDL live Production cocok dengan source, backup Production bisa dipulihkan, atau seluruh alur browser sudah lolos UAT.
 
-### Rekonsiliasi ledger Production baca-saja
+### Status migrasi backend
 
-- Source `main` memiliki **153 file migrasi**; ledger PTSAS Production memiliki **100 entri**, dengan versi tertinggi `20270316000000`.
-- **100 versi ledger Production ditemukan di source `main`**; tidak ditemukan versi Production yang tidak memiliki file source bernomor sama.
-- **53 versi source tidak tercatat di ledger Production**. Sebanyak **49** berada sebelum atau pada versi tertinggi Production, sehingga terdapat celah di tengah riwayat migrasi. Tiga entri ledger tidak mengembalikan nama; versi ketiganya tetap ditemukan di source.
-- Ini perbandingan nomor versi/nama ledger, bukan perbandingan DDL. Selisih tersebut **bukan daftar migrasi yang aman untuk diterapkan otomatis**. DDL aktual, backup, dan bukti restore Production tidak diperiksa atau diubah dalam checkpoint ini.
+- Source `main` berisi 163 file migrasi sampai `20270402000000`.
+- PTSAS Production memiliki 100 versi ledger sampai `20270316000000`. Sebanyak 97 entri cocok pada versi dan nama; tiga versi (`20261205000000`, `20261206000000`, `20270118000000`) tidak memiliki nama ledger.
+- Ada 63 versi source yang belum tercatat pada ledger Production. Coverage versi ledger adalah **100/163 = 61,3%**; ini bukan persentase penyelesaian fitur ERP.
+- VQE staging memiliki 163 versi source tercatat. CLI melaporkan tidak ada migrasi tertunda, tetapi mekanisme yang menambahkan versi itu tidak disimpulkan dari bukti yang ada.
+- DDL Production belum dibandingkan lengkap dengan source. Uji restore Production dan UAT Production juga belum dibuktikan. Jangan menjalankan `db push` hanya untuk mengejar kesamaan hitungan.
+- Rincian dan prosedur promosi tersedia di [audit paritas migrasi](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-20.md) dan [runbook promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
 
-### Pull request
+### Status produk
 
-Tujuh PR masih terbuka: **#91, #92, #112, #114, #115, #121, dan #122**. GitHub saat ini menandai #91, #112, #114, #115, dan #122 `dirty` terhadap base masing-masing; #92 dan #121 bertumpu pada branch PR lain. PR #122 masih Draft. Jangan merge stack ini langsung; rekonsiliasi terhadap commit `main` terbaru `c8f2372` dan audit migrasi diperlukan lebih dulu.
+- Source yang diuji menggunakan Supabase sebagai runtime backend dan CI menjaga Firebase tidak masuk ke bundle/runtime frontend aktif.
+- Pengujian otomatis mencakup alur terpilih untuk Master Data/NIS, akademik, PPDB, Tahfidz, CBT, keuangan, asrama, dokumen/Storage, serta API dan isolasi tenant. Cakupan ini tidak sama dengan pengujian manual setiap menu, tombol, peran, dan alur simpan-baca.
+- Tim pemilik sebelumnya melaporkan domain `erp4-pesantren.tlusur.com` telah dideploy. Commit yang sedang berjalan, konfigurasi server, dan UAT pada domain itu tidak diperiksa pada checkpoint ini.
 
-### Status penyelesaian
+### Keputusan kesiapan
 
-Produk **belum dinyatakan siap Production atau komersial**. Pekerjaan source masih memerlukan integrasi PR yang aman dan UAT simpan-baca lintas modul/peran/tenant. Tim backend tetap perlu menyelesaikan pemeriksaan DDL, urutan migrasi, backup/restore, dan deploy domain produksi. Tidak ada persentase total yang dapat dibuktikan hanya dari build preview atau hitungan ledger.
+Produk **belum dinyatakan siap Production atau komersial**. Source dan CI terus bergerak, tetapi sebelum rilis backend perlu menyelesaikan DDL diff, membuktikan backup/restore, merehearsal daftar migrasi tertunda pada salinan Production, lalu menjalankan UAT pada target deployment. Harga, lisensi, SLA, dan cakupan dukungan juga belum menjadi bukti kesiapan teknis.
+
+Tidak ada persentase keseluruhan yang bisa dipertanggungjawabkan tanpa denominator fitur dan bukti UAT yang disepakati. Angka terukur saat ini adalah coverage versi ledger Production **61,3%**, bukan progress total project. Tidak ada perubahan database Production pada checkpoint ini.
+
+Jika koneksi VQE pooler diperlukan, hostname yang tersimpan sudah berfungsi; tidak perlu tindakan manual. Bila tim memerlukan URL pooler Production, salin hostname tepat dari dialog Connect pada project Production—jangan menebak region atau cluster.
+
+---
+Snapshot di bawah bagian ini merupakan riwayat checkpoint dan tidak menggantikan status 20 November 2026 di atas.
+
 ## Addendum otoritatif — checkpoint 14 November 2026
 
 Snapshot ini membedakan source aplikasi dari dokumentasi dan database live. Source aplikasi `main` tetap pada `b0824476cb6d0207925283f15cb6f0d2714e54a3`; commit `a168e48030c127cb0fe802f36e6e11f44e239d66` hanya menambahkan PR dokumentasi #119. PR #117 dan #118 juga hanya dokumentasi. Source memuat 150 file migrasi.
