@@ -1,27 +1,28 @@
 # Audit paritas migrasi Supabase — 20 November 2026
 
-## Status terkini setelah rekonsiliasi alias — 20 November 2026
+## Status terkini setelah PR #139 — 20 November 2026
 
-- `main` terkini: commit `7bccf1dcdb494def2abffddcf9b318f781d150fb`, dengan 163 file migration.
-- VQE staging: 140 entri ledger, terakhir `20270308000000`. Sepuluh versi alias yang sudah diverifikasi SQL-nya ditandai `reverted` pada ledger VQE saja; DDL dan data aplikasi tidak disentuh oleh repair tersebut.
-- PTSAS Production: 100 entri ledger, terakhir `20270316000000`. Production tidak diubah.
-- `supabase db push --dry-run --include-all --skip-vault` versi CLI `2.122.0` berhasil membaca target VQE dan menampilkan 23 migration. Ini hanya daftar rencana; tidak ada migration yang diterapkan. `--include-all` diperlukan karena satu migration tertunda (`20270215500000`) berada sebelum versi ledger terakhir.
-- Katalog PostgreSQL staging mengonfirmasi `tahfidz_target_bulk_write_requests` telah ada dari alias lama, dengan 12 kolom, presisi numerik `(6,2)`, constraint, RLS/FORCE RLS, dan grant yang sesuai fixture SQL lama.
-- File kanonis `20270328000000_tahfidz_bulk_daily_target_write_api.sql` semula menjalankan `CREATE TABLE` biasa, sehingga akan gagal setelah alias ledger dibersihkan karena tabelnya sudah ada. Perubahan yang menyertainya menjadikan deklarasi tabel idempoten dengan `CREATE TABLE IF NOT EXISTS`; bagian RPC tetap memakai `CREATE OR REPLACE FUNCTION` untuk memperbarui validasi presisi.
+- `main` berada pada commit `0459967c638ad02b89f6aaf25ebcee4c8b3a9326`; repository berisi 163 file migration. PR #139 membuat migration bulk Tahfidz replay-safe dan sudah merged.
+- VQE staging memiliki 163 entri ledger hingga `20270402000000`; semua 163 file migration source tercatat. Setelah merge, perintah CLI `db push --include-all --skip-vault` dengan URL pooler VQE yang baru diperbarui melaporkan database sudah up to date. Perintah tersebut tidak menjalankan migration karena tidak ada yang tertunda.
+- Sebelum merge, dry-run VQE menampilkan 23 migration. Pembacaan metadata setelah merge mengonfirmasi 23 versi itu kini tercatat di ledger VQE. Penyebab atau mekanisme yang menerapkannya tidak disimpulkan dari pemeriksaan ini.
+- Pemeriksaan katalog VQE mengonfirmasi `tahfidz_target_bulk_write_requests` memiliki 12 kolom, angka target `numeric(6,2)`, RLS dan FORCE RLS aktif; RPC `record_tahfidz_daily_targets_bulk` berstatus SECURITY INVOKER.
+- PTSAS Production tetap memiliki 100 entri ledger, terakhir `20270316000000`. Perbandingan set versi dengan 163 file source menemukan 63 migration source belum tercatat di Production; daftar versi dan nama file ada pada bagian **PTSAS Production → Migrasi source yang belum tercatat** di bawah. Tidak ada operasi tulis Production yang dilakukan.
+- CI PR #139 lulus, termasuk replay migration pada database CI terisolasi, pengujian API/tenant, Tahfidz, Storage dan backup/restore lokal. Supabase Preview check berstatus skipped karena pembuatan branch preview dinonaktifkan. Hasil CI tidak membuktikan restore Production atau UAT live seluruh modul.
 
-### Dampak data dari 23 migration tertunda
+### Dampak data dari 23 migration yang sebelumnya tertunda di VQE
 
-Tidak ada perintah `DELETE` atau `TRUNCATE` pada kelompok migration tertunda yang ditinjau. Beberapa file tetap mengubah data atau memasukkan fixture contoh:
+Sebelum merge, source SQL 23 migration diperiksa untuk DML: tidak ada perintah `DELETE` atau `TRUNCATE`, tetapi beberapa migration menambah fixture atau mengubah nilai data contoh:
 
 - `20270215500000`: mengisi grade yang masih kosong pada record kelas.
-- `20270310000000`–`20270312000000`: memasukkan katalog contoh jika belum ada, membuat semester/KKTP default bila belum ada, dan mengisi kode jenjang NIS yang kosong.
-- `20270313000000`: mengisi relasi kamar/gedung/kelas/unit yang kosong dan memasukkan contoh operasional Asrama, CBT, Tahfidz, LMS, serta Perpustakaan.
-- `20270314000000`: memberi NIS pada santri yang belum memilikinya, mengikat Ustadz ke halaqah bernama contoh, serta memasukkan beberapa record contoh asrama/fasilitas. Pembaruan halaqah tidak dibatasi pada `ustadz_user_id IS NULL`.
-- `20270315000000`: memasukkan contoh tugas dan jawaban LMS. Untuk progres pada materi contoh, `ON CONFLICT DO UPDATE` memperbarui `position_seconds` dan `updated_at`.
-- `20270316000000`: membuat tabel dan fungsi komunikasi; operasi INSERT/UPDATE di dalam badan fungsi hanya berjalan saat fungsi dipanggil.
-- Sepuluh migration kanonis pengganti alias dan empat migration berikutnya membentuk/memperbarui fungsi, tabel, atau indeks runtime. `20270328000000` idempoten setelah perubahan sumber di atas.
+- `20270310000000`–`20270312000000`: menambahkan katalog contoh bila belum ada, membuat semester/KKTP default bila belum ada, dan mengisi kode jenjang NIS yang kosong.
+- `20270313000000`: mengisi relasi gedung/kamar/kelas/unit yang kosong dan menambah contoh operasional lintas modul.
+- `20270314000000`: memberi NIS pada santri tanpa NIS, mengikat Ustadz ke halaqah contoh, serta menambah record contoh asrama/fasilitas; pembaruan halaqah tidak dibatasi pada `ustadz_user_id IS NULL`.
+- `20270315000000`: menambah contoh tugas/jawaban LMS dan memperbarui `position_seconds` serta `updated_at` untuk materi contoh saat konflik.
+- `20270316000000`: membuat schema/fungsi Komunikasi; DML di badan fungsi baru berjalan ketika fungsi dipanggil.
 
-VQE adalah staging dengan data dummy sesuai keterangan pemilik. Meski demikian, seed di atas dapat menambah fixture dan beberapa pembaruan dapat mengganti nilai fixture yang sudah ada. Belum ada satu pun dari 23 migration ini yang diterapkan; staging harus diverifikasi lagi setelah perubahan sumber digabung dan sebelum promosi ke Production.
+VQE adalah staging dengan data dummy sesuai keterangan pemilik. Ledger kini mencatat seluruh migration source, tetapi daftar dampak ini tetap menjadi catatan perubahan fixture yang terjadi selama staging memperoleh migration tersebut.
+
+**Batas bukti:** katalog dan ledger VQE dibaca sesudah merge. Belum ada UAT antarmuka dengan akun pada sesi ini, backup/restore cloud yang dibuktikan, atau rekonsiliasi DDL lengkap Production dengan source. Gunakan snapshot historis di bagian selanjutnya untuk konteks; jika angkanya bertentangan, status terkini pada bagian ini yang berlaku.
 
 ## Baseline awal sebelum rekonsiliasi alias
 
