@@ -553,6 +553,7 @@ export function MasterDataManager() {
     let cancelled = false;
     setStudentStructureLoadBusy(true);
     setStudentStructureLoadError("");
+    setDataSources((prev) => ({ ...prev, Gedung: [], Kamar: [], Kelas: [] }));
 
     const loadStudentStructures = async () => {
       try {
