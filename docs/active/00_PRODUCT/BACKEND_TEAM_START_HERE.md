@@ -1,10 +1,10 @@
 > Agent / multi-agent: mulai dari AGENT_START_HERE.md. Checkpoint di bawah tetap menjadi arsip; gunakan pembaruan terbaru ini untuk angka dan urutan kerja saat ini.
 
-> **Status terkini — 21 November 2026, 19.09 WIB.** Gunakan ringkasan ini untuk handoff; bagian checkpoint setelahnya adalah arsip bertanggal dan dapat memiliki angka lama.
+> **Status terkini — 21 November 2026, 19.24 WIB.** Gunakan ringkasan ini untuk handoff; bagian checkpoint setelahnya adalah arsip bertanggal dan dapat memiliki angka lama.
 
 ## Source dan PR
 
-- `main` memuat PR #185 pada merge commit `3080422ffc552b82704da0941b574cf8d220b45a` dan pembaruan dokumentasi PR #186 pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`. PR #182 ditutup sebagai superseded, bukan merged. Pencarian terakhir tidak menemukan PR terbuka.
+- `main` memuat PR #185 (`3080422ffc552b82704da0941b574cf8d220b45a`), PR #186 (`ee73543f75f79d9e9ca6666bb0959fb08ad6319f`), dan checkpoint PR #187 (`1365ba1e007c52c7b906f11fe29bfe5c44fbcc78`). PR #182 ditutup sebagai superseded, bukan merged. Pencarian repo setelah merge #187 tidak menemukan PR terbuka.
 - Source aplikasi Tahfidz pada PR #185 diuji di preview dengan akun Ustadz sintetis: satu halaqah, dua santri, tiga setoran hari itu, target 2/2, dan satu leaderboard yang memeringkat 15 lalu 10 ayat unik. Browser yang tersedia kini kembali ke layar masuk; UAT lintas modul/role memerlukan login staging baru.
 - CI pada PR #185 dan #186 lulus 3/3 job wajib (frontend/build guard, paket pelanggan, serta migrasi/API Auth/pgTAP). Supabase Preview dilewati karena tidak ada tautan Supabase Branch.
 - Pemeriksaan lokal tambahan pada source aplikasi `c19f8c2` lulus: Compose dan .env example, 31 public runtime values/38 server gates, runtime Supabase-only tanpa dependency Firebase, serta leaderboard Tahfidz dengan 95 assertion database.
@@ -17,8 +17,8 @@
 
 ## PTSAS Production dan batas promosi
 
-- PTSAS Production tidak disentuh. Snapshot terdahulu mencatat 100 entri ledger saat source masih 163 migrasi; source kini 165, sehingga snapshot tersebut bukan angka pembanding terkini.
-- Sebelum deploy schema, tim backend perlu mengambil ulang inventaris baca-saja Production, membandingkan isi/DDL dan dependensi migrasi, menjelaskan baris ledger kosong/alias, serta membuktikan backup dan restore sebelum rehearsal. Jangan menjalankan `db push` massal hanya untuk menyamakan jumlah.
+- Snapshot baca-saja terbaru PTSAS `ptsasgdvgrbdtgyqieie` menunjukkan `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, dan **100 versi ledger** sampai `20270316000000`. Dari 165 file source, **97 versi/nama cocok persis**; **3 baris ledger tidak memiliki nama** (`20261205000000`, `20261206000000`, `20270118000000`); **65 versi source tidak mempunyai baris ledger** (pertama `20261207000000`, terakhir `20270404000000`). Tidak ada versi ledger tambahan di luar versi source.
+- Konektor hanya mengembalikan metadata versi/nama. Payload SQL dan DDL Production **belum dibandingkan**; tidak ada isi baris aplikasi dibaca dan tidak ada perubahan Production. Tim backend tetap perlu meninjau payload/DDL/dependensi migrasi dan membuktikan backup/restore yang dapat dipulihkan sebelum rehearsal. Jangan jalankan `db push` massal untuk menyamakan hitungan.
 - Hasil tes Supabase lokal terisolasi, metadata staging, dan UAT satu role tidak menggantikan verifikasi Production atau pengujian browser lintas modul.
 
 ## Tindakan berikutnya
