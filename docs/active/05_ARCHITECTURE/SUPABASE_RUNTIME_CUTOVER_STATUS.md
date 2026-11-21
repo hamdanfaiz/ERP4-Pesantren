@@ -2,7 +2,19 @@
 
 > Ruang lingkup: data Firestore pemilik dinyatakan dummy dan tidak perlu disalin. Fokus migrasi adalah runtime Supabase-only, kontrak skema/tenant, uji logika serta isolasi role, dan persiapan instalasi pelanggan.
 
-## Status terverifikasi — 21 November 2026, setelah PR #192
+## Status terverifikasi — 22 November 2026, setelah PR #206
+
+- Source `main` berada pada merge commit `6db3ac18c4b1bc194d55bae83f48a3dd777c363a` dan memuat **166 migration files**, terakhir `20270404010000_crm_broadcast_idempotency`.
+- **VQE staging** `vqemuyzveuirlkvdggjd` berstatus ACTIVE_HEALTHY. Read-only ledger memuat **166/166** pasangan versi/nama source, termasuk migration CRM idempotency.
+- **PTSAS Production** `ptsasgdvgrbdtgyqieie` berstatus ACTIVE_HEALTHY. Read-only ledger memuat **100 entri** sampai `20270316000000_communication_ops_runtime`. Dari 166 file source, **97 pasangan cocok persis**, **66 versi belum tercatat**, tiga nama ledger kosong (`20261205000000`, `20261206000000`, `20270118000000`), tanpa versi ekstra atau nama berbeda.
+- Rincian per versi ada di [rekonsiliasi ledger 22 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-22.md). Pemeriksaan ini hanya membaca metadata migration dan tidak mengubah database.
+- Kehadiran migration CRM baru di ledger VQE belum membuktikan UAT CRM/OpenWA. Catatan ledger tidak menetapkan siapa/kapan yang menerapkan migration, tidak menunjukkan DDL aktual atau status gateway.
+- **Jangan jalankan `db push` massal ke PTSAS.** Ledger Production yang tidak lengkap mungkin tidak merepresentasikan semua perubahan DDL yang sudah ada; tiga nama kosong juga perlu dibuktikan sebelum rekonsiliasi metadata.
+- Pemeriksaan DDL penuh, tinjauan urutan oleh backend owner, bukti backup-restore Production, serta UAT hosting belum selesai. **Production tidak diubah dalam pemeriksaan ini dan belum dinyatakan siap go-live.**
+
+> Bagian di bawah adalah snapshot bertanggal 21 November atau sebelumnya; gunakan status 22 November di atas untuk hitungan terbaru.
+
+## Snapshot historis — 21 November 2026, setelah PR #192
 
 - Source `main` berada pada merge commit `a1ae767f3841f8e884a615ac378f19ada7be8bf8`. Source berisi **165 migration files** hingga `20270404000000`; PR #192 hanya memperbarui dokumentasi.
 - **VQE staging:** ledger memuat **165/165 versi dan nama** yang cocok dengan source saat ini. Ini membuktikan paritas metadata ledger; bukan checksum SQL, kesamaan DDL, atau UAT semua modul.

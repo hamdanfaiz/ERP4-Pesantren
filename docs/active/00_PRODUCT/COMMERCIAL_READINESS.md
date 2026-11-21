@@ -1,26 +1,33 @@
-## Checkpoint terbaru — 22 November 2026, 01.30 WIB
+## Checkpoint terbaru — 22 November 2026, 01.42 WIB
 
-### Source dan CI
+### Source, fitur, dan CI
 
-- `main` berada pada merge commit `17de48a21148ffbecabce320368b570b720082ee`; PR #205 sudah merged dan tidak ada PR terbuka saat checkpoint dibuat.
-- PR #205 menambahkan ledger tahan lama untuk siaran OpenWA CRM: reservasi payload sebelum pemanggilan provider, satu status per penerima, retry permintaan yang sama tanpa mengirim ulang hasil `sending`/`sent`/`failed`/`unknown`, serta penandaan hasil jaringan ambigu untuk rekonsiliasi operator.
-- Kunci permintaan di UI dipertahankan untuk hasil belum pasti, sehingga klik ulang membaca status lama. Kunci baru hanya dilepas untuk pratinjau atau operasi yang selesai.
-- CI pada PR #205 lulus **3/3 job** (run [#44933961597](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44933961597)). CI pasca-merge pada `main` juga lulus **3/3 job** (run [#44934747145](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44934747145)); mencakup frontend/build, instalasi paket pelanggan, migration replay dari baseline lokal, pgTAP, isolasi API/tenant, Storage, dan backup-restore lokal.
-- Migrasi baru adalah `20270404010000_crm_broadcast_idempotency.sql`. Semua bukti CI database berasal dari Supabase lokal terisolasi dengan data sintetis.
+- `main` berada pada commit `6db3ac18c4b1bc194d55bae83f48a3dd777c363a`. PR #205 (siaran OpenWA idempoten) dan PR #206 (checkpoint rilis) sudah merged.
+- PR #205 menambahkan ledger tahan lama per kampanye/penerima, mencegah retry kirim ulang status terminal atau ambigu, dan mempertahankan id permintaan di UI saat hasil belum pasti.
+- PR #205 lulus **3/3 CI** sebelum merge (run [#44933961597](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44933961597)); CI pasca-merge juga **3/3** (run [#44934747145](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44934747145)). Pengujian database berjalan di Supabase lokal terisolasi dengan data sintetis.
+- Estimasi source sekitar **75%** tetap perkiraan checkpoint terdahulu, bukan skor UAT dan belum dihitung ulang.
 
-### Batas bukti dan persentase
+### Status ledger terbaru, baca-saja
 
-- Estimasi source sekitar **75%** tetap perkiraan checkpoint sebelumnya; angka ini bukan skor UAT dan belum dihitung ulang berdasarkan matriks berbobot.
-- Migrasi PR #205 **belum diterapkan ke VQE maupun PTSAS Production**. Merge ke `main` bukan bukti deploy hosting atau aktivasi endpoint.
-- Snapshot terakhir yang tercatat untuk PTSAS adalah 100 entri ledger dibanding 165 file migrasi source pada 21 November. Source sekarang bertambah satu migration menjadi 166; ledger Production belum dibaca ulang setelah merge. Angka selisih lama tidak boleh dipakai sebagai instruksi `db push`.
-- UAT browser lintas role/modul, hasil pengiriman OpenWA staging, verifikasi commit yang dilayani hosting, perbandingan DDL Production penuh, dan bukti backup-restore Production masih belum terkonfirmasi.
+Pemeriksaan 22 November membaca metadata `version, name` dari kedua proyek dan membandingkannya dengan 166 file migration pada `main`:
+
+- **VQE staging** `vqemuyzveuirlkvdggjd`: proyek ACTIVE_HEALTHY; ledger **166/166** cocok persis. Ledger mencatat migration `20270404010000_crm_broadcast_idempotency`. Ini membuktikan metadata migration ada di VQE, tetapi bukan bukti UAT CRM/OpenWA atau siapa/kapan yang menerapkannya.
+- **PTSAS Production** `ptsasgdvgrbdtgyqieie`: proyek ACTIVE_HEALTHY; **100** entri ledger, **97** pasangan versi/nama cocok, **3** nama kosong, **66** source migration belum tercatat; tidak ditemukan versi ekstra atau nama berbeda.
+- Manifest lengkap dan daftar 66 versi terdapat pada [rekonsiliasi ledger 22 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-22.md). Konektor hanya membaca metadata. Tidak ada DDL atau data aplikasi yang dibaca, dan sesi ini tidak menjalankan SQL tulis maupun migration.
+
+### Bukti yang masih kurang
+
+- VQE ledger cocok, tetapi UAT browser CRM/OpenWA belum dilakukan. Tidak ada bukti kirim berhasil, penolakan provider, timeout ambigu, atau klik ulang pada UI VQE.
+- Ledger PTSAS belum direkonsiliasi dengan DDL aktual. **Jangan** menjalankan `supabase db push` massal untuk 66 versi yang belum tercatat; sebagian perubahan mungkin sudah berada di skema Production tanpa ledger.
+- Perbandingan DDL penuh, tinjauan backend owner, backup dan restore Production, serta verifikasi commit yang sedang disajikan hosting masih belum terbukti.
+- Produk belum dinyatakan siap go-live atau komersial. Migrasi PTSAS dan konfigurasi Production tidak diubah.
 
 ### Urutan lanjutan
 
-1. Backend owner memperbarui inventaris baca-saja ledger VQE dan PTSAS terhadap 166 file migration source serta meninjau DDL/dependensi Production.
-2. Setelah target staging diverifikasi, lakukan rehearsal migration baru di VQE; lalu UAT dengan nomor uji yang terkendali untuk penerima sukses, penolakan provider, timeout ambigu, dan klik ulang tanpa duplikasi.
-3. Sebelum promosi Production, cocokkan DDL aktual, jalankan backup dan buktikan restore di target aman, lalu sepakati urutan release dengan backend owner. Jangan menjalankan semua file yang hilang dari ledger secara massal.
-4. Verifikasi deployment hosting terhadap merge commit dan lakukan smoke test role/tenant serta modul utama. Produk belum dinyatakan siap go-live atau komersial.
+1. Backend owner cocokkan DDL Production, fungsi, trigger, policy, grants, dan dependensi terhadap migrasi yang belum tercatat; periksa pula tiga nama ledger kosong.
+2. Lakukan UAT CRM di VQE dengan penerima uji terkendali; uji hasil sukses, penolakan, timeout ambigu, dan retry id yang sama. Pengiriman pesan eksternal harus diarahkan ke nomor yang disetujui pemilik.
+3. Buktikan backup dan restore pada target aman sebelum menyusun rencana promosi Production; jalankan hanya migration yang dampaknya sudah dipahami.
+4. Pastikan hosting menjalankan commit yang disetujui, lalu lakukan smoke test lintas role/tenant dan modul utama.
 
 
 ---
