@@ -1,25 +1,22 @@
 # Audit paritas sumber PR #1–#11 dengan source utama
 
-## Revalidasi terbaru — 8 November 2026 (main setelah PR #87)
+## Revalidasi terbaru — 21 November 2026 (main setelah PR #190)
 
-- Baseline saat audit: `main` commit `915bddc04c903f2521f3d10887e3c2b27cfe5718` (PR #87, dokumentasi kesiapan, sudah merged). Metadata GitHub terkini mengonfirmasi PR #1–#11 semuanya `closed`, `merged=false`, dan `merged_at=null`. Jadi perubahan branch lama tidak pernah digabung sebagai PR.
-- Audit membandingkan ringkasan dan daftar file perubahan setiap PR dengan source `main`, lalu mencari padanan modul, endpoint, migrasi, dan pengujiannya. Path lama yang tidak ada tidak dianggap bukti fitur hilang; beberapa migrasi dan lokasi API diganti oleh arsitektur Supabase yang lebih baru.
-- Pemetaan cakupan saat ini:
-  - **#1 fondasi tenant/PPDB:** `supabase/migrations/20261023000000_tenant_profile_foundation.sql`, `tenant_isolation.test.sql`, dan migrasi PPDB publik. Migrasi historis lain dari branch lama tidak boleh dijalankan ulang.
-  - **#2 model komersial/self-hosted:** `docs/active/00_PRODUCT/COMMERCIAL_READINESS.md` dan `docs/guides/CUSTOMER_MANAGED_DEPLOYMENT.md` menggantikan dokumen distribusi lama. VPS/on-premise adalah target, tetapi instalasi dan pemulihan pada host pelanggan belum dibuktikan.
-  - **#3 provisioning pengguna/permission:** Edge Function lama diganti API Node di `server.ts` dan `src/server/identityStore.ts`, dengan UI `UserManagementView.tsx`. `scripts/test-api-auth-tenant.mjs` mencakup pembuatan profil, tenant scope, batas role/permission Admin, undangan Wali, serta kompensasi kegagalan provisioning. Temuan Admin dapat memberi permission yang tidak dimilikinya telah diperbaiki dalam source lanjutan.
-  - **#4 container self-hosted:** padanannya adalah `Dockerfile`, `docker-compose.yml`, health endpoint, dan panduan deployment pelanggan; CI membangun serta melakukan smoke test image. File `compose.yaml` di PR lama memang diganti nama.
-  - **#5 PPDB publik:** `src/server/supabasePublicPpdb.ts`, `20261028000000_public_ppdb_runtime.sql`, tes runtime/idempotensi, rate limit, dan berkas privat.
-  - **#6 roadmap migrasi:** `SUPABASE_RUNTIME_CUTOVER_STATUS.md` dan `docs/guides/MIGRATION_GUIDE.md` adalah runbook yang lebih baru, bukan bukti Production telah cutover.
-  - **#7 PPDB Admin:** `src/server/supabasePpdb.ts`, `src/pages/SupabasePpdbManager.tsx`, migrasi workflow Admin, tes create/search, dokumen, dan API.
-  - **#8 Master Data/onboarding/NIS/asrama:** `src/server/supabaseOnboarding.ts`, importer Data Induk, migrasi onboarding/penempatan kamar, tes relasi impor, penguncian referensi, dan konkurensi NIS/kamar.
-  - **#9 Finance tenant-scoped:** `src/server/supabaseFinance.ts`, migrasi Finance, dan tes transaksi/anggaran/unit.
-  - **#10 pembayaran/bukti PPDB:** API Finance/PPDB dan `src/server/financeProofStorage.ts` menggunakan Storage privat; tes HTTP/role/tenant/rate limit tersedia. PPOB/payment gateway dikeluarkan dari rilis awal, dan pembayaran Wali sebelum onboarding belum tersedia.
-  - **#11 Master Data/asrama/Tahfidz:** UI dan API Supabase untuk Master Data, Boarding, dan Tahfidz beserta migrasi dan tes. Peer Review Tahfidz dibatasi pada teks dengan moderasi Ustadz; audio dan akses Wali bukan bagian cakupan yang disetujui.
-- CI terbaru yang diperiksa pada kandidat dokumentasi PR #87, run [#42460313371](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42460313371), lulus **3/3 job**: instalasi NPM pelanggan; migrations/API auth/pgTAP di Supabase lokal terisolasi; serta frontend build dan Firebase bundle guard. PR #87 tidak mengubah runtime aplikasi.
-- Cakupan otomatis membuktikan alur terpilih untuk relasi, penyimpanan-baca, role, isolasi tenant, Storage, konkurensi, dan satu smoke test backup/restore lokal sintetis. Ini bukan verifikasi setiap tombol/form/UI pada semua modul dan bukan UAT pada Supabase Production atau seluruh host pelanggan.
-- **Keputusan PR lama:** jangan merge atau menerapkan migrasi PR #1–#11 satu per satu. Audit ini tidak menemukan fitur produk utama dari PR lama yang hanya ada di branch lama; implementasi penggantinya ada di source `main`. Seluruh PR lama tetap closed tanpa merge sebagai superseded.
-- **Gerbang yang masih terbuka:** UAT browser Admin/Wali dan semua alur lintas modul; clean install/upgrade/restore di VPS/on-premise representatif; serta schema diff, urutan migrasi, dan rehearsal backup/restore Production oleh tim backend. Akses baca Production dari konektor sesi ini masih ditolak; Production tidak diubah.
+- Baseline source adalah `main` pada merge commit `34336694f32e7b9dc674fdd02b754c2cd8ba8aa4` (PR #190). Pemeriksaan metadata GitHub mengonfirmasi PR #1–#11 semuanya `closed`, `merged=false`, dan tanpa `merged_at`. Status closed tidak berarti merged.
+- Pemeriksaan ulang membandingkan daftar file tiap PR dengan tree commit head PR dan tree `main`. Hasilnya menunjukkan perubahan lama memakai path, isi, dan versi migrasi yang telah banyak berkembang. Nama file yang hilang atau berubah tidak sendirinya membuktikan fitur hilang; paritas dinilai dari pengganti source dan bukti uji yang tercatat di matriks audit historis di bawah.
+- Pemetaan source terkini:
+  - **#1 tenant/PPDB:** fondasi profil dan tenant ada pada `20261023000000_tenant_profile_foundation.sql`, dengan isi yang sudah berevolusi dari branch lama; lanjutannya memakai migrasi PPDB yang lebih baru.
+  - **#2 model komersial/self-hosted:** `COMMERCIAL_READINESS.md` dan panduan pelanggan menggantikan dokumen lama. Target VPS/on-premise tetap perlu clean install, upgrade, serta pemulihan yang dibuktikan oleh tim deployment.
+  - **#3 provisioning user:** implementasi berpindah dari Edge Function lama ke API Node di `src/server/identityStore.ts`, server route, dan `UserManagementView.tsx`; tes autentikasi/RBAC ada di suite API. Edge Function lama tidak perlu dimasukkan kembali.
+  - **#4 container:** `Dockerfile`, `docker-compose.yml`, health endpoint, dan panduan customer-managed deployment menjadi padanan; file lama `compose.yaml` berubah nama dan implementasinya berkembang.
+  - **#5–#7 PPDB:** pendaftaran publik, alur Admin, pencarian, penilaian, dokumen privat, dan unggah melalui server berada pada API, halaman, migrasi, dan tes PPDB yang lebih baru.
+  - **#8–#9 Master Data/onboarding/Finance:** transaksi onboarding, relasi, reservasi NIS, penempatan kamar, ledger Finance, dan anggaran memiliki implementasi pada runtime dan migrasi terbaru, bukan migrasi awal pada PR lama.
+  - **#10 pembayaran:** bukti Finance memakai jalur backend dan Storage privat; PPOB/payment gateway tetap di luar rilis awal.
+  - **#11 Master Data/Asrama/Tahfidz:** API dan UI saat ini berada pada `src/server` dan halaman Supabase terkini. Migrasi Tahfidz/Asrama lama digantikan seri migrasi runtime yang lebih baru; bridge identitas Firebase lama tidak boleh dihidupkan kembali.
+- Kesimpulan integrasi: audit source sebelumnya tidak menemukan fitur produk utama dari PR #1–#11 yang hanya ada pada branch lama. **Jangan merge ulang PR #1–#11 atau menerapkan migrasi dari branch itu.** Semuanya ditutup tanpa merge karena implementasinya digantikan/diintegrasikan lewat jalur source berikutnya; menyebutnya merged akan tidak akurat.
+- Validasi source terbaru: PR #189 dan #190 sudah merged ke `main`. GitHub Actions pada PR #190, run [#44910210594](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44910210594), lulus 3/3 job. CI mencakup instalasi/build, guard runtime, uji database lokal sintetis, dan smoke container/restore yang dinyatakan oleh workflow. Ini bukti CI, bukan bukti seluruh UI telah UAT.
+- Rekonsiliasi migrasi VQE baca-saja terhadap source saat revalidasi menunjukkan **165 versi/nama cocok 165/165**. Pemeriksaan Production sebelumnya menunjukkan ledger 47 entri, sedangkan source memiliki 165 migrasi; selisih itu memerlukan rekonsiliasi skema/urutan serta bukti backup-restore oleh tim backend. Tidak ada perubahan Production yang dilakukan.
+- Batas bukti saat ini: UAT antarmuka Admin/Wali seluruh modul, clean install/upgrade/restore pada host pelanggan, DDL aktual Production, dan rehearsal pemulihan Production belum dibuktikan oleh catatan ini. Jangan menyamakan persentase source yang selesai dengan persentase UAT atau kesiapan deploy.
 
 ## Arsip revalidasi awal — 8 November 2026 (setelah PR #77)
 
