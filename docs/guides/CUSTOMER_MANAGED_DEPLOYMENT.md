@@ -87,7 +87,7 @@ Compose meneruskan pengaturan ini hanya ke proses server. Nilai tenant harus ber
 - Mengaktifkan runtime Wali tidak otomatis membuka pendaftaran PPDB. Biarkan `PUBLIC_PPDB_ENABLED=false` bila formulir PPDB belum disetujui untuk dibuka.
 - Pertahankan semua flag dalam keadaan `false` saat pemasangan awal. Uji tenant, alur verifikasi email, penyimpanan berkas privat, batas permintaan, dan pesan gagal pada environment nonproduksi sebelum mengaktifkannya. Variabel ini tidak memakai awalan `VITE_` dan tidak masuk ke konfigurasi browser.
 
- PII and legacy fingerprint keys are server-only; do not prefix them with `VITE_`.
+Kunci PII dan sidik jari warisan hanya digunakan di server; jangan beri awalan `VITE_`.
 
 Modul RKAT bergantung pada tabel Keuangan yang sama. Aktifkan `SUPABASE_FINANCE_RUNTIME_ENABLED` dan `SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED` hanya setelah migration `20270125000000_finance_budget_plans.sql`, uji RLS/tenant, dan persetujuan alur anggaran lolos di environment nonproduksi. Data anggaran tidak dibuat otomatis; Admin harus mengisi alokasi. Realisasi dihitung dari pengeluaran yang sudah disetujui dan tercatat di buku Keuangan.
 
