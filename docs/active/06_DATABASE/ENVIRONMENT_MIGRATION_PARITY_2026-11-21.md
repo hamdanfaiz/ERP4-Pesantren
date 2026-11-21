@@ -100,4 +100,29 @@ Ledger PTSAS mencapai `20270316000000`. Tiga entri Production tidak menyertakan 
 - Pemeriksaan ini tidak membuktikan kesetaraan DDL, keberhasilan setiap fitur, backup/restore, atau kesiapan UAT.
 - Tidak ada migrasi, perbaikan ledger, data, atau konfigurasi yang diubah di VQE maupun PTSAS.
 - Perubahan Production dan persetujuan urutan migrasi tetap menjadi pekerjaan operator/backend owner yang berwenang.
+## Hasil Supabase Advisors baca-saja — 21 November 2026
 
+Pemeriksaan Advisors hanya membaca metadata/configuration yang dilaporkan Supabase. Tidak membaca baris aplikasi dan tidak mengubah policy, function, index, Auth setting, atau data. Snapshot advisories bukan bukti bahwa seluruh DDL Production cocok dengan source.
+
+| Temuan | VQE staging | PTSAS Production |
+| --- | ---: | ---: |
+| RLS aktif tanpa policy (INFO) | 174 tabel | 157 tabel |
+| Password bocor belum dicegah (WARN) | 1 setting Auth | 1 setting Auth |
+| Foreign key tanpa indeks penutup (INFO) | 261 | 269 |
+| Policy RLS dengan initplan (WARN) | 1 (`tahfidz_student_ayah_progress`) | 2 (`profiles`, `user_profiles`) |
+| Indeks belum digunakan (INFO) | 97 | 89 |
+| Indeks duplikat (WARN) | 0 | 1 pada `document_records` |
+
+PTSAS juga melaporkan satu function dengan `search_path` mutable: `public.erp4_ppdb_update_updated_at_column()`, dan empat `SECURITY DEFINER` pada schema `public` yang masih dapat dipanggil oleh role `authenticated` melalui Data API: `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, serta `is_tenant_admin()`.
+
+### Interpretasi dan tindak lanjut
+
+- `RLS Enabled No Policy` umumnya berarti akses langsung ditolak oleh RLS. Ini bisa disengaja untuk tabel yang hanya boleh dipakai API server/RPC; jangan menambahkan policy atau grant publik secara massal. Backend perlu memastikan grants, schema exposure, dan otorisasi setiap endpoint cocok dengan pola service-only.
+- Function PTSAS yang dapat dieksekusi cocok dengan gap migrasi `20270210000000_internalize_tenant_rls_helpers`: source memindahkan helper dari schema Data API `public` ke schema `private`. Function trigger dan default privilege terkait ditangani oleh `20261205000000_data_api_default_privilege_hardening`; `search_path` helper PPDB dipatok oleh `20270209000000_harden_ppdb_trigger_search_path`. Karena keadaan katalog aktual belum dibandingkan penuh, tinjau definisi/grant Production sebelum memilih migrasi atau repair.
+- Indeks duplikat `document_records_tenant_document_number_uq` dan `document_records_tenant_number_normalized_uq` tercakup pada migrasi source `20270227000000_remove_redundant_document_number_index`. Pastikan definisi kedua indeks dan constraint aktual Production sebelum menghapus salah satunya.
+- Temuan indeks foreign key adalah sinyal untuk review kinerja, bukan instruksi membuat 261/269 indeks sekaligus. Cocokkan kolom FK dengan indeks komposit yang sudah ada, pola query nyata, `EXPLAIN`, ukuran tabel, lock, dan biaya tulis. Migration `20270330000000_add_core_composite_fk_indexes` hanya mencakup kelompok relasi inti.
+- Temuan initplan di Production pada `profiles`/`user_profiles` cocok dengan optimasi source `20270211000000_optimize_profile_rls_initplans`. Temuan staging pada policy `tahfidz_student_ayah_progress_owner_all` perlu ditinjau terpisah; pengoptimalan policy harus mempertahankan fail-closed tenant scope dan dibuktikan dengan test RLS.
+- Indeks yang belum digunakan bisa terjadi karena workload masih kecil atau baru; jangan menghapusnya sebelum ada observasi workload representatif.
+- Pengaturan Auth “Leaked Password Protection” perlu ditinjau dan diaktifkan oleh operator pada tiap environment bersama kebijakan kata sandi dan pengujian signup/reset. Ini pengaturan Auth, bukan migrasi database.
+
+Tindak lanjut yang mengubah Production tetap mengikuti runbook: bandingkan definisi aktual terlebih dahulu, susun perubahan maju yang sempit, rehearsal dan backup/restore, lalu persetujuan backend owner. Advisories sendiri tidak memberi persetujuan untuk mengubah Production.
