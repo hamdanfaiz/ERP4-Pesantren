@@ -105,6 +105,16 @@ BEGIN
     AND NEW.interaction_error_code IS NULL THEN
     RETURN NEW;
   END IF;
+  IF OLD.status = 'sent' AND NEW.status = 'sent'
+    AND OLD.message_id IS NOT DISTINCT FROM NEW.message_id
+    AND OLD.error_code IS NOT DISTINCT FROM NEW.error_code
+    AND OLD.attempted_at IS NOT DISTINCT FROM NEW.attempted_at
+    AND OLD.finished_at IS NOT DISTINCT FROM NEW.finished_at
+    AND OLD.interaction_logged_at IS NULL
+    AND NEW.interaction_logged_at IS NULL
+    AND NEW.interaction_error_code = 'interaction_log_failed' THEN
+    RETURN NEW;
+  END IF;
   RAISE EXCEPTION 'Perubahan status penerima siaran CRM tidak valid' USING ERRCODE = '55000';
 END;
 $$;
@@ -246,11 +256,11 @@ DECLARE
   v_recipient public.crm_broadcast_recipients%ROWTYPE;
 BEGIN
   PERFORM public.assert_tenant_crm_actor(p_tenant_id, p_actor_user_id, p_expected_role);
-  IF p_status NOT IN ('sent', 'failed', 'unknown')
+  IF p_status IS NULL OR p_status NOT IN ('sent', 'failed', 'unknown')
     OR (p_message_id IS NOT NULL AND (length(p_message_id) > 200 OR p_message_id ~ '[[:cntrl:]]'))
     OR (p_status = 'sent' AND p_error_code IS NOT NULL)
     OR (p_status = 'failed' AND p_error_code NOT IN ('provider_rejected', 'provider_unavailable'))
-    OR (p_status = 'unknown' AND p_error_code <> 'delivery_unknown') THEN
+    OR (p_status = 'unknown' AND p_error_code IS DISTINCT FROM 'delivery_unknown') THEN
     RAISE EXCEPTION 'Hasil pengiriman siaran CRM tidak valid' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO v_request FROM public.crm_broadcast_requests
