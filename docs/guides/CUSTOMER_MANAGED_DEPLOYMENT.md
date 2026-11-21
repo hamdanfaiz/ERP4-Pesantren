@@ -31,6 +31,8 @@ ERP4_HTTP_PORT=3000
 # PII_FINGERPRINT_KEY is also required for durable server-side Finance/PPDB abuse limits.
 PII_ENCRYPTION_KEY=
 PII_FINGERPRINT_KEY=
+# Optional; required only when outbound WhatsApp via OpenWA is enabled.
+WA_GATEWAY_API_KEY=
 SUPABASE_LEGACY_FINGERPRINT_KEY=
 
 # Feature gates stay off until the matching database and tenant checks are complete.
@@ -56,7 +58,7 @@ VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED=true
 
 Flag tanpa awalan `VITE_` mengendalikan endpoint server; flag `VITE_` mengendalikan fitur yang diumumkan ke browser melalui `/runtime-config.json`. Berkas `.env.example` mencantumkan flag semua modul dan pasangan browser yang tersedia; nilai bawaan tetap `false`. Salin konfigurasi itu ke `.env` yang diabaikan Git dan aktifkan modul satu per satu hanya setelah migration, akses tenant/role, dan alur modul terkait lolos di staging. Jangan mengaktifkan flag Production sebelum persetujuan rilis dan UAT.
 
-`VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`.
+`VITE_SUPABASE_URL` must be reachable from each user's browser. `SUPABASE_URL` must be reachable from the container and may use a private address. The browser bootstrap fetches an allowlisted `/runtime-config.json` before loading the application. The Supabase URL, publishable key, and public feature flags are read when the container starts, not baked into the image. The publishable key is public by design; the secret key is passed only to the server container. Never put a secret key in a `VITE_` variable or commit `.env`. The optional `WA_GATEWAY_API_KEY` is also passed only to the server container; configure the OpenWA endpoint in the tenant's supported settings.
 
 ## Provision the first tenant and Admin
 
