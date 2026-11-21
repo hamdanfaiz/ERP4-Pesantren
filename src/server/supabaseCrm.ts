@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Buffer } from "node:buffer";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export class SupabaseCrmError extends Error {
   status: number;
@@ -226,6 +226,37 @@ export function normalizeCrmBroadcastContactIds(raw: unknown): string[] {
   return ids;
 }
 
+function crmBroadcastInteractionRequestId(clientRequestId: string, contactId: string) {
+  const hex = createHash("sha256").update(clientRequestId + ":" + contactId).digest("hex").slice(0, 32);
+  return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-4" + hex.slice(13, 16) + "-8" + hex.slice(17, 20) + "-" + hex.slice(20, 32);
+}
+
+async function readSupabaseCrmBroadcastStatus(
+  tenantId: string, actorId: string, role: string, clientRequestId: string,
+) {
+  const { data, error } = await client().rpc("get_tenant_crm_broadcast_status", {
+    p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+    p_client_request_id: clientRequestId,
+  });
+  if (error) fail(error, "Status siaran CRM belum dapat dimuat.");
+  const result = data as any;
+  if (!result || !uuid(result.clientRequestId) || !["processing", "completed", "uncertain"].includes(result.status)
+    || !Array.isArray(result.results)) {
+    throw new SupabaseCrmError(503, "Status siaran CRM tidak valid.");
+  }
+  return {
+    dryRun: false,
+    provider: "open-wa",
+    clientRequestId: result.clientRequestId,
+    status: result.status,
+    sent: Number(result.sent || 0),
+    failed: Number(result.failed || 0),
+    unknown: Number(result.unknown || 0),
+    pending: Number(result.pending || 0),
+    results: result.results,
+  };
+}
+
 export async function sendSupabaseCrmOpenWaBroadcast(
   tenantId: string,
   actorId: string,
@@ -241,21 +272,16 @@ export async function sendSupabaseCrmOpenWaBroadcast(
   const requestedIds = normalizeCrmBroadcastContactIds(raw.contactIds);
 
   const { openWaSendText, normalizeOpenWaChatId, OpenWaGatewayError, getOpenWaStatus } = await import("./openWaGateway");
-  const status = await getOpenWaStatus(tenantId);
-  if (!status.configured && !raw.dryRun) {
-    throw new SupabaseCrmError(503, status.error || "OpenWA belum dikonfigurasi.");
-  }
+  const gatewayStatus = await getOpenWaStatus(tenantId);
 
   const audience: Array<{ id: string; name: string; phone: string; chatId: string }> = [];
   let cursor: string | null = null;
   for (let page = 0; page < 20; page += 1) {
     const batch = await listSupabaseCrmContactsPage(tenantId, actorId, role, { cursor, pageSize: 100 });
     for (const contact of batch.contacts) {
-      if (contact.marketingConsent !== "granted") continue;
-      if (requestedIds.length && !requestedIds.includes(contact.id)) continue;
+      if (contact.marketingConsent !== "granted" || !requestedIds.includes(contact.id)) continue;
       const chatId = normalizeOpenWaChatId(contact.phone);
-      if (!chatId) continue;
-      audience.push({ id: contact.id, name: contact.name, phone: contact.phone, chatId });
+      if (chatId) audience.push({ id: contact.id, name: contact.name, phone: contact.phone, chatId });
     }
     cursor = batch.nextCursor;
     if (!cursor) break;
@@ -275,41 +301,119 @@ export async function sendSupabaseCrmOpenWaBroadcast(
   if (raw.dryRun) {
     return {
       dryRun: true,
-      configured: status.configured,
+      configured: Boolean(gatewayStatus.configured),
       provider: "open-wa",
       recipientCount: audience.length,
       recipients: audience.map(({ id, name, phone, chatId }) => ({ id, name, phone, chatId })),
     };
   }
 
-  const results: Array<{ contactId: string; name: string; phone: string; status: "sent" | "failed"; error?: string; messageId?: string | null }> = [];
+  const payloadSha256 = createHash("sha256").update(JSON.stringify({
+    tenantId,
+    actorId,
+    subject,
+    message,
+    contactIds: [...requestedIds].sort(),
+  })).digest("hex");
+  const { data: reservationData, error: reservationError } = await client().rpc("reserve_tenant_crm_broadcast", {
+    p_tenant_id: tenantId,
+    p_actor_user_id: actorId,
+    p_expected_role: roleForDatabase(role),
+    p_client_request_id: raw.clientRequestId,
+    p_payload_sha256: "\\x" + payloadSha256,
+    p_contact_ids: audience.map((item) => item.id),
+  });
+  if (reservationError) fail(reservationError, "Permintaan siaran CRM belum dapat dicatat.");
+  const reservation = reservationData as { created?: boolean; status?: string } | null;
+  if (!reservation || typeof reservation.created !== "boolean") {
+    throw new SupabaseCrmError(503, "Respons pencatatan siaran CRM tidak valid.");
+  }
+  if (!reservation.created) {
+    return {
+      ...(await readSupabaseCrmBroadcastStatus(tenantId, actorId, role, raw.clientRequestId)),
+      alreadyApplied: true,
+    };
+  }
+
   for (const recipient of audience) {
+    const { data: claimData, error: claimError } = await client().rpc("claim_tenant_crm_broadcast_recipient", {
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: roleForDatabase(role),
+      p_client_request_id: raw.clientRequestId,
+      p_contact_id: recipient.id,
+    });
+    if (claimError) fail(claimError, "Penerima siaran CRM belum dapat diproses.");
+    if (!(claimData as any)?.claimed) continue;
+
+    if (!gatewayStatus.configured) {
+      const { error } = await client().rpc("record_tenant_crm_broadcast_delivery", {
+        p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+        p_client_request_id: raw.clientRequestId, p_contact_id: recipient.id,
+        p_status: "failed", p_message_id: null, p_error_code: "provider_unavailable",
+      });
+      if (error) fail(error, "Status siaran CRM belum dapat dicatat.");
+      continue;
+    }
+
+    let sent: { messageId?: string | null };
     try {
-      const sent = await openWaSendText(tenantId, recipient.chatId, message);
+      sent = await openWaSendText(tenantId, recipient.chatId, message);
+    } catch (error) {
+      const deliveryUnknown = error instanceof OpenWaGatewayError ? error.deliveryUnknown : true;
+      const deliveryStatus = deliveryUnknown ? "unknown" : "failed";
+      const errorCode = deliveryUnknown
+        ? "delivery_unknown"
+        : error instanceof OpenWaGatewayError && error.status === 503
+          ? "provider_unavailable"
+          : "provider_rejected";
+      const { error: recordError } = await client().rpc("record_tenant_crm_broadcast_delivery", {
+        p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+        p_client_request_id: raw.clientRequestId, p_contact_id: recipient.id,
+        p_status: deliveryStatus, p_message_id: null, p_error_code: errorCode,
+      });
+      if (recordError) console.error("CRM broadcast outcome could not be persisted:", String(recordError.code || "database_error"));
+      continue;
+    }
+
+    const { error: deliveryError } = await client().rpc("record_tenant_crm_broadcast_delivery", {
+      p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+      p_client_request_id: raw.clientRequestId, p_contact_id: recipient.id,
+      p_status: "sent", p_message_id: sent.messageId || null, p_error_code: null,
+    });
+    if (deliveryError) console.error("CRM accepted delivery outcome could not be persisted:", String(deliveryError.code || "database_error"));
+
+    let interactionLogged = false;
+    try {
       await recordSupabaseCrmInteraction(tenantId, actorId, role, {
-        clientRequestId: randomUUID(),
+        clientRequestId: crmBroadcastInteractionRequestId(raw.clientRequestId, recipient.id),
         contactId: recipient.id,
         interactionType: "message",
         direction: "outbound",
         subject,
-        summary: `Siaran WhatsApp · ${message.slice(0, 500)}`,
+        summary: "Siaran WhatsApp · " + message.slice(0, 500),
       });
-      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "sent", messageId: sent.messageId });
+      interactionLogged = true;
     } catch (error) {
-      const status = error instanceof OpenWaGatewayError || error instanceof SupabaseCrmError
-        ? error.status
-        : "unexpected";
-      console.error("CRM WhatsApp recipient delivery failed:", status);
-      results.push({ contactId: recipient.id, name: recipient.name, phone: recipient.phone, status: "failed", error: "Pesan belum berhasil dikirim. Periksa nomor penerima atau coba lagi." });
+      const status = error instanceof SupabaseCrmError ? error.status : "unexpected";
+      console.error("CRM broadcast interaction audit failed:", status);
     }
+    const { error: interactionStatusError } = await client().rpc("mark_tenant_crm_broadcast_interaction_logged", {
+      p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+      p_client_request_id: raw.clientRequestId, p_contact_id: recipient.id, p_logged: interactionLogged,
+    });
+    if (interactionStatusError) console.error("CRM broadcast interaction audit status could not be persisted:", String(interactionStatusError.code || "database_error"));
   }
 
+  const { error: finishError } = await client().rpc("finish_tenant_crm_broadcast", {
+    p_tenant_id: tenantId,
+    p_actor_user_id: actorId,
+    p_expected_role: roleForDatabase(role),
+    p_client_request_id: raw.clientRequestId,
+  });
+  if (finishError) fail(finishError, "Status akhir siaran CRM belum dapat dicatat.");
   return {
-    dryRun: false,
-    provider: "open-wa",
-    clientRequestId: raw.clientRequestId,
-    sent: results.filter((item) => item.status === "sent").length,
-    failed: results.filter((item) => item.status === "failed").length,
-    results,
+    ...(await readSupabaseCrmBroadcastStatus(tenantId, actorId, role, raw.clientRequestId)),
+    alreadyApplied: false,
   };
 }
