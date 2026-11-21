@@ -2,20 +2,18 @@
 
 > Ruang lingkup: data Firestore pemilik dinyatakan dummy dan tidak perlu disalin. Fokus migrasi adalah runtime Supabase-only, kontrak skema/tenant, uji logika serta isolasi role, dan persiapan instalasi pelanggan.
 
-## Status terverifikasi — 21 November 2026, setelah PR #191
+## Status terverifikasi — 21 November 2026, setelah PR #192
 
-- Source `main` berada pada commit `32565c547a37a8449ed92e0a362e661c3b8ef37b`. Source berisi **165 migration files** hingga `20270404000000`.
+- Source `main` berada pada merge commit `a1ae767f3841f8e884a615ac378f19ada7be8bf8`. Source berisi **165 migration files** hingga `20270404000000`; PR #192 hanya memperbarui dokumentasi.
 - **VQE staging:** ledger memuat **165/165 versi dan nama** yang cocok dengan source saat ini. Ini membuktikan paritas metadata ledger; bukan checksum SQL, kesamaan DDL, atau UAT semua modul.
 - **PTSAS Production:** ledger memuat **100 versi** hingga `20270316000000`. Dari 165 migration source, **65 versi belum tercatat**, tidak ada versi Production-only, dan tiga entri Production tidak menyertakan nama: `20261205000000`, `20261206000000`, `20270118000000`. Rincian versi tertinggal tercatat di [revalidasi ledger 21 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-21.md).
 - Hasil tersebut berasal dari pembacaan metadata migrasi. Tidak ada DDL, data aplikasi, setting, atau migrasi Production yang dibaca/diubah dalam pemeriksaan ledger ini. Jangan menganggap 65 versi itu sebagai perintah untuk menjalankan `db push`.
 - Pemeriksaan katalog Production sebelumnya menunjukkan perbedaan nyata pada tabel, kolom, constraint, indeks, trigger, fungsi, dan policy dibanding VQE. Ledger saja tidak cukup untuk menilai efek migrasi atau menyusun urutan promosi; gunakan [runbook audit Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
-- CI pada merge PR #191 lulus 3/3 job: suite database sintetis, build/guard runtime frontend, dan instalasi NPM pelanggan. Ini bukan uji login pada hosting atau pemulihan Production.
+- CI PR #192 lulus 3/3 job: build dan guard runtime frontend, suite migrasi/API/pgTAP pada Supabase lokal terisolasi, serta instalasi NPM pelanggan. Rehearsal memakai baseline Production historis 6 November dan mencakup uji tenant, transaksi serentak, Tahfidz, Storage, serta backup-restore lokal. Supabase Preview berstatus `skipped` karena pembuatan branch preview dinonaktifkan. Ini bukan uji login pada hosting atau pemulihan Production.
 - Runtime aktif telah menggunakan Supabase; source Firebase lama yang tersisa berada pada jalur historis/kompatibilitas yang dikunci. Guard CI menguji graph aktif dan dependency produksi, bukan semua source arsip.
 - **Belum dinyatakan siap go-live.** Diff DDL Production penuh, tinjauan urutan migrasi oleh backend owner, bukti restore backup Production, dan UAT hosting menyeluruh masih belum terbukti. Production tidak diubah.
 
-> Bagian di bawah ini adalah catatan historis dan dapat memuat hitungan/commit yang telah digantikan oleh status di atas.
-
- per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
+> Bagian di bawah ini adalah catatan historis per checkpoint dan dapat memuat hitungan/commit yang telah digantikan oleh status di atas. Gunakan status terverifikasi di atas untuk keadaan sekarang.
 
 ## Arsip status diverifikasi setelah PR #17 — 31 Oktober 2026
 
