@@ -259,7 +259,7 @@ BEGIN
   IF p_status IS NULL OR p_status NOT IN ('sent', 'failed', 'unknown')
     OR (p_message_id IS NOT NULL AND (length(p_message_id) > 200 OR p_message_id ~ '[[:cntrl:]]'))
     OR (p_status = 'sent' AND p_error_code IS NOT NULL)
-    OR (p_status = 'failed' AND p_error_code NOT IN ('provider_rejected', 'provider_unavailable'))
+    OR (p_status = 'failed' AND (p_error_code IS NULL OR p_error_code NOT IN ('provider_rejected', 'provider_unavailable')))
     OR (p_status = 'unknown' AND p_error_code IS DISTINCT FROM 'delivery_unknown') THEN
     RAISE EXCEPTION 'Hasil pengiriman siaran CRM tidak valid' USING ERRCODE = '22023';
   END IF;
