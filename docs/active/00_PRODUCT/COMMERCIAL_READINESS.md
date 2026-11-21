@@ -1,3 +1,12 @@
+## Pembaruan setelah PR #211 — 22 November 2026
+
+- `main` saat snapshot ini berada pada merge commit `da399a88967f1c093cd8ef99fb620e04e67d4533`. PR #211 merged setelah PR #210; tiga job CI required lulus pada run [#44943499275](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44943499275). Perubahannya hanya dokumentasi.
+- Pencarian GitHub setelah merge tidak menemukan PR terbuka.
+- Pembacaan ulang metadata ledger: VQE staging memiliki **166 versi** hingga `20270404010000`, semuanya dengan nama; PTSAS Production memiliki **100 versi** hingga `20270316000000`, dengan nama kosong pada `20261205000000`, `20261206000000`, dan `20270118000000`. Pembacaan ini tidak mengambil baris aplikasi atau DDL dan tidak menulis ke database.
+- Status gerbang Production tidak berubah: 66 source migrations belum tercatat di ledger; DDL aktual, urutan/promosi migrasi, backup/restore Production, dan commit hosting yang aktif masih perlu bukti/review tim backend. Jangan jalankan `db push` massal.
+
+---
+
 ## Pembaruan setelah PR #210 tergabung — 22 November 2026
 
 - PR #210 telah tergabung pada merge commit `0170dc3f5a990cd4665109f6ade759d10ee3ddf5`. Snapshot checkpoint pukul 02.35 WIB di bawah ini dibuat sebelum merge, sehingga baris `main` pada snapshot itu mencatat base commit `f82b2c9e61bfa3bb864dd2132ed2d8321c8187c4` dengan benar pada saat tersebut.
