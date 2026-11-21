@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(30);
+SELECT plan(31);
 
 INSERT INTO public.tenants (id, slug, name, status)
 VALUES ('c7000000-0000-4000-8000-000000000007', 'guardian-invite-test', 'Guardian Invite Test', 'active');
