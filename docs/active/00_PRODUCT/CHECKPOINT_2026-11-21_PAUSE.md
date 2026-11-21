@@ -43,3 +43,22 @@ Project `ptsasgdvgrbdtgyqieie` tidak diubah:
 5. Lanjutkan audit produk/UAT dari `COMMERCIAL_READINESS.md` dan `AGENT_START_HERE.md`; tujuan keseluruhan ERP tetap aktif.
 
 Checkpoint ini tidak menjalankan tes, migrasi, perubahan data, atau deploy.
+
+
+## Resume pemeriksaan — 21 November 2026, 09.30 WIB
+
+- PR #182 masih terbuka dan mergeable pada head `c3daeeb8520cd2835b23ce82d9eca2a00cc31358`. GitHub Actions untuk head itu selesai dengan hasil sukses pada run #44848039684. Tidak ada tinjauan reviewer yang tercatat.
+- Preview staging Hostinger `lightgreen-jay-425688.hostingersite.com` terbuka dengan sesi Admin UAT. Build yang tampil **belum memuat PR #182**: ringkasan Tahfidz masih menampilkan judul “Peringkat Setoran Ziyadah” berbasis bulanan. Memuat ulang menghasilkan pesan bahwa layanan peringkat bermasalah. Karena sumber yang tampil bukan head PR, ini belum menjadi UAT UI atas implementasi leaderboard baru.
+- Di akun/tenant staging yang sama, ringkasan menunjukkan 1 santri aktif, 0 halaqah aktif, dan 0 setoran. Tab Pencapaian menampilkan nilai 0 untuk santri tersebut; leaderboard yang kosong sesuai data tenant. Tab Manajemen Halaqah menyatakan belum ada halaqah dan mensyaratkan daftar Ustadz aktif.
+- Tab Riwayat Setoran menyediakan pilihan Surah dari katalog; pilihan ayat tetap nonaktif sampai Surah dipilih. Tab Al-Qur'an menampilkan 114 Surah beserta jumlah ayat. Ini bukti UI referensi Surah bukan free-text, tetapi belum membuktikan simpan-baca setoran.
+- Tab Jadwal Talaqqi dan Munaqasyah menampilkan keadaan kosong tanpa contoh otomatis; Portal Wali membatasi tampilan ke peran Santri/Wali; Penilaian Antar-Santri menjelaskan moderasi Ustadz dan batasan teks.
+- Pada layar Asrama yang diperiksa, permukaan/kartu berwarna gelap dan tab/tabel memiliki kontrol gulir horizontal. Masalah panel putih sebelumnya tidak terulang pada halaman yang sedang dilihat; modul lain belum diaudit visual.
+- PTSAS Production tidak disentuh. Urutan migrasi, kesetaraan DDL, backup/restore, dan izin rilis Production tetap menjadi gerbang tim backend. PR #182 jangan digabung jika pemetaan deployment `main` ke domain Production belum dipastikan.
+
+### Lanjutkan
+
+1. Terbitkan **head PR #182 ke preview staging saja**, atau gunakan preview branch setara, tanpa mengubah `main`/Production; pastikan halaman berjalan dengan konfigurasi VQE.
+2. Ulangi UAT leaderboard pada build itu. Setelah terverifikasi, siapkan profil Ustadz aktif, halaqah, keanggotaan, dan beberapa setoran sintetis melalui alur aplikasi yang sah; jangan membuatnya lewat SQL atau melewati pemeriksaan peran.
+3. Periksa error leaderboard di build PR, lalu retest riwayat setoran dan pemilihan ayat sampai simpan-baca berhasil.
+4. Pertahankan batas rilis Production di atas sampai tim backend membuktikan rekonsiliasi/rehearsal migrasi dan pemulihan.
+
