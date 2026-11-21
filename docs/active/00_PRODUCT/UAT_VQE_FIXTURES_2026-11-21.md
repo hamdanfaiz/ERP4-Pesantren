@@ -27,7 +27,7 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Tab Target & Rapor memuat dua target aktif dengan periode dan kebijakan berbeda. Tab Manajemen Halaqah menampilkan dua anggota dan Ustadz pengampu.
 - Tab Jadwal Talaqqi berhasil menyimpan sesi simulasi Santri 01 pada 25 November 2026 pukul 09.00 WIB, durasi 30 menit, fokus makharijul huruf dan ghunnah; status Terjadwal.
 - Tab Munaqasyah berhasil menyimpan sesi simulasi Tasmi' juz 1–3 untuk Santri 02 pada 24 November 2026 pukul 09.00 WIB, durasi 45 menit; status Terjadwal.
-- Pada sesi Ustadz, tombol Pengingat, Ekspor Laporan, Penilaian Audio AI, dan Notifikasi tampil nonaktif/belum tersedia; fungsi tersebut belum dinyatakan lolos UAT.
+- Pada sesi Ustadz, tombol Pengingat, Penilaian Audio AI, dan Notifikasi tampil nonaktif/belum tersedia. Ekspor Laporan kini memiliki alur CSV dengan filter tanggal, paginasi server, batas 10.000 catatan, dan pembatalan saat cakupan akun berubah; verifikasi klik dan unduhan pada preview PR masih menunggu.
 - Pemeriksaan kode menemukan teks statis yang keliru menyatakan jadwal tidak dapat disimpan karena benturan; teks diperbaiki menjadi keterangan bahwa benturan akan diperiksa.
 - Tab Penilaian Antar-Santri belum memiliki fixture yang dapat diverifikasi; sesi baca di preview utama berhenti pada status memuat dan sesi tersebut kemudian berakhir. Tidak ada penilaian atau jadwal yang dibuat melalui UI pada sesi ini.
 - PR #185 menggunakan preview `https://framed-slateblue-rail-79.hostingersite.com/`. UAT Ustadz berhasil pada preview tersebut: ringkasan Halaqah, riwayat, target, manajemen halaqah, dua jenis jadwal, leaderboard, dan katalog Al-Qur'an dapat diperiksa. Sesi pada preview staging utama berakhir saat pemeriksaan tab Jadwal; alur Admin modul lain masih memerlukan sesi Admin tersendiri.
@@ -42,7 +42,8 @@ Data dummy hanya dibuat pada modul yang runtime-nya tersedia dan dapat diuji lew
 ## Hasil verifikasi build
 
 - `npm run test:tahfidz-leaderboard`: lulus pada revisi PR sebelum perubahan teks form jadwal.
-- `npm run lint` dan `npm run build`: lulus setelah perubahan teks form jadwal; build memberi peringatan dependensi tentang anotasi komentar Zod dan ukuran chunk di atas 500 KB, bukan error build.
+- `npm run test:tahfidz-record-pagination`: lulus; mencakup paginasi ekspor lengkap, kursor berulang, batas jumlah baris, dan tanggal kabisat.
+- `npm run lint` dan `npm run build`: lulus untuk perubahan ini; build memberi peringatan dependensi tentang anotasi komentar Zod dan ukuran chunk di atas 500 KB, bukan error build.
 - `git diff --check`: lulus.
 - GitHub Actions run `44888174336` pada commit `59db5f4` lulus semua job, termasuk build, replay migrasi, pgTAP, API auth/isolasi tenant, dan integrasi Tahfidz. Perubahan teks form jadwal sesudahnya sudah lulus lint/build lokal; CI perlu berjalan kembali setelah perubahan didorong.
 - Tes pgTAP dijalankan di CI; tidak dijalankan ulang secara lokal.

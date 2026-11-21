@@ -3288,12 +3288,19 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      if (req.query.cursor !== undefined && typeof req.query.cursor !== "string") {
-        return res.status(400).json({ error: "Kursor riwayat Tahfidz tidak valid." });
+      for (const key of ["cursor", "from", "to", "pageSize"] as const) {
+        if (req.query[key] !== undefined && typeof req.query[key] !== "string") {
+          return res.status(400).json({ error: "Filter riwayat Tahfidz tidak valid." });
+        }
+      }
+      const pageSizeValue = typeof req.query.pageSize === "string" ? Number(req.query.pageSize) : undefined;
+      if (pageSizeValue !== undefined && (!Number.isInteger(pageSizeValue) || pageSizeValue < 1 || pageSizeValue > 500)) {
+        return res.status(400).json({ error: "Ukuran halaman riwayat Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
       return res.json(await listSupabaseTahfidzRecordPage(
         actor.tenantId, actor.uid, actor.role, req.query.cursor,
+        { pageSize: pageSizeValue, from: req.query.from, to: req.query.to },
       ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });

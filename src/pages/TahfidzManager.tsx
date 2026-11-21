@@ -56,8 +56,10 @@ import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBa
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
+import { loadTahfidzReportPages, nextCalendarDate, TAHFIDZ_REPORT_EXPORT_PAGE_SIZE } from "../lib/tahfidzReportExport";
 import { buildTahfidzViewScopeKey, getRowsForTahfidzViewScope, isTahfidzViewScopeCurrent } from "../lib/tahfidzViewScope";
 import { cn, generateUniqueId } from "../lib/utils";
+import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import {
   AreaChart,
   Area,
@@ -424,6 +426,7 @@ export function TahfidzManager() {
   const currentTenantTime = (value: Date = new Date()) => SUPABASE_TAHFIDZ_RUNTIME ? tenantTime(value, timeZone) : localTime(value);
   const canManageTahfidz = ["Admin", "SuperAdmin"].includes(role);
   const canRecordTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
+  const canExportTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
   const canManageTargets = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
   const isTahfidzLearner = ["Santri", "Walisantri"].includes(role);
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, records, targets, quran
@@ -585,6 +588,13 @@ export function TahfidzManager() {
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
   const [recordsOldestDate, setRecordsOldestDate] = useState("");
   const [recordsLoadingMore, setRecordsLoadingMore] = useState(false);
+  const [isTahfidzExportOpen, setIsTahfidzExportOpen] = useState(false);
+  const [reportDateFrom, setReportDateFrom] = useState(() => `${currentTenantDate().slice(0, 7)}-01`);
+  const [reportDateTo, setReportDateTo] = useState(() => currentTenantDate());
+  const [isExportingTahfidzReport, setIsExportingTahfidzReport] = useState(false);
+  const [tahfidzExportError, setTahfidzExportError] = useState("");
+  const tahfidzExportController = useRef<AbortController | null>(null);
+  const tahfidzExportRequestSequence = useRef(0);
   const [achievementRows, setAchievementRows] = useState<any[]>([]);
   const [achievementHasMore, setAchievementHasMore] = useState(false);
   const [achievementNextCursor, setAchievementNextCursor] = useState("");
@@ -605,8 +615,21 @@ export function TahfidzManager() {
     role,
     modulePermission: user?.modulePermissions?.tahfidz,
   });
+  const currentTahfidzScopeKeyRef = useRef(currentTahfidzScopeKey);
+  currentTahfidzScopeKeyRef.current = currentTahfidzScopeKey;
   const currentLeaderboardScopeKey = currentTahfidzScopeKey;
   const currentAchievementScopeKey = currentTahfidzScopeKey;
+
+  useEffect(() => {
+    setIsTahfidzExportOpen(false);
+    setIsExportingTahfidzReport(false);
+    setTahfidzExportError("");
+    return () => {
+      tahfidzExportRequestSequence.current += 1;
+      tahfidzExportController.current?.abort();
+      tahfidzExportController.current = null;
+    };
+  }, [currentTahfidzScopeKey]);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -688,6 +711,94 @@ export function TahfidzManager() {
     } finally {
       setRecordsLoadingMore(false);
     }
+  };
+
+  const exportTahfidzReport = async () => {
+    if (!SUPABASE_TAHFIDZ_RUNTIME || !canExportTahfidz || isExportingTahfidzReport) return;
+    setTahfidzExportError("");
+    if (!reportDateFrom || !reportDateTo || reportDateFrom > reportDateTo) {
+      setTahfidzExportError("Pilih rentang tanggal yang valid.");
+      return;
+    }
+
+    const requestSequence = ++tahfidzExportRequestSequence.current;
+    const requestScope = currentTahfidzScopeKeyRef.current;
+    const controller = new AbortController();
+    tahfidzExportController.current = controller;
+    setIsExportingTahfidzReport(true);
+
+    try {
+      const from = tenantLocalDateTimeToIso(`${reportDateFrom}T00:00`, timeZone);
+      const to = tenantLocalDateTimeToIso(`${nextCalendarDate(reportDateTo)}T00:00`, timeZone);
+      const reportRows = await loadTahfidzReportPages(async (cursor) => {
+        if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+          || requestScope !== currentTahfidzScopeKeyRef.current) {
+          throw new DOMException("Ekspor dibatalkan.", "AbortError");
+        }
+        const params = new URLSearchParams({
+          from,
+          to,
+          pageSize: String(TAHFIDZ_REPORT_EXPORT_PAGE_SIZE),
+        });
+        if (cursor) params.set("cursor", cursor);
+        const page = await requestSupabaseTahfidzApi(`/api/tahfidz/records?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+          || requestScope !== currentTahfidzScopeKeyRef.current) {
+          throw new DOMException("Ekspor dibatalkan.", "AbortError");
+        }
+        return { records: page?.records, hasMore: page?.hasMore, nextCursor: page?.nextCursor };
+      });
+
+      if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+        || requestScope !== currentTahfidzScopeKeyRef.current) return;
+
+      const halaqahNameById = new Map(halaqahList.map((halaqah) => [String(halaqah.id), String(halaqah.name || "")]));
+      const exportedRows = reportRows.map((record: any) => {
+        const performedAt = new Date(record?.performedAt);
+        if (!Number.isFinite(performedAt.getTime()) || !record?.studentId) {
+          throw new Error("Ada catatan Tahfidz yang tidak lengkap. Laporan tidak diunduh.");
+        }
+        return {
+          Tanggal: currentTenantDate(performedAt),
+          Waktu: currentTenantTime(performedAt),
+          NIS: record.nis || "",
+          "Nama Santri": record.studentName || "Santri tidak tersedia",
+          Halaqah: halaqahNameById.get(String(record.halaqahId || "")) || "",
+          "Jenis Setoran": record.activityType || "",
+          Surah: record.surah || "",
+          "Ayat Mulai": Number(record.ayahStart),
+          "Ayat Akhir": Number(record.ayahEnd),
+          Kelancaran: record.fluency || "Belum dinilai",
+          Tajwid: record.tajweed || "Belum dinilai",
+          Catatan: record.notes || "",
+          "Dicatat Oleh": record.recordedByName || "",
+        };
+      });
+      downloadTransferCsv(
+        `laporan-tahfidz-${reportDateFrom}-${reportDateTo}.csv`,
+        ["Tanggal", "Waktu", "NIS", "Nama Santri", "Halaqah", "Jenis Setoran", "Surah", "Ayat Mulai", "Ayat Akhir", "Kelancaran", "Tajwid", "Catatan", "Dicatat Oleh"],
+        exportedRows,
+      );
+      setIsTahfidzExportOpen(false);
+    } catch (error: any) {
+      if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current || error?.name === "AbortError") return;
+      setTahfidzExportError(error?.message || "Laporan Tahfidz belum dapat diunduh.");
+    } finally {
+      if (requestSequence === tahfidzExportRequestSequence.current) {
+        setIsExportingTahfidzReport(false);
+        if (tahfidzExportController.current === controller) tahfidzExportController.current = null;
+      }
+    }
+  };
+
+  const cancelTahfidzReportExport = () => {
+    tahfidzExportRequestSequence.current += 1;
+    tahfidzExportController.current?.abort();
+    tahfidzExportController.current = null;
+    setIsExportingTahfidzReport(false);
+    setIsTahfidzExportOpen(false);
   };
 
   const loadMoreTahfidzRoster = async () => {
@@ -3940,7 +4051,17 @@ export function TahfidzManager() {
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Ekspor Laporan</span>
-          </button> : <button type="button" disabled title="Ekspor laporan Tahfidz belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
+          </button> : canExportTahfidz && <button
+            type="button"
+            onClick={() => {
+              const today = currentTenantDate();
+              setReportDateFrom(`${today.slice(0, 7)}-01`);
+              setReportDateTo(today);
+              setTahfidzExportError("");
+              setIsTahfidzExportOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-black/40 dark:text-slate-300 dark:hover:bg-white/5"
+          ><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() => {
               setSelectedSantri(displaySantri[0]);
@@ -6255,6 +6376,38 @@ export function TahfidzManager() {
                 <p className="border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-white/10">Rencana ini mencerminkan data yang tersimpan saat dicetak. Setoran terbaru menampilkan paling banyak lima catatan yang sudah dimuat.</p>
               </article>
             </div>
+          </section>
+        </div>
+      )}
+
+      {isTahfidzExportOpen && SUPABASE_TAHFIDZ_RUNTIME && canExportTahfidz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tahfidz-export-title">
+          <section className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <div>
+                <h2 id="tahfidz-export-title" className="text-lg font-semibold">Ekspor laporan Tahfidz</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pilih tanggal setoran yang akan dimasukkan ke berkas CSV.</p>
+              </div>
+              <button type="button" onClick={cancelTahfidzReportExport} aria-label="Tutup ekspor laporan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button>
+            </header>
+            <div className="space-y-4 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Dari tanggal
+                  <input type="date" required max={reportDateTo || currentTenantDate()} value={reportDateFrom} onChange={(event) => { setReportDateFrom(event.target.value); setTahfidzExportError(""); }} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/30" />
+                </label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Sampai tanggal
+                  <input type="date" required min={reportDateFrom} max={currentTenantDate()} value={reportDateTo} onChange={(event) => { setReportDateTo(event.target.value); setTahfidzExportError(""); }} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/30" />
+                </label>
+              </div>
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">Berkas hanya memuat catatan dalam tenant dan cakupan akses akun Anda. Batas satu unduhan adalah 10.000 catatan.</p>
+              {tahfidzExportError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">{tahfidzExportError}</p>}
+            </div>
+            <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-black/20">
+              <button type="button" onClick={cancelTahfidzReportExport} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{isExportingTahfidzReport ? "Batalkan" : "Tutup"}</button>
+              <button type="button" onClick={() => void exportTahfidzReport()} disabled={isExportingTahfidzReport || !reportDateFrom || !reportDateTo || reportDateFrom > reportDateTo} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Download className="h-4 w-4" />{isExportingTahfidzReport ? "Menyiapkan laporan…" : "Unduh CSV"}</button>
+            </footer>
           </section>
         </div>
       )}

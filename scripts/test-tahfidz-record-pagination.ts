@@ -9,6 +9,7 @@ import {
 } from "../src/lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch } from "../src/lib/tahfidzRosterPagination";
 import { listSupabaseTahfidzRosterPage, listSupabaseTahfidzSessions } from "../src/server/supabaseTahfidz";
+import { loadTahfidzReportPages, nextCalendarDate, TAHFIDZ_REPORT_EXPORT_PAGE_SIZE } from "../src/lib/tahfidzReportExport";
 
 const tenantId = "00000000-0000-4000-8000-000000000001";
 const halaqahId = "00000000-0000-4000-8000-000000000002";
@@ -17,6 +18,10 @@ const timestamp = "2026-10-25T12:30:45.123456+07:00";
 const cursor = encodeTahfidzRecordCursor({ performedAt: timestamp, id: studentId });
 
 assert.equal(TAHFIDZ_RECORD_PAGE_SIZE, 100, "halaman riwayat dibatasi");
+assert.equal(TAHFIDZ_REPORT_EXPORT_PAGE_SIZE, 500, "halaman ekspor tetap dibatasi");
+assert.equal(nextCalendarDate("2024-02-28"), "2024-02-29", "batas akhir eksklusif menangani tahun kabisat");
+assert.equal(nextCalendarDate("2026-12-31"), "2027-01-01", "batas akhir eksklusif berpindah tahun dengan benar");
+assert.throws(() => nextCalendarDate("2026-02-31"), /Tanggal laporan/);
 assert.deepEqual(decodeTahfidzRecordCursor(cursor), { performedAt: timestamp, id: studentId }, "cursor mempertahankan presisi timestamp database");
 
 const adminParams = buildTahfidzRecordPageParams({ tenantId, role: "Admin", cursor });
@@ -300,6 +305,38 @@ async function testUstadzWithoutHalaqahDoesNotReadTenantSessions() {
   }
 }
 
+async function testReportExportLoadsCompletePagesOrFailsClosed() {
+  const requestedCursors: Array<string | null> = [];
+  const records = await loadTahfidzReportPages(async (cursor) => {
+    requestedCursors.push(cursor);
+    return cursor === null
+      ? { records: ["pertama", "kedua"], hasMore: true, nextCursor: "halaman-dua" }
+      : { records: ["ketiga"], hasMore: false, nextCursor: null };
+  });
+  assert.deepEqual(requestedCursors, [null, "halaman-dua"]);
+  assert.deepEqual(records, ["pertama", "kedua", "ketiga"]);
+
+  await assert.rejects(() => loadTahfidzReportPages(async () => ({ records: ["baris"], hasMore: true })), /tidak berurutan/);
+  await assert.rejects(() => loadTahfidzReportPages(async (cursor) => ({
+    records: ["baris"], hasMore: true, nextCursor: cursor || "kursor-sama",
+  })), /tidak berurutan/);
+  await assert.rejects(() => loadTahfidzReportPages(async () => ({
+    records: Array.from({ length: TAHFIDZ_REPORT_EXPORT_PAGE_SIZE + 1 }, () => "baris"), hasMore: false,
+  })), /tidak valid/);
+
+  let pageNumber = 0;
+  await assert.rejects(() => loadTahfidzReportPages(async () => {
+    pageNumber += 1;
+    return {
+      records: Array.from({ length: TAHFIDZ_REPORT_EXPORT_PAGE_SIZE }, () => "baris"),
+      hasMore: true,
+      nextCursor: `kursor-${pageNumber}`,
+    };
+  }), /10.000 catatan/);
+  assert.equal(pageNumber, 20, "ekspor berhenti sebelum mengembalikan hasil terpotong");
+}
+
+await testReportExportLoadsCompletePagesOrFailsClosed();
 await testRecordPageDoesNotLoadFullSnapshot();
 await testSnapshotUsesTenantScopedRosterRpc();
 await testRosterPagePassesCursorAndSearchToRpc();
