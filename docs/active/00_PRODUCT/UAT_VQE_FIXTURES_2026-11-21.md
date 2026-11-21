@@ -53,3 +53,31 @@ Data dummy hanya dibuat pada modul yang runtime-nya tersedia dan dapat diuji lew
 - Source migration PR #185 telah diselaraskan di working tree dengan file versi 03 dan 04 pada PR #182/VQE; tes lokal lulus, tetapi perubahan belum dipush dan CI belum mengujinya. VQE objek tabel/index/trigger/RPC telah terlihat pada inspeksi katalog sebelumnya, tetapi checksum SQL yang diterapkan tidak tersedia dari ledger.
 - PR #185 masih draft dan belum di-merge. Tidak ada perubahan pada PTSAS Production.
 - Belum ada perubahan ke Supabase Production.
+
+
+## Inventaris agregat baca-saja diperbarui — 21 November 2026
+
+Pemeriksaan terbaru menghitung record tenant UAT berdasarkan kolom `tenant_id` di **178 tabel dasar**: **49 tabel memiliki record dan 129 kosong**. Kueri hanya mengembalikan nama tabel dan jumlah; isi record tidak dibaca dan tidak ada data yang ditulis. PTSAS Production tidak digunakan.
+
+| Modul | Record yang terhitung | Bagian yang masih kosong |
+|---|---|---|
+| Data Induk | 4 master, 2 santri, 2 unit organisasi, 68 referensi, 2 reservasi NIS, 15 naming series, 11 alokasi, 5 counter, 15 audit | — |
+| Akademik | 1 pengaturan dan 1 periode | Catatan akademik, rapor, penugasan wali kelas, pemetaan unit |
+| Asrama | 2 izin, 2 insiden disiplin, 2 sesi kehadiran/3 record, 2 audit kebersihan, 2 tiket fasilitas; peristiwa audit masing-masing tersedia | Penugasan staf |
+| Tahfidz | 2 halaqah, 2 keanggotaan, 2 target, 3 setoran, 2 sesi, 25 proyeksi ayat unik | — |
+| PPDB | — | Kandidat, dokumen dan peristiwa pendaftaran |
+| Keuangan | — | Tagihan, pengeluaran, anggaran dan ledger |
+| Perpustakaan | 5 buku | Peminjaman, pengembalian dan aset digital |
+| CBT | 5 soal, 1 ujian, 3 relasi soal-ujian, 1 pengaturan | Penugasan dan percobaan |
+| LMS | Masing-masing 1 kategori, kursus, modul, materi dan tugas | Pendaftaran, progres, pengumpulan dan penilaian |
+| Koperasi | 2 dompet | Produk, penjualan, stok dan posting ledger |
+| Dokumen Digital | 3 dokumen dan 4 peristiwa alur kerja | Lampiran |
+| Modul lain | — | Alumni, komunikasi, CRM, kesehatan, HRIS, aset umum, laundry, marketplace, donasi/wakaf dan pemesanan fasilitas |
+
+### Tindak lanjut pengisian
+
+- Angka di atas adalah inventaris record, bukan bukti bahwa modul aktif atau alur UI lulus.
+- Jangan mengaktifkan flag impor arsip. Buat record lewat formulir/API tenant yang didukung setelah server, UI, role, referensi dan Storage staging siap.
+- Sebelum mengisi modul kosong, cek ulang flag dan referensi staging, lalu simpan data dengan penanda UAT dan verifikasi baca-ulang/relasi. Jangan membuat transaksi keuangan/pembayaran atau mengunggah berkas sebelum alur staging tersebut teruji.
+- Inventaris ini tidak mencakup data tenant lain atau isi pribadi record.
+
