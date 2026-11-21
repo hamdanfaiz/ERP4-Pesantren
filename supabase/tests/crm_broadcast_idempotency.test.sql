@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(44);
+SELECT plan(45);
 
 INSERT INTO public.tenants (id, slug, name, status) VALUES
   ('c3900000-0000-4000-8000-000000000001', 'crm-broadcast-a-test', 'CRM Broadcast A Test', 'active'),
@@ -72,6 +72,10 @@ SELECT is(public.claim_tenant_crm_broadcast_recipient(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000401', 'c3900000-0000-4000-8000-000000000101'
 )->>'claimed', 'false', 'a duplicate worker cannot claim an in-flight recipient');
+SELECT is(public.finish_tenant_crm_broadcast(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000401'
+)->>'status', 'processing', 'in-flight campaigns remain resumable instead of finalizing early');
 SELECT is(public.record_tenant_crm_broadcast_delivery(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000401', 'c3900000-0000-4000-8000-000000000101',
