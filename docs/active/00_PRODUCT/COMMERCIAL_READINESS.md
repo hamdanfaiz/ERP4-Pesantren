@@ -1,3 +1,23 @@
+## Checkpoint terbaru — 22 November 2026, 02.35 WIB
+
+### Source dan PR
+- `main` berada pada merge commit `f82b2c9e61bfa3bb864dd2132ed2d8321c8187c4`.
+- PR #207 (rekonsiliasi dokumentasi ledger), #208 (laporan Supabase Advisor), dan #209 (audit pengganti PR #1–#11) sudah tergabung. PR #209 lulus **3/3 job CI** pada run [#44940624451](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44940624451).
+- PR #1–#11 tetap closed/tidak merged; source lama dipetakan ke padanan saat ini dan tidak perlu digabung ulang. PR #12 dan #13 merged. Tidak ada PR terbuka pada pemeriksaan 02.35 WIB.
+- Rincian: [audit PR #1–#11](../05_ARCHITECTURE/PR1_TO_PR11_SUPERSESSION_AUDIT_2026-11-22.md), [audit advisor Supabase](../06_DATABASE/SUPABASE_ADVISOR_REVIEW_2026-11-22.md), dan [rekonsiliasi ledger](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-22.md).
+
+### Tahfidz dan batas bukti
+- Source leaderboard Tahfidz menampilkan **Peringkat Hafalan Santri** untuk mode sepanjang waktu; urutan utama menghitung ayat hafalan unik, lalu setoran dan hari aktif sebagai pemecah seri. Endpoint membatasi data Ustadz pada halaqah yang ditugaskan kepadanya.
+- Pengujian source/CI memeriksa urutan, deduplikasi ayat, serta cakupan tenant dan halaqah. Tampilan preview yang sedang tersaji **belum terverifikasi**; pemeriksaan UI otomatis gagal dimulai pada sesi ini. Tangkapan layar dari preview lama tidak membuktikan build terbaru sudah tampil.
+
+### Progress dan pekerjaan yang tersisa
+- Perkiraan pengembangan source tetap sekitar **75%**. Ini angka checkpoint kasar, bukan persentase fitur yang telah lulus UAT atau kesiapan Production.
+- Ledger VQE staging 166/166 cocok dengan source pada snapshot 22 November. Ledger PTSAS Production memiliki 100 entri: 97 pasangan versi/nama cocok, tiga nama kosong, dan 66 migration source belum tercatat. Selisih ledger **bukan** instruksi menjalankan `db push` massal; DDL aktual harus direkonsiliasi satu per satu.
+- UAT browser lintas role/tenant dan verifikasi preview terbaru masih terbuka. Bukti DDL Production, pemulihan backup/restore Production, dan commit hosting yang sedang aktif juga belum ada.
+- PR #209 dan checkpoint ini hanya mengubah dokumentasi. Tidak ada perubahan aplikasi, database, Auth, Storage, atau data Production.
+
+---
+
 ## Checkpoint terbaru — 22 November 2026, 01.42 WIB
 
 ### Source, fitur, dan CI
