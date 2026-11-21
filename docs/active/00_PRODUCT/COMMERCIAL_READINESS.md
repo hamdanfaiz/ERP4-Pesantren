@@ -1,13 +1,14 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Checkpoint terbaru — 21 November 2026, 18.21 WIB
+## Checkpoint terbaru — 21 November 2026, 18.48 WIB
 
-- PR #185 tetap **open/draft** pada `main`; head yang terakhir dicek `ec32e97f376fb19dcede55f411ec1c8d4adc171d`. Perubahan mencakup leaderboard hafalan ayat unik dan ekspor CSV Tahfidz berpaginasi serta dibatasi tenant/cakupan akun.
-- UAT Ustadz pada preview PR #185 membuktikan dua santri, satu halaqah, tiga setoran, cakupan target 2/2, dan urutan 15 lalu 10 ayat unik. Uji CSV sebelumnya berhasil untuk ketiga catatan dalam cakupan halaqah Ustadz. UAT menemukan panel leaderboard tampil ganda; koreksi lokal sudah dibuat dan lulus tes statis/build, tetapi belum diverifikasi pada preview.
-- GitHub Actions pada head `ec32e97` lulus 3/3 job pada dua run: build frontend, migrasi/API/pgTAP, dan instalasi paket pelanggan. Supabase Preview dilewati karena branch Git tidak terhubung ke Supabase Branch.
-- Ledger VQE baca-saja berisi 165 versi, termasuk migrasi leaderboard pada versi 03 dan indeks versi 04. Source PR #185 yang sebelumnya diperiksa tidak cocok; pasangan source kini diselaraskan lokal dan lulus preflight lokal, belum dipush/diuji CI. Jangan merge sebelum CI dan preview setelah koreksi lulus.
-- Tim backend: gunakan [prasyarat Production leaderboard Tahfidz](../06_DATABASE/TAHFIDZ_LEADERBOARD_PRODUCTION_PREFLIGHT_2026-11-21.md) sebagai checklist baca-saja dan rehearsal; hitungan katalog di dokumen itu adalah snapshot 21 November, bukan bukti DDL atau izin deploy terkini.
-- Tidak ada perubahan pada PTSAS Production atau domain pelanggan. Kelulusan Tahfidz tidak menyelesaikan UAT modul lain, perbedaan DDL/ledger Production, bukti backup/restore cloud, maupun uji instalasi/upgrade mandiri. Produk belum dinyatakan siap go-live atau komersial.
+- PR #185 telah **tergabung ke `main`** pada merge commit `3080422ffc552b82704da0941b574cf8d220b45a`. Implementasi leaderboard hafalan ayat unik, ekspor laporan Tahfidz, migrasi, pengujian, dan pembaruan dokumen paritas kini ada di main.
+- PR #182 ditutup sebagai superseded oleh #185. Catatan checkpoint #182 yang menyebut belum ada akun Ustadz sudah usang; status saat ini dicatat dalam dokumen UAT dan PR #185.
+- UAT browser pada preview Hostinger untuk kode aplikasi `c19f8c2`, menggunakan akun Ustadz sintetis VQE, membuktikan satu halaqah dalam cakupan akun, dua santri, tiga setoran hari itu, target 2/2, dan tepat satu panel leaderboard. Peringkat: Santri 02 dengan 15 ayat unik, lalu Santri 01 dengan 10 ayat unik. Ekspor CSV sebelumnya berhasil untuk catatan dalam cakupan halaqah.
+- GitHub Actions pada head `d7d39b7` lulus tiga pemeriksaan utama: build frontend/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API auth/pgTAP. Job database memakai Supabase lokal terisolasi, termasuk replay migrasi dari baseline historis, isolasi tenant, konkurensi, Storage, serta backup/restore lokal. CI Supabase Preview otomatis dilewati karena branch ini tidak ditautkan ke Supabase Branch.
+- VQE staging tetap proyek pengujian. Ledger yang terakhir dibaca berisi 165 versi dan menyertakan dua migrasi leaderboard; pemeriksaan sebelumnya bersifat baca-saja. Tidak ada operasi tulis ke PTSAS Production.
+- PTSAS Production belum direkonsiliasi ke source `main`; DDL aktual, urutan migrasi penuh, dan bukti backup/restore cloud belum dibuktikan. Tim backend perlu menyelesaikan gerbang Production ini sebelum cutover atau deploy schema.
+- Penggabungan PR #185 menyelesaikan satu fitur Tahfidz; **produk keseluruhan belum dinyatakan siap go-live/komersial**. UAT lintas modul/role, deployment bersih ke lingkungan pelanggan (VPS/on-premise), pemulihan cloud, dan penerimaan komersial masih terbuka.
 
 ## Status otoritatif — 21 November 2026, 03.52 WIB
 
