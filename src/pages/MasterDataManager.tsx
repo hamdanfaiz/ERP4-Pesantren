@@ -215,6 +215,9 @@ export function MasterDataManager() {
   const [dataSources, setDataSources] = useState<Record<string, any[]>>(() => SUPABASE_MASTER_DATA_RUNTIME
     ? { Santri: [], "Wali Santri": [], Gedung: [], Kamar: [], Kelas: [] }
     : { Santri: MOCK_SANTRI, "Wali Santri": MOCK_WALISANTRI, ...DEFAULT_STRUCTURE });
+  const [structureLoadBusy, setStructureLoadBusy] = useState(false);
+  const [structureLoadError, setStructureLoadError] = useState("");
+  const [structureLoadRetryKey, setStructureLoadRetryKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -498,11 +501,18 @@ export function MasterDataManager() {
           return;
         }
         if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+          if (!cancelled) {
+            setStructureLoadError("");
+            setStructureLoadBusy(true);
+          }
           const items = await listSupabaseMasterDataStructures();
-          if (!cancelled) setDataSources((prev) => ({
-            ...prev,
-            [activeSubTab]: items.filter((item) => item.category === activeSubTab),
-          }));
+          if (!cancelled) {
+            setDataSources((prev) => ({
+              ...prev,
+              [activeSubTab]: items.filter((item) => item.category === activeSubTab),
+            }));
+            setStructureLoadBusy(false);
+          }
           return;
         }
         if (!cancelled) setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
@@ -510,6 +520,10 @@ export function MasterDataManager() {
         if (cancelled) return;
         console.error(`Supabase Master Data ${activeSubTab} failed:`, error);
         setDataSources((prev) => ({ ...prev, [activeSubTab]: [] }));
+        if (activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab)) {
+          setStructureLoadBusy(false);
+          setStructureLoadError(`Daftar ${activeSubTab} belum dapat dimuat. Coba lagi atau hubungi administrator pesantren.`);
+        }
         if (activeTab === "entities" && activeSubTab === "Santri") {
           setServerStudentHasMore(false);
           showToast("Daftar santri belum dapat dimuat. Periksa koneksi lalu coba kembali.", "error");
@@ -519,7 +533,7 @@ export function MasterDataManager() {
 
     void loadSupabase();
     return () => { cancelled = true; };
-  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey]);
+  }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey, structureLoadRetryKey]);
 
   const handleTabChange = (
     tabId: string,
@@ -2081,7 +2095,7 @@ export function MasterDataManager() {
                     {isServerPaginatedSantri ? (
                       <span className="font-medium">Halaman {currentPage} · {serverStudentHasMore ? "ada data berikutnya" : "halaman terakhir"}</span>
                     ) : <>Jumlah data:{" "}
-                      <span className="font-mono text-emerald-400 text-sm font-bold">{filteredData.length}</span>
+                      <span className="font-mono text-emerald-400 text-sm font-bold" role="status" aria-live="polite">{activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? structureLoadError ? "Tidak tersedia" : structureLoadBusy ? "Memuat…" : filteredData.length : filteredData.length}</span>
                     </>}
                   </span>
                 </div>
@@ -2160,7 +2174,29 @@ export function MasterDataManager() {
                     {renderTableHeaders()}
                   </thead>
                   <tbody className="divide-y divide-white/5 bg-black/10">
-                    {paginatedData.length > 0 ? (
+                    {activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) && structureLoadError ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-8 text-center">
+                          <div role="alert" className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-3 rounded-lg border border-rose-400/25 bg-rose-950/20 px-4 py-3 text-sm text-rose-200">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            <span>{structureLoadError}</span>
+                            <button
+                              type="button"
+                              onClick={() => setStructureLoadRetryKey((value) => value + 1)}
+                              className="rounded-md border border-rose-300/30 px-3 py-1.5 font-medium hover:bg-rose-400/10"
+                            >
+                              Coba lagi
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) && structureLoadBusy ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400" role="status">
+                          Memuat daftar {activeSubTab}…
+                        </td>
+                      </tr>
+                    ) : paginatedData.length > 0 ? (
                       paginatedData.map((row) => renderTableRow(row))
                     ) : (
                       <tr>
