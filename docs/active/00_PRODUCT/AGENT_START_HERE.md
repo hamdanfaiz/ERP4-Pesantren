@@ -27,8 +27,8 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 
 | Area | Dokumen |
 | --- | --- |
-| **Terbaru — status rilis Production, 20 Nov 2026:** 63 versi source belum tercatat; DDL diff dan restore Production belum dibuktikan | [Runbook promosi PTSAS Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) |
-| Status kesiapan komersial, 20 Nov 2026; memisahkan CI, UAT, dan coverage ledger | [COMMERCIAL_READINESS.md](COMMERCIAL_READINESS.md) |
+| **Checkpoint terbaru — 21 Nov 2026:** PR #182 leaderboard Tahfidz; VQE 165/165 cocok dengan branch PR, PTSAS 100 versi dibanding 163 di `main`; DDL/restore Production belum terbukti | [Status kesiapan komersial](COMMERCIAL_READINESS.md) |
+| Rincian rollout Production, 20 Nov 2026 | [Audit rollout PTSAS](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) |
 | Checkpoint PR #91 (15 Nov 2026, historis) | [CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md](CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md) |
 | Snapshot advisor dan ledger Production PTSAS (15 Nov 2026) | [PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md](../06_DATABASE/PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md) |
 | Relasi & Ekosistem + Analitik + OpenWA (13 Nov 2026) | [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) |
