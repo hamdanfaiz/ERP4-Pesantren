@@ -24,6 +24,7 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Login Ustadz sintetis berhasil pada preview PR #185. UI membatasi ringkasan ke 1 halaqah aktif dan 2 santri dalam halaqah yang ditugaskan.
 - Dashboard Tahfidz pada preview PR #185 menampilkan 2 santri, 1 halaqah aktif, 3 setoran hari ini, dan cakupan target 2/2.
 - UI leaderboard terverifikasi menempatkan Santri 02 di peringkat pertama dengan 15 ayat hafalan unik, lalu Santri 01 dengan 10 ayat. Setelah setoran Muroja'ah Santri 01 (Al-Baqarah 1–5) disimpan, peringkat tetap sama. Riwayat menampilkan tiga catatan UAT; surah dipilih dari katalog dan rentang ayat dari opsi sesuai surah.
+- Pemeriksaan ulang pada preview PR #185 dengan akun Ustadz mengonfirmasi cakupan 2 santri pada 1 halaqah, 3 setoran hari ini, dan target 2/2. Peringkat Ustadz menampilkan Santri 02 (15 ayat unik) di atas Santri 01 (10 ayat unik), sesuai halaqah tugas. Namun panel peringkat tampil dua kali pada build yang diperiksa. Salinan panel lama telah dihapus pada working tree PR; perubahan ini harus dipush dan preview harus diuji ulang sebelum duplikasi dinyatakan selesai.
 - Tab Target & Rapor memuat dua target aktif dengan periode dan kebijakan berbeda. Tab Manajemen Halaqah menampilkan dua anggota dan Ustadz pengampu.
 - Tab Jadwal Talaqqi berhasil menyimpan sesi simulasi Santri 01 pada 25 November 2026 pukul 09.00 WIB, durasi 30 menit, fokus makharijul huruf dan ghunnah; status Terjadwal.
 - Tab Munaqasyah berhasil menyimpan sesi simulasi Tasmi' juz 1–3 untuk Santri 02 pada 24 November 2026 pukul 09.00 WIB, durasi 45 menit; status Terjadwal.
@@ -33,7 +34,7 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Tab Penilaian Antar-Santri belum memiliki fixture yang dapat diverifikasi; sesi baca di preview utama berhenti pada status memuat dan sesi tersebut kemudian berakhir. Tidak ada penilaian atau jadwal yang dibuat melalui UI pada sesi ini.
 - PR #185 menggunakan preview `https://framed-slateblue-rail-79.hostingersite.com/`. UAT Ustadz berhasil pada preview tersebut: ringkasan Halaqah, riwayat, target, manajemen halaqah, dua jenis jadwal, leaderboard, dan katalog Al-Qur'an dapat diperiksa. Sesi pada preview staging utama berakhir saat pemeriksaan tab Jadwal; alur Admin modul lain masih memerlukan sesi Admin tersendiri.
 - Leaderboard versi lama gagal karena kontrak UI mengharuskan payload bulanan, sementara RPC VQE mengirim `uniqueMemorizedAyahs` seumur pencatatan tanpa `periodStart`. Frontend kini menghitung dan menampilkan peringkat hafalan unik, serta tetap menerima payload bulanan lama tanpa menyebutnya sebagai total hafalan.
-- Migrasi baru `20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql` membawa tabel kemajuan ayat unik, backfill dari setoran lama, sinkronisasi transaksional untuk setoran baru, dan RPC berperingkat hafalan. Nomor versi dipilih setelah CI menemukan versi `20270402000000` sudah dipakai migrasi ketelitian target massal. Pemeriksaan katalog VQE menunjukkan bentuk tabel, indeks, trigger, dan payload RPC yang sudah ada sejalan dengan desain ini. Migrasi source belum diterapkan ulang ke VQE.
+- Pembacaan ledger VQE terbaru melaporkan 165 versi dan mencakup `20270403000000 | tahfidz_unique_memorization_leaderboard` serta `20270404000000 | tahfidz_unique_ayah_projection_indexes`. Source PR #185 sebelumnya memakai nama lain untuk versi `20270403000000` dan tidak membawa versi `20270404000000`; source tersebut tidak cocok untuk migrasi dan preflight. Working tree kini memakai pasangan file bernama sama dengan PR #182/VQE. Ledger membuktikan versi dan nama, bukan checksum isi SQL; kesetaraan DDL Production masih belum diverifikasi.
 - Perubahan leaderboard dan keterangan jadwal berada pada branch berbasis `main` terbaru (`0d810eb4cd1b3430210698fdd1854df3ef3d9207`) dan sudah dipush sebagai draft PR #185. Login Ustadz serta UAT Tahfidz pada preview PR #185 berhasil; Admin UAT masih diperlukan untuk melanjutkan pemeriksaan modul lain.
 
 ## Modul yang tidak diisi
@@ -42,12 +43,13 @@ Data dummy hanya dibuat pada modul yang runtime-nya tersedia dan dapat diuji lew
 
 ## Hasil verifikasi build
 
-- `npm run test:tahfidz-leaderboard`: lulus pada revisi PR sebelum perubahan teks form jadwal.
+- `npm run test:tahfidz-leaderboard`: lulus setelah koreksi panel duplikat dan penyelarasan migrasi; memeriksa role, tenant, halaqah, angka leaderboard, dan hanya satu panel UI.
+- `npm run test:migration-preflight`: lulus dengan 165 file source dan pasangan versi/nama yang tercatat pada ledger VQE. Tes ini memeriksa jalur baca-saja serta mencegah versi migration lokal duplikat.
 - `npm run test:tahfidz-record-pagination`: lulus; mencakup paginasi ekspor lengkap, kursor berulang, batas jumlah baris, dan tanggal kabisat. Unduhan CSV juga lulus pada UAT browser: tiga record dalam rentang yang dipilih, termasuk Muroja'ah dan dua Ziyadah.
-- `npm run lint` dan `npm run build`: lulus untuk perubahan ini; build memberi peringatan dependensi tentang anotasi komentar Zod dan ukuran chunk di atas 500 KB, bukan error build.
+- `npm run lint` dan `npm run build`: lulus setelah koreksi lokal; build memberi peringatan dependensi tentang anotasi komentar Zod dan ukuran chunk di atas 500 KB, bukan error build.
 - `git diff --check`: lulus.
 - GitHub Actions run `44893115713` pada commit `bde071b` lulus semua job: replay migrasi dari baseline Production historis pada database lokal terisolasi, pgTAP, pemeriksaan auth/isolasi tenant, alur Storage, cadangan-pemulihan, typecheck, seluruh uji frontend, build, dan instalasi NPM untuk lingkungan pelanggan.
 - Tes pgTAP dijalankan di CI; tidak dijalankan ulang secara lokal.
-- Migrasi `20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql` belum diterapkan ke VQE atau Production dalam pekerjaan ini. Pemeriksaan bentuk katalog VQE sebelumnya menunjukkan tabel, indeks, trigger, dan RPC yang diperlukan sudah ada.
+- Source migration PR #185 telah diselaraskan di working tree dengan file versi 03 dan 04 pada PR #182/VQE; tes lokal lulus, tetapi perubahan belum dipush dan CI belum mengujinya. VQE objek tabel/index/trigger/RPC telah terlihat pada inspeksi katalog sebelumnya, tetapi checksum SQL yang diterapkan tidak tersedia dari ledger.
 - PR #185 masih draft dan belum di-merge. Tidak ada perubahan pada PTSAS Production.
 - Belum ada perubahan ke Supabase Production.

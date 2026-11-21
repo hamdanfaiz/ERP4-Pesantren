@@ -27,7 +27,8 @@ Baca dokumen ini **sebelum** mengubah kode, skema, flag, data Production, atau m
 
 | Area | Dokumen |
 | --- | --- |
-| **Terbaru — status rilis Production, 20 Nov 2026:** 63 versi source belum tercatat; DDL diff dan restore Production belum dibuktikan | [Runbook promosi PTSAS Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) |
+| Prasyarat leaderboard Tahfidz untuk tim backend — inventaris Production baca-saja, rehearsal, dan pengaman urutan migrasi | [Prasyarat Production leaderboard Tahfidz](../06_DATABASE/TAHFIDZ_LEADERBOARD_PRODUCTION_PREFLIGHT_2026-11-21.md) |
+| Snapshot Production 20 Nov 2026: inventaris DDL dan pemulihan belum dibuktikan | [Runbook promosi PTSAS Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) |
 | Status kesiapan komersial, 20 Nov 2026; memisahkan CI, UAT, dan coverage ledger | [COMMERCIAL_READINESS.md](COMMERCIAL_READINESS.md) |
 | Checkpoint PR #91 (15 Nov 2026, historis) | [CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md](CHECKPOINT_2026-11-15_PR91_RECONCILIATION.md) |
 | Snapshot advisor dan ledger Production PTSAS (15 Nov 2026) | [PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md](../06_DATABASE/PTSAS_PRODUCTION_ADVISOR_REVIEW_2026-11-15.md) |

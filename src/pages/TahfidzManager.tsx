@@ -2136,51 +2136,6 @@ export function TahfidzManager() {
             </div>
           </section>
         </div>
-        {["Admin", "SuperAdmin", "Ustadz"].includes(role) && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-          <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> {currentLeaderboard?.rankingMode !== "monthly_ziyadah" ? "Peringkat Hafalan Santri" : "Peringkat Setoran Ziyadah"}</h2>
-              <p className="mt-1 text-sm text-slate-500">{currentLeaderboard?.rankingMode !== "monthly_ziyadah"
-                ? "Diurutkan berdasarkan jumlah ayat hafalan unik yang tersimpan; setoran Ziyadah dan hari aktif menjadi pemecah seri."
-                : "Peringkat dihitung dari setoran Ziyadah pada periode ini yang dapat Anda lihat."}</p>
-            </div>
-            {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-              {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
-            </span>}
-          </div>
-          {leaderboardError && <div role="alert" className="flex flex-col gap-2 p-5 text-sm text-rose-800 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
-            <span>{leaderboardError}</span>
-            <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(leaderboardLimit)} className="shrink-0 font-semibold underline">Coba lagi</button>
-          </div>}
-          {leaderboardLoading && !currentLeaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
-          {!leaderboardLoading && !leaderboardError && (currentLeaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
-            <Trophy className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">{currentLeaderboard?.rankingMode !== "monthly_ziyadah" ? "Belum ada data hafalan tersimpan." : "Belum ada setoran Ziyadah pada periode ini."}</p>
-            <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah catatan hafalan tersimpan.</p>
-          </div>}
-          {!!currentLeaderboard?.students?.length && <>
-            <ol className="divide-y divide-slate-100 dark:divide-white/5">
-              {currentLeaderboard.students.map((student: any) => <li key={student.id} className="flex items-center gap-3 px-5 py-3.5">
-                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold", student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
-                  {student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-900 dark:text-slate-100">{student.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum diatur"}{student.halaqah ? ` · Halaqah ${student.halaqah}` : ""}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.hafalanAyahs !== null ? `${student.hafalanAyahs} ayat hafalan` : `${student.ziyadahAyahs} ayat Ziyadah`}</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahRecords} setoran · {student.ziyadahActiveDays} hari aktif</p>
-                </div>
-              </li>)}
-            </ol>
-            {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
-              {leaderboardLimit === 5
-                ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
-                : <p className="text-xs text-slate-500">Menampilkan 20 teratas sesuai cakupan halaqah akun Anda.</p>}
-            </div>}
-          </>}
-        </section>}
       </div>
     );
   };

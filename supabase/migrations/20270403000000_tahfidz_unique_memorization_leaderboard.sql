@@ -1,57 +1,28 @@
--- Persist each unique memorized ayah and rank learners by total hafalan.
--- The write path remains tenant-scoped and the aggregate stays server-only.
+-- Rank Tahfidz by unique Ziyadah ayat recorded, with tenant and halaqah scope.
+-- The progress table is a private projection maintained atomically with saved records.
 BEGIN;
+LOCK TABLE public.tahfidz_records IN SHARE ROW EXCLUSIVE MODE;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM public.tahfidz_records AS record
-    LEFT JOIN public.quran_surahs AS catalog
-      ON catalog.surah_number = record.surah_number
-    WHERE record.activity_type = 'Ziyadah'
-      AND (catalog.surah_number IS NULL
-        OR record.ayah_start < 1
-        OR record.ayah_end < record.ayah_start
-        OR record.ayah_end > catalog.ayah_count)
-  ) THEN
-    RAISE EXCEPTION 'Riwayat Ziyadah berisi referensi Surah atau rentang ayat yang tidak valid';
-  END IF;
-END;
-$$;
-
-CREATE TABLE IF NOT EXISTS public.tahfidz_student_ayah_progress (
-  tenant_id UUID NOT NULL,
+CREATE TABLE public.tahfidz_student_ayah_progress (
+  tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE RESTRICT,
   student_id UUID NOT NULL,
   halaqah_id UUID NOT NULL,
-  surah_number SMALLINT NOT NULL,
+  surah_number SMALLINT NOT NULL REFERENCES public.quran_surahs(surah_number) ON DELETE RESTRICT,
   ayah_number SMALLINT NOT NULL CHECK (ayah_number BETWEEN 1 AND 286),
   first_performed_at TIMESTAMPTZ NOT NULL,
   PRIMARY KEY (tenant_id, student_id, halaqah_id, surah_number, ayah_number),
-  FOREIGN KEY (tenant_id) REFERENCES public.tenants(id) ON DELETE RESTRICT,
-  FOREIGN KEY (tenant_id, student_id)
-    REFERENCES public.students(tenant_id, id) ON DELETE CASCADE,
-  FOREIGN KEY (tenant_id, halaqah_id)
-    REFERENCES public.tahfidz_halaqahs(tenant_id, id) ON DELETE CASCADE,
-  FOREIGN KEY (surah_number)
-    REFERENCES public.quran_surahs(surah_number) ON DELETE RESTRICT
+  FOREIGN KEY (tenant_id, student_id) REFERENCES public.students (tenant_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (tenant_id, halaqah_id) REFERENCES public.tahfidz_halaqahs (tenant_id, id) ON DELETE CASCADE
 );
 
-ALTER TABLE public.tahfidz_student_ayah_progress ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tahfidz_student_ayah_progress FORCE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS tahfidz_student_ayah_progress_owner_all
-  ON public.tahfidz_student_ayah_progress;
-CREATE POLICY tahfidz_student_ayah_progress_owner_all
-  ON public.tahfidz_student_ayah_progress
-  AS PERMISSIVE
-  FOR ALL
-  TO postgres
-  USING (tenant_id = NULLIF(current_setting('app.tahfidz_progress_tenant_id', TRUE), '')::UUID)
-  WITH CHECK (tenant_id = NULLIF(current_setting('app.tahfidz_progress_tenant_id', TRUE), '')::UUID);
-REVOKE ALL ON TABLE public.tahfidz_student_ayah_progress
-  FROM PUBLIC, anon, authenticated, service_role;
+CREATE INDEX tahfidz_student_ayah_progress_leaderboard_idx
+  ON public.tahfidz_student_ayah_progress (tenant_id, student_id, first_performed_at)
+  INCLUDE (halaqah_id, surah_number, ayah_number);
+
+REVOKE ALL ON TABLE public.tahfidz_student_ayah_progress FROM PUBLIC, anon, authenticated, service_role;
+
 COMMENT ON TABLE public.tahfidz_student_ayah_progress IS
-  'Progress ayat unik hasil setoran Ziyadah; hanya dapat dibaca dan ditulis fungsi server tepercaya.';
+  'Private deduplicated projection of saved Ziyadah ayat by tenant, student and halaqah. Read only inside trusted Tahfidz server routines.';
 
 CREATE OR REPLACE FUNCTION public.sync_tahfidz_student_ayah_progress()
 RETURNS TRIGGER
@@ -62,20 +33,14 @@ AS $$
 DECLARE
   v_ayah_count SMALLINT;
 BEGIN
-  IF NEW.activity_type <> 'Ziyadah' THEN
-    RETURN NEW;
-  END IF;
-
+  IF NEW.activity_type <> 'Ziyadah' THEN RETURN NEW; END IF;
   SELECT catalog.ayah_count INTO v_ayah_count
-  FROM public.quran_surahs AS catalog
-  WHERE catalog.surah_number = NEW.surah_number;
-  IF NOT FOUND OR NEW.ayah_start < 1 OR NEW.ayah_end < NEW.ayah_start
-    OR NEW.ayah_end > v_ayah_count THEN
-    RAISE EXCEPTION 'Setoran Ziyadah tidak terhubung ke rentang ayat yang valid'
-      USING ERRCODE = '23514';
+  FROM public.quran_surahs AS catalog WHERE catalog.surah_number = NEW.surah_number;
+  IF NOT FOUND OR NEW.ayah_start < 1 OR NEW.ayah_end < NEW.ayah_start OR NEW.ayah_end > v_ayah_count THEN
+    RAISE EXCEPTION 'Setoran Ziyadah tidak terhubung ke rentang ayat yang valid' USING ERRCODE = '23514';
   END IF;
-
   PERFORM pg_catalog.set_config('app.tahfidz_progress_tenant_id', NEW.tenant_id::TEXT, TRUE);
+
   INSERT INTO public.tahfidz_student_ayah_progress (
     tenant_id, student_id, halaqah_id, surah_number, ayah_number, first_performed_at
   )
@@ -89,45 +54,56 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.sync_tahfidz_student_ayah_progress()
-  FROM PUBLIC, anon, authenticated, service_role;
 
-DROP TRIGGER IF EXISTS tahfidz_records_sync_student_ayah_progress
-  ON public.tahfidz_records;
+REVOKE ALL ON FUNCTION public.sync_tahfidz_student_ayah_progress() FROM PUBLIC, anon, authenticated, service_role;
 CREATE TRIGGER tahfidz_records_sync_student_ayah_progress
   AFTER INSERT ON public.tahfidz_records
   FOR EACH ROW EXECUTE FUNCTION public.sync_tahfidz_student_ayah_progress();
 
--- Backfill the first recorded date for each unique ayah. The upsert makes the
--- migration safe to rehearse against a staging database that already has rows.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.tahfidz_records AS record
+    LEFT JOIN public.quran_surahs AS catalog ON catalog.surah_number = record.surah_number
+    WHERE record.activity_type = 'Ziyadah'
+      AND (catalog.surah_number IS NULL OR record.ayah_start < 1
+        OR record.ayah_end < record.ayah_start OR record.ayah_end > catalog.ayah_count)
+  ) THEN
+    RAISE EXCEPTION
+      'Backfill leaderboard Tahfidz dihentikan: ada setoran Ziyadah lama yang belum memiliki relasi Surah dan rentang ayat valid. Rekonsiliasi data sebelum menerapkan migrasi ini.';
+  END IF;
+END;
+$$;
+
 INSERT INTO public.tahfidz_student_ayah_progress (
   tenant_id, student_id, halaqah_id, surah_number, ayah_number, first_performed_at
 )
 SELECT record.tenant_id, record.student_id, record.halaqah_id, record.surah_number,
-  generated.ayah_number::SMALLINT, min(record.performed_at)
+  ayah.ayah_number::SMALLINT, MIN(record.performed_at)
 FROM public.tahfidz_records AS record
-CROSS JOIN LATERAL pg_catalog.generate_series(record.ayah_start, record.ayah_end)
-  AS generated(ayah_number)
+CROSS JOIN LATERAL pg_catalog.generate_series(record.ayah_start, record.ayah_end) AS ayah(ayah_number)
 WHERE record.activity_type = 'Ziyadah'
-GROUP BY record.tenant_id, record.student_id, record.halaqah_id,
-  record.surah_number, generated.ayah_number
+GROUP BY record.tenant_id, record.student_id, record.halaqah_id, record.surah_number, ayah.ayah_number
 ON CONFLICT (tenant_id, student_id, halaqah_id, surah_number, ayah_number)
 DO UPDATE SET first_performed_at = LEAST(
   tahfidz_student_ayah_progress.first_performed_at, EXCLUDED.first_performed_at
 );
 
-CREATE INDEX IF NOT EXISTS tahfidz_student_ayah_progress_leaderboard_idx
-  ON public.tahfidz_student_ayah_progress (tenant_id, student_id, first_performed_at)
-  INCLUDE (halaqah_id, surah_number, ayah_number);
-CREATE INDEX IF NOT EXISTS tahfidz_student_ayah_progress_tenant_halaqah_idx
-  ON public.tahfidz_student_ayah_progress (tenant_id, halaqah_id, student_id);
+ALTER TABLE public.tahfidz_student_ayah_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tahfidz_student_ayah_progress FORCE ROW LEVEL SECURITY;
+DO $policy$
+BEGIN
+  EXECUTE format(
+    'CREATE POLICY tahfidz_student_ayah_progress_owner_all ON public.tahfidz_student_ayah_progress FOR ALL TO %I USING (tenant_id = NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID) WITH CHECK (tenant_id = NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID)',
+    current_user, 'app.tahfidz_progress_tenant_id', '',
+    'app.tahfidz_progress_tenant_id', ''
+  );
+END
+$policy$;
 
 CREATE OR REPLACE FUNCTION public.list_tahfidz_leaderboard(
-  p_tenant_id UUID,
-  p_actor_user_id UUID,
-  p_expected_role TEXT,
-  p_business_date DATE,
-  p_limit INTEGER DEFAULT 5
+  p_tenant_id UUID, p_actor_user_id UUID, p_expected_role TEXT,
+  p_business_date DATE, p_limit INTEGER DEFAULT 5
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -150,27 +126,22 @@ BEGIN
     RAISE EXCEPTION 'Role tidak dapat membaca leaderboard Tahfidz' USING ERRCODE = '42501';
   END IF;
 
-  SELECT tenant.time_zone INTO v_time_zone
-  FROM public.tenants AS tenant
-  WHERE tenant.id = p_tenant_id AND tenant.status = 'active';
+  SELECT t.time_zone INTO v_time_zone FROM public.tenants AS t
+  WHERE t.id = p_tenant_id AND t.status = 'active';
   IF NOT FOUND OR v_time_zone IS NULL
-    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names AS zone WHERE zone.name = v_time_zone) THEN
+    OR NOT EXISTS (SELECT 1 FROM pg_catalog.pg_timezone_names AS z WHERE z.name = v_time_zone) THEN
     RAISE EXCEPTION 'Tenant Tahfidz tidak aktif atau zona waktunya tidak valid' USING ERRCODE = '42501';
   END IF;
 
-  -- This call enforces the active profile, tenant, role, module access and
-  -- current assignment before returning any student names or scores.
   v_scope_check := public.list_tahfidz_roster_page(
-    p_tenant_id, p_actor_user_id, p_expected_role, p_business_date,
-    NULL, NULL, 1, FALSE
+    p_tenant_id, p_actor_user_id, p_expected_role, p_business_date, NULL, NULL, 1, FALSE
   );
   PERFORM pg_catalog.set_config('app.tahfidz_progress_tenant_id', p_tenant_id::TEXT, TRUE);
   v_business_cutoff := ((p_business_date + 1)::TIMESTAMP AT TIME ZONE v_time_zone);
 
   WITH eligible_students AS (
     SELECT student.id, COALESCE(student.name, '') AS student_name,
-      COALESCE(student.grade, '') AS student_grade, membership.halaqah_id,
-      membership.halaqah_name
+      COALESCE(student.grade, '') AS student_grade, membership.halaqah_id, membership.halaqah_name
     FROM public.students AS student
     LEFT JOIN LATERAL (
       SELECT halaqah.name AS halaqah_name, halaqah.id AS halaqah_id
@@ -246,9 +217,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.list_tahfidz_leaderboard(UUID, UUID, TEXT, DATE, INTEGER)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.list_tahfidz_leaderboard(UUID, UUID, TEXT, DATE, INTEGER)
-  TO service_role;
+GRANT EXECUTE ON FUNCTION public.list_tahfidz_leaderboard(UUID, UUID, TEXT, DATE, INTEGER) TO service_role;
 COMMENT ON FUNCTION public.list_tahfidz_leaderboard(UUID, UUID, TEXT, DATE, INTEGER) IS
-  'Returns tenant- and halaqah-scoped rankings by unique saved hafalan ayat; Ziyadah records and active days break ties. Service-only API.';
-
+  'Returns a tenant- and halaqah-scoped lifetime Tahfidz ranking by distinct Ziyadah ayat recorded, then setoran and active days. Service-only API; reuses the canonical roster authorization guard.';
 COMMIT;

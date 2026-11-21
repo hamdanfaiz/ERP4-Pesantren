@@ -1,11 +1,13 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Checkpoint terbaru — 21 November 2026, 17.58 WIB
+## Checkpoint terbaru — 21 November 2026, 18.21 WIB
 
-- PR #185 tetap **open/draft** pada `main`; head saat ini `7a86679a1a8746b9e0800edd92b2759d7bb72d82`. PR memuat pemeringkatan hafalan ayat unik, migrasi tabel kemajuan, serta ekspor CSV Tahfidz yang dibatasi tenant/cakupan akun dan berpaginasi.
-- UAT Ustadz di preview PR #185 berhasil untuk ringkasan Halaqah, leaderboard (15 dan 10 ayat unik), tiga setoran sintetis, serta ekspor CSV rentang 1–21 November 2026. Hasil unduhan memuat ketiga catatan dalam cakupan halaqah Ustadz. Detail ada di [catatan fixture UAT](UAT_VQE_FIXTURES_2026-11-21.md).
-- GitHub Actions runs [44896253322](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44896253322) dan [44896249709](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44896249709) lulus. Keduanya menjalankan job frontend/build, paket instalasi pelanggan, dan migrasi/API/pgTAP pada Supabase lokal terisolasi.
-- Perubahan Production atau deployment ke domain pelanggan tidak dilakukan. Kelulusan Tahfidz ini tidak menutup gerbang UAT modul lain, perbedaan DDL/ledger Production, bukti backup/restore cloud, maupun uji instalasi/upgrade self-hosted. Produk belum dinyatakan siap go-live atau komersial.
+- PR #185 tetap **open/draft** pada `main`; head yang terakhir dicek `ec32e97f376fb19dcede55f411ec1c8d4adc171d`. Perubahan mencakup leaderboard hafalan ayat unik dan ekspor CSV Tahfidz berpaginasi serta dibatasi tenant/cakupan akun.
+- UAT Ustadz pada preview PR #185 membuktikan dua santri, satu halaqah, tiga setoran, cakupan target 2/2, dan urutan 15 lalu 10 ayat unik. Uji CSV sebelumnya berhasil untuk ketiga catatan dalam cakupan halaqah Ustadz. UAT menemukan panel leaderboard tampil ganda; koreksi lokal sudah dibuat dan lulus tes statis/build, tetapi belum diverifikasi pada preview.
+- GitHub Actions pada head `ec32e97` lulus 3/3 job pada dua run: build frontend, migrasi/API/pgTAP, dan instalasi paket pelanggan. Supabase Preview dilewati karena branch Git tidak terhubung ke Supabase Branch.
+- Ledger VQE baca-saja berisi 165 versi, termasuk migrasi leaderboard pada versi 03 dan indeks versi 04. Source PR #185 yang sebelumnya diperiksa tidak cocok; pasangan source kini diselaraskan lokal dan lulus preflight lokal, belum dipush/diuji CI. Jangan merge sebelum CI dan preview setelah koreksi lulus.
+- Tim backend: gunakan [prasyarat Production leaderboard Tahfidz](../06_DATABASE/TAHFIDZ_LEADERBOARD_PRODUCTION_PREFLIGHT_2026-11-21.md) sebagai checklist baca-saja dan rehearsal; hitungan katalog di dokumen itu adalah snapshot 21 November, bukan bukti DDL atau izin deploy terkini.
+- Tidak ada perubahan pada PTSAS Production atau domain pelanggan. Kelulusan Tahfidz tidak menyelesaikan UAT modul lain, perbedaan DDL/ledger Production, bukti backup/restore cloud, maupun uji instalasi/upgrade mandiri. Produk belum dinyatakan siap go-live atau komersial.
 
 ## Status otoritatif — 21 November 2026, 03.52 WIB
 

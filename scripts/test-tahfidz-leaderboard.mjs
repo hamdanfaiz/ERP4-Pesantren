@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 import { normalizeTahfidzLeaderboardResult, readTahfidzLeaderboardParticipantCount } from "../src/lib/tahfidzLeaderboardResponse.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql"), "utf8");
+const migration = [
+  "20270403000000_tahfidz_unique_memorization_leaderboard.sql",
+  "20270404000000_tahfidz_unique_ayah_projection_indexes.sql",
+].map((fileName) => fs.readFileSync(path.join(root, "supabase/migrations", fileName), "utf8")).join("\n");
 const service = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
 const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
@@ -17,12 +20,14 @@ const dashboard = page.slice(dashboardStart, dashboardEnd);
 
 assert.match(migration, /public\.list_tahfidz_roster_page\([\s\S]*?p_business_date[\s\S]*?FALSE\)/,
   "Leaderboard reuses the authenticated tenant, role, module, and assignment guard.");
-assert.match(migration, /CREATE TABLE IF NOT EXISTS public\.tahfidz_student_ayah_progress/,
+assert.match(migration, /CREATE TABLE public\.tahfidz_student_ayah_progress/,
   "The source migration creates the persisted unique-ayah progress source used by the leaderboard.");
 assert.match(migration, /ALTER TABLE public\.tahfidz_student_ayah_progress ENABLE ROW LEVEL SECURITY[\s\S]*?FORCE ROW LEVEL SECURITY/,
   "Persisted ayah progress is forced through row-level security.");
-assert.match(migration, /CREATE POLICY tahfidz_student_ayah_progress_owner_all[\s\S]*?TO postgres[\s\S]*?app\.tahfidz_progress_tenant_id/,
-  "Only the trusted database owner can access progress, scoped to the active tenant.");
+assert.match(migration, /CREATE POLICY tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I[\s\S]*?current_setting\(%L, true\)/,
+  "Only the migration owner can access progress, scoped to the active tenant.");
+assert.match(migration, /CREATE INDEX IF NOT EXISTS tahfidz_student_ayah_progress_tenant_halaqah_idx/,
+  "The applied follow-up migration includes the tenant and halaqah lookup index.");
 assert.match(migration, /CREATE TRIGGER tahfidz_records_sync_student_ayah_progress[\s\S]*?AFTER INSERT ON public\.tahfidz_records/,
   "New Ziyadah records update the unique-ayah progress table transactionally.");
 assert.match(migration, /INSERT INTO public\.tahfidz_student_ayah_progress[\s\S]*?generate_series[\s\S]*?ON CONFLICT[\s\S]*?LEAST/,
@@ -66,6 +71,8 @@ assert.match(dashboard, /isTahfidzViewScopeCurrent\(leaderboardScope, currentLea
   "Leaderboard results fail closed when the active tenant, user, role, or module access changes.");
 assert.match(dashboard, /Peringkat Hafalan Santri/,
   "The Tahfidz dashboard labels the requested lifetime hafalan leaderboard.");
+assert.equal((dashboard.match(/Peringkat Hafalan Santri/g) ?? []).length, 1,
+  "The Tahfidz dashboard renders the leaderboard only once.");
 assert.match(dashboard, /student\.hafalanAyahs[\s\S]*?student\.ziyadahRecords[\s\S]*?student\.ziyadahActiveDays/,
   "Dashboard shows saved unique hafalan, setoran, and active-day metrics.");
 assert.match(page, /\/api\/tahfidz\/leaderboard\?limit=\$\{limit\}/,
