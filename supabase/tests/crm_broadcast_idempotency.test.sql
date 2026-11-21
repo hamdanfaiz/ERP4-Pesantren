@@ -13,10 +13,12 @@ INSERT INTO auth.users (
 ) VALUES
   ('c3900000-0000-4000-8000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'crm-broadcast-admin-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('c3900000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'crm-broadcast-denied@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('c3900000-0000-4000-8000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'crm-broadcast-admin-a2@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('c4900000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'crm-broadcast-admin-b@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions) VALUES
   ('c3900000-0000-4000-8000-000000000011', 'c3900000-0000-4000-8000-000000000001', 'crm-broadcast-admin-a@test.invalid', 'CRM Broadcast Admin A', 'admin', 'active', '{}'),
   ('c3900000-0000-4000-8000-000000000012', 'c3900000-0000-4000-8000-000000000001', 'crm-broadcast-denied@test.invalid', 'CRM Broadcast Denied', 'admin', 'active', '{"crm":false}'),
+  ('c3900000-0000-4000-8000-000000000013', 'c3900000-0000-4000-8000-000000000001', 'crm-broadcast-admin-a2@test.invalid', 'CRM Broadcast Admin A2', 'admin', 'active', '{}'),
   ('c4900000-0000-4000-8000-000000000021', 'c4900000-0000-4000-8000-000000000002', 'crm-broadcast-admin-b@test.invalid', 'CRM Broadcast Admin B', 'admin', 'active', '{}');
 
 SELECT ok((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.crm_broadcast_requests'::regclass), 'broadcast requests enable RLS');
@@ -201,11 +203,11 @@ SELECT is(public.claim_tenant_crm_broadcast_recipient(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000403', 'c3900000-0000-4000-8000-000000000101'
 )->>'claimed', 'false', 'uncertain campaign cannot retry external delivery');
-SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
-  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000012', 'admin',
+SELECT throws_ok($SELECT public.reserve_tenant_crm_broadcast(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000013', 'admin',
   'c3900000-0000-4000-8000-000000000403', decode(repeat('c', 64), 'hex'),
   ARRAY['c3900000-0000-4000-8000-000000000101']::UUID[]
-)$$, '23505', 'ID permintaan siaran telah dipakai untuk payload berbeda', 'a different actor cannot reuse the campaign request');
+)$, '23505', 'ID permintaan siaran telah dipakai untuk payload berbeda', 'a different actor cannot reuse the campaign request');
 
 RESET ROLE;
 SELECT * FROM finish();
