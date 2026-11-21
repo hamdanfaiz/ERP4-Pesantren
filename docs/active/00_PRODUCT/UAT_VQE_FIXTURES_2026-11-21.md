@@ -27,6 +27,7 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Tab Target & Rapor memuat dua target aktif dengan periode dan kebijakan berbeda. Tab Manajemen Halaqah menampilkan dua anggota dan Ustadz pengampu.
 - Tab Jadwal Talaqqi berhasil menyimpan sesi simulasi Santri 01 pada 25 November 2026 pukul 09.00 WIB, durasi 30 menit, fokus makharijul huruf dan ghunnah; status Terjadwal.
 - Tab Munaqasyah berhasil menyimpan sesi simulasi Tasmi' juz 1–3 untuk Santri 02 pada 24 November 2026 pukul 09.00 WIB, durasi 45 menit; status Terjadwal.
+- Pada sesi Ustadz, tombol Pengingat, Ekspor Laporan, Penilaian Audio AI, dan Notifikasi tampil nonaktif/belum tersedia; fungsi tersebut belum dinyatakan lolos UAT.
 - Pemeriksaan kode menemukan teks statis yang keliru menyatakan jadwal tidak dapat disimpan karena benturan; teks diperbaiki menjadi keterangan bahwa benturan akan diperiksa.
 - Tab Penilaian Antar-Santri belum memiliki fixture yang dapat diverifikasi; sesi baca di preview utama berhenti pada status memuat dan sesi tersebut kemudian berakhir. Tidak ada penilaian atau jadwal yang dibuat melalui UI pada sesi ini.
 - PR #185 menggunakan preview `https://framed-slateblue-rail-79.hostingersite.com/`. UAT Ustadz berhasil pada preview tersebut: ringkasan Halaqah, riwayat, target, manajemen halaqah, dua jenis jadwal, leaderboard, dan katalog Al-Qur'an dapat diperiksa. Sesi pada preview staging utama berakhir saat pemeriksaan tab Jadwal; alur Admin modul lain masih memerlukan sesi Admin tersendiri.
