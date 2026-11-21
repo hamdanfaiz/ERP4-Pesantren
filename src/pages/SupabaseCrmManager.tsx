@@ -235,7 +235,7 @@ export function SupabaseCrmManager() {
         method: "POST",
         body: JSON.stringify({ broadcast: { ...payload, clientRequestId: lease.requestId } }),
       });
-      if (result?.status !== "processing") lease.clear();
+      if (dryRun || result?.status === "completed") lease.clear();
       setBroadcastResult(result || null);
       setNotice(dryRun
         ? `Pratinjau: ${result?.recipientCount || 0} kontak memenuhi syarat untuk siaran.`
