@@ -120,7 +120,7 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
       <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Perlu ditinjau ({preview.issueCount})</div>
       {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={`${issue.code}-${index}`} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-200">{cbtImportIssueLabel(issue.code)}</span><span className={issue.severity === "blocking" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}>{issue.severity === "blocking" ? "Perlu diperbaiki" : "Perhatian"}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Semua data memenuhi pemeriksaan.</p>}
     </div>
-    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
+    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan." : "Data belum dapat diterapkan. Perbaiki konflik dan lengkapi pemetaan sebelum melanjutkan."}</p>
   </div>;
 }
 

@@ -33,6 +33,7 @@ function isMessageCall(call, sourceFile) {
 function isUserFacingLiteral(node, sourceFile) {
   let current = node;
   while (current && current !== sourceFile) {
+    if (ts.isBinaryExpression(current.parent) && [ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(current.parent.operatorToken.kind)) return false;
     if (ts.isJsxAttribute(current)) return uiAttributes.has(current.name.getText(sourceFile));
     if (ts.isJsxExpression(current)) {
       const host = current.parent;
