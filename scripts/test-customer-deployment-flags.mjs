@@ -164,6 +164,8 @@ assert.match(crmUi, /broadcastStatus\.configured \? "Pengiriman WhatsApp siap di
   "CRM status must show a customer-facing message rather than the service endpoint");
 assert.match(server, /res\.json\(\{ configured: Boolean\(status\.configured\) \}\)/,
   "The CRM status API must return only its availability state");
+assert.match(crmUi, /if \(dryRun \|\| result\?\.status === "completed"\) lease\.clear\(\);/,
+  "Uncertain CRM sends must retain the idempotency key so retries read status instead of resending");
 assert.match(crmUi, /item\.errorCode === "provider_rejected" \? "pesan belum berhasil dikirim"/,
   "Rejected WhatsApp deliveries must use customer-facing copy");
 assert.doesNotMatch(crmService, /error:\s*detail/,
