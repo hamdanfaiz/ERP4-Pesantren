@@ -12,7 +12,7 @@
 ## VQE staging
 
 - Project `vqemuyzveuirlkvdggjd` terbaca `ACTIVE_HEALTHY`.
-- Ledger VQE memuat **165/165 versi dan nama** yang cocok dengan 165 file source, sampai `20270404000000_tahfidz_unique_ayah_projection_indexes). Inventaris metadata melaporkan 180 tabel `public`, semuanya RLS aktif.
+- Ledger VQE memuat **165/165 versi dan nama** yang cocok dengan 165 file source, sampai `20270404000000_tahfidz_unique_ayah_projection_indexes`. Inventaris metadata melaporkan 180 tabel `public`, semuanya RLS aktif.
 - Pemeriksaan ini baca-saja. Ledger yang cocok tidak membuktikan SQL migrasi/DDL live sama, semua policy benar, atau UAT setiap modul lulus. Tidak ada migrasi atau data yang ditulis ke VQE.
 
 ## PTSAS Production dan batas promosi
