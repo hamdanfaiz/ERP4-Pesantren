@@ -1,14 +1,27 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Checkpoint terbaru — 21 November 2026, 18.48 WIB
+## Checkpoint terbaru — 21 November 2026, 19.09 WIB
 
-- PR #185 telah **tergabung ke `main`** pada merge commit `3080422ffc552b82704da0941b574cf8d220b45a`. Implementasi leaderboard hafalan ayat unik, ekspor laporan Tahfidz, migrasi, pengujian, dan pembaruan dokumen paritas kini ada di main.
-- PR #182 ditutup sebagai superseded oleh #185. Catatan checkpoint #182 yang menyebut belum ada akun Ustadz sudah usang; status saat ini dicatat dalam dokumen UAT dan PR #185.
-- UAT browser pada preview Hostinger untuk kode aplikasi `c19f8c2`, menggunakan akun Ustadz sintetis VQE, membuktikan satu halaqah dalam cakupan akun, dua santri, tiga setoran hari itu, target 2/2, dan tepat satu panel leaderboard. Peringkat: Santri 02 dengan 15 ayat unik, lalu Santri 01 dengan 10 ayat unik. Ekspor CSV sebelumnya berhasil untuk catatan dalam cakupan halaqah.
-- GitHub Actions pada head `d7d39b7` lulus tiga pemeriksaan utama: build frontend/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API auth/pgTAP. Job database memakai Supabase lokal terisolasi, termasuk replay migrasi dari baseline historis, isolasi tenant, konkurensi, Storage, serta backup/restore lokal. CI Supabase Preview otomatis dilewati karena branch ini tidak ditautkan ke Supabase Branch.
-- VQE staging tetap proyek pengujian. Ledger yang terakhir dibaca berisi 165 versi dan menyertakan dua migrasi leaderboard; pemeriksaan sebelumnya bersifat baca-saja. Tidak ada operasi tulis ke PTSAS Production.
-- PTSAS Production belum direkonsiliasi ke source `main`; DDL aktual, urutan migrasi penuh, dan bukti backup/restore cloud belum dibuktikan. Tim backend perlu menyelesaikan gerbang Production ini sebelum cutover atau deploy schema.
-- Penggabungan PR #185 menyelesaikan satu fitur Tahfidz; **produk keseluruhan belum dinyatakan siap go-live/komersial**. UAT lintas modul/role, deployment bersih ke lingkungan pelanggan (VPS/on-premise), pemulihan cloud, dan penerimaan komersial masih terbuka.
+### Source, Tahfidz, dan CI
+
+- PR #185 telah **tergabung ke `main`** pada `3080422ffc552b82704da0941b574cf8d220b45a`. PR #186, pembaruan checkpoint pasca-merge, juga telah **tergabung** pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`. PR #182 ditutup sebagai duplikat yang superseded oleh #185. Pencarian terakhir tidak menemukan PR terbuka.
+- UAT browser sebelumnya pada preview Hostinger PR #185 dengan akun Ustadz sintetis VQE menunjukkan 2 santri, 1 halaqah, 3 setoran hari itu, cakupan target 2/2, satu panel leaderboard, dan peringkat 15 lalu 10 ayat unik. Riwayat setoran memakai nama Surah serta rentang ayat dari katalog. Tab preview yang tersedia sekarang kembali ke layar publik/masuk; UAT lanjutan perlu sesi login staging baru.
+- Empat pemeriksaan lokal pada source aplikasi `c19f8c2` lulus: kontrak environment Compose (100 variabel tercakup, nilai secret kosong), konfigurasi deployment (31 nilai runtime publik dan 38 gerbang server fail-closed), graph runtime Supabase tanpa Firebase (169 modul, 26 rute Supabase, arsip impor ditutup), dan leaderboard Tahfidz (95 assertion database).
+- CI PR #185 dan PR #186 lulus tiga job wajib: frontend/build guard, instalasi paket pelanggan, dan migrasi/API Auth/pgTAP. Tes database berjalan pada Supabase lokal terisolasi. Job Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch.
+
+### Staging dan Production
+
+- Pemeriksaan baca-saja VQE `vqemuyzveuirlkvdggjd` saat ini menunjukkan status `ACTIVE_HEALTHY`, **165/165 pasangan versi dan nama migrasi** cocok dengan 165 file source, hingga `20270404000000_tahfidz_unique_ayah_projection_indexes`. Inventaris schema menemukan 180 tabel `public` dan semuanya melaporkan RLS aktif.
+- Kecocokan ledger versi/nama dan RLS aktif bukan bukti checksum/DDL lengkap, ketepatan setiap policy, UAT seluruh modul, atau backup/restore cloud. Tidak ada migrasi atau baris data yang ditulis ke VQE pada pemeriksaan ini.
+- Snapshot Production terakhir dalam dokumen lama membandingkan 100 baris ledger dengan source yang saat itu berisi 163 migrasi. Karena source `main` kini berisi 165 file, angka lama **sudah usang** dan tidak boleh dipakai sebagai rencana deploy. PTSAS perlu inventaris baca-saja baru, rekonsiliasi nama/payload/DDL/dependensi satu per satu, lalu rehearsal setelah backup dapat dipulihkan.
+- PTSAS Production tidak disentuh dalam pekerjaan ini.
+
+### Gerbang produk yang masih terbuka
+
+- UAT browser lintas modul dan role belum lengkap; verifikasi leaderboard Ustadz bukan pengganti UAT Admin, Wali, Santri, keuangan, PPDB, Akademik, CBT/LMS, Storage, dan modul operasional lain.
+- Clean install, upgrade, dan pemulihan pada VPS/on-premise pelanggan belum dibuktikan. Tes konfigurasi Compose lokal yang lulus hanya memverifikasi kontrak environment dan guard.
+- Kesiapan Production masih memerlukan peninjauan DDL/migrasi dan bukti backup/restore oleh tim backend. Persetujuan UAT pengguna serta kesiapan operasional/komersial juga masih terbuka.
+- **Produk keseluruhan belum dinyatakan siap go-live atau komersial.** Persentase total tidak dihitung karena cakupan dan bobot UAT lintas environment belum memiliki denominator terukur yang disepakati.
 
 ## Status otoritatif — 21 November 2026, 03.52 WIB
 
