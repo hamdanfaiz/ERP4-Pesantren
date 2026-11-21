@@ -317,7 +317,8 @@ export function SupabaseCrmManager() {
           const detail = item.errorCode === "consent_revoked" ? "persetujuan telah dicabut"
             : item.errorCode === "invalid_recipient" ? "nomor WhatsApp tidak valid"
               : item.errorCode === "provider_unavailable" ? "layanan belum tersedia"
-              : item.errorCode === "delivery_unknown" ? "hasil pengiriman belum dipastikan"
+                : item.errorCode === "provider_rejected" ? "pesan belum berhasil dikirim"
+                  : item.errorCode === "delivery_unknown" ? "hasil pengiriman belum dipastikan"
                 : item.errorCode === "interaction_log_failed" ? "catatan interaksi belum tersimpan"
                   : item.error || "";
           return <li key={`${item.phone}-${index}`}>{item.name} · {item.phone} · {label}{detail ? ` · ${detail}` : ""}</li>;
