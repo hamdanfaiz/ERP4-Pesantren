@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
-SELECT plan(45);
+SELECT plan(50);
 
 INSERT INTO public.tenants (id, slug, name, status) VALUES
   ('c3900000-0000-4000-8000-000000000001', 'crm-broadcast-a-test', 'CRM Broadcast A Test', 'active'),
@@ -129,11 +129,35 @@ SELECT is(public.finish_tenant_crm_broadcast(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000402'
 )->>'status', 'completed', 'consent rejection is a resolved recipient outcome');
-SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
+SELECT is(public.manage_tenant_crm_contact(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000304', 'c3900000-0000-4000-8000-000000000103', 'create',
+  '{"contactType":"prospect","name":"Kontak Tanpa WhatsApp","email":"broadcast-c@example.test","phone":"nophone","lifecycleStage":"lead","marketingConsent":"granted","consentSource":"Formulir uji"}'::jsonb
+)->>'alreadyApplied', 'false', 'contact with invalid phone remains a valid CRM record');
+SELECT is(public.reserve_tenant_crm_broadcast(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000406', decode(repeat('f', 64), 'hex'),
+  ARRAY['c3900000-0000-4000-8000-000000000103']::UUID[]
+)->>'created', 'true', 'invalid phone recipient can be recorded without sending');
+SELECT is(public.claim_tenant_crm_broadcast_recipient(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000406', 'c3900000-0000-4000-8000-000000000103'
+)->>'claimed', 'true', 'invalid phone recipient gets a durable claim');
+SELECT is(public.record_tenant_crm_broadcast_delivery(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000406', 'c3900000-0000-4000-8000-000000000103',
+  'failed', NULL, 'invalid_recipient'
+)->>'status', 'failed', 'invalid phone is recorded as a resolved no-send outcome');
+SELECT is(public.finish_tenant_crm_broadcast(
+  'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
+  'c3900000-0000-4000-8000-000000000406'
+)->>'status', 'completed', 'invalid phone does not block campaign completion');
+
+SELECT throws_ok($SELECT public.reserve_tenant_crm_broadcast(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000012', 'admin',
   'c3900000-0000-4000-8000-000000000404', decode(repeat('d', 64), 'hex'),
   ARRAY['c3900000-0000-4000-8000-000000000101']::UUID[]
-)$$, '42501', 'Akses aktif Admin ke CRM diperlukan', 'explicitly denied CRM permission is enforced');
+)$, '42501', 'Akses aktif Admin ke CRM diperlukan', 'explicitly denied CRM permission is enforced');
 SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
   'c4900000-0000-4000-8000-000000000002', 'c4900000-0000-4000-8000-000000000021', 'admin',
   'c4900000-0000-4000-8000-000000000405', decode(repeat('e', 64), 'hex'),
