@@ -97,6 +97,7 @@ SELECT is(public.claim_tenant_crm_broadcast_recipient(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000401', 'c3900000-0000-4000-8000-000000000101'
 )->>'claimed', 'false', 'completed campaigns cannot be resent');
+RESET ROLE;
 SELECT throws_ok($$DELETE FROM public.crm_broadcast_recipients
   WHERE tenant_id = 'c3900000-0000-4000-8000-000000000001'
     AND client_request_id = 'c3900000-0000-4000-8000-000000000401'$$,
@@ -105,6 +106,7 @@ SELECT throws_ok($$DELETE FROM public.crm_broadcast_requests
   WHERE tenant_id = 'c3900000-0000-4000-8000-000000000001'
     AND client_request_id = 'c3900000-0000-4000-8000-000000000401'$$,
   '55000', 'Riwayat siaran CRM tidak dapat dihapus', 'campaign history is append-only');
+SET LOCAL ROLE service_role;
 
 SELECT is(public.manage_tenant_crm_contact(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
