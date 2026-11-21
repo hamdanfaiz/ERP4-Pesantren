@@ -94,3 +94,13 @@ Pemeriksaan terbaru pada VQE dilakukan setelah PR #193 dan #194 tergabung ke `ma
 - Tidak ada fixture yang dibuat atau diubah pada pemeriksaan ini. PTSAS Production tidak disentuh.
 
 Hitungan ayat unik **30** menggantikan angka **25** pada inventaris sebelumnya. Perbedaan ini dicatat sebagai perubahan kondisi staging; laporan ini tidak mencoba mengidentifikasi atau mengubah catatan penyebabnya.
+
+
+## Addendum source dan status PR — 22 November 2026
+
+- Catatan di atas merekam kondisi UAT pada 21 November. Status PR #185 yang tertulis sebagai draft sudah menjadi historis: PR #185 telah digabung ke `main` melalui commit `3080422ffc552b82704da0941b574cf8d220b45a`.
+- Source `main` saat addendum ini berada pada `4a662bc2f3cb520e49a57cab1ba8d667bed40137`. Tes `test:tahfidz-leaderboard` memeriksa label **Peringkat Hafalan Santri**, urutan ayat hafalan unik yang tersimpan, cakupan tenant/halaqah, dan tepat satu panel leaderboard. CI PR #212 yang berjalan atas source saat ini lulus 3/3 job, termasuk pengujian itu.
+- Bukti tersebut memastikan keadaan source dan CI, bukan tampilan preview Hostinger yang sedang aktif. UAT browser untuk build yang cocok dengan `main` tetap belum terkonfirmasi; jangan menyimpulkan duplikasi di preview sudah hilang sebelum membuka build terbaru.
+- Tabel fixture dan hitungan record di dokumen ini adalah snapshot historis 21 November, bukan inventaris staging terkini. Modul yang kosong tetap harus diisi hanya setelah runtime-nya tersedia dan bisa diverifikasi melalui antarmuka.
+- Tidak ada perubahan Supabase, Auth, Storage, hosting, atau data Production.
+
