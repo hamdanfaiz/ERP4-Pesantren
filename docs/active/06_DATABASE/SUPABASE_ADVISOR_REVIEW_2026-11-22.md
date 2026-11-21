@@ -1,3 +1,16 @@
+## Pemeriksaan ulang baca-saja — 22 November 2026, 02.53 WIB
+
+**Waktu pemeriksaan:** 21 November 2026, 19:53 UTC. Security, performance, dan health advisors dibaca ulang untuk VQE staging dan PTSAS Production. Hitungan security/performance tidak berubah dari snapshot 01.57 WIB; Health Advisor tidak mengembalikan temuan. Pemeriksaan hanya membaca metadata Advisor, tidak membaca baris aplikasi dan tidak mengubah SQL, konfigurasi, migrasi, Auth, Storage, atau data.
+
+| Proyek | Temuan keamanan | Temuan performa | Health |
+| --- | --- | --- | --- |
+| VQE staging | RLS tanpa policy 176 (INFO); perlindungan kata sandi bocor nonaktif 1 (WARN) | FK tanpa indeks 262 (INFO); indeks belum terpakai 98 (INFO); RLS initplan 1 (WARN) | 0 temuan |
+| PTSAS Production | RLS tanpa policy 157 (INFO); fungsi SECURITY DEFINER dapat dipanggil authenticated 4 (WARN); search_path berubah 1 (WARN); perlindungan kata sandi bocor nonaktif 1 (WARN) | FK tanpa indeks 269 (INFO); indeks belum terpakai 89 (INFO); RLS initplan 2 (WARN); indeks duplikat 1 (WARN) | 0 temuan |
+
+Rincian objek dan urutan tindak lanjut tetap mengikuti bagian di bawah ini. Hitungan Advisor adalah sinyal peninjauan; jangan menerapkan perubahan massal hanya untuk menghilangkan peringatan.
+
+---
+
 # Tinjauan Supabase Advisors — 22 November 2026
 
 **Waktu snapshot:** 22 November 2026, sekitar 01.57 WIB (21 November 2026 18.57 UTC)  
