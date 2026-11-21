@@ -1,6 +1,6 @@
 # Modul Parent CRM & Donor Relations
 
-> **Status runtime (13 Nov 2026):** jalur Supabase aktif di Production PTSAS untuk direktori kontak, pipeline tahap, interaksi, analitik agregat, dan **siaran WhatsApp via OpenWA**. Detail kontrak, flag, API, dan backlog: [CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md](../00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md). Agent wajib baca checkpoint itu sebelum mengubah modul ini.
+> **Status source (21 Nov 2026):** Source menyediakan direktori kontak, pipeline tahap, interaksi, analitik, dan siaran WhatsApp via OpenWA. Aktivasi flag, konfigurasi gateway, dan kesiapan Production harus diverifikasi per environment; dokumen ini bukan bukti bahwa pengiriman Production aktif. Baca [checkpoint relasi dan OpenWA](../00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) sebelum mengubah modul ini.
 
 ## Tujuan
 
@@ -20,6 +20,7 @@ Mengelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data t
 - Email atau SMS massal
 - Hapus kontak (hanya create/update)
 - Provider selain OpenWA Easy API untuk WhatsApp
+- Ledger batch tahan lama dan penanganan idempoten untuk siaran. `clientRequestId` belum disimpan oleh jalur pengiriman; setelah respons gateway ambigu, jangan retry otomatis dan rekonsiliasikan status pada OpenWA terlebih dahulu.
 
 ## Konfigurasi OpenWA
 
