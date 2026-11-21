@@ -14,6 +14,11 @@ assert.match(compose, /^\s+-\s+"127\.0\.0\.1:\$\{ERP4_HTTP_PORT:-3000\}:3000"\s*
 const exampleVariables = new Set(
   [...example.matchAll(/^\s*([A-Z][A-Z0-9_]*)\s*=/gm)].map((match) => match[1]),
 );
+assert.match(compose, /^\s+PUBLIC_PPDB_ENABLED: \$\{PUBLIC_PPDB_ENABLED:-false\}$/m, "public PPDB must stay disabled by default in customer Compose deployments");
+assert.match(compose, /^\s+PUBLIC_PPDB_TENANT_ID: \$\{PUBLIC_PPDB_TENANT_ID:-\}$/m, "public PPDB tenant must be supplied only to the server container");
+assert.match(example, /^PUBLIC_PPDB_ENABLED=false$/m, ".env.example must keep public PPDB disabled");
+assert.match(example, /^PUBLIC_PPDB_TENANT_ID=$/m, ".env.example must not select a tenant for public PPDB");
+assert.doesNotMatch(compose, /^\s+VITE_PUBLIC_PPDB_(?:ENABLED|TENANT_ID):/m, "public PPDB server settings must not enter browser runtime config");
 const missingVariables = composeVariables.filter((name) => !exampleVariables.has(name));
 assert.deepEqual(
   missingVariables,
