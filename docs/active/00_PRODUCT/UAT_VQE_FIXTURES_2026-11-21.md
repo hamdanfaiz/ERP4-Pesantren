@@ -27,7 +27,8 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Tab Target & Rapor memuat dua target aktif dengan periode dan kebijakan berbeda. Tab Manajemen Halaqah menampilkan dua anggota dan Ustadz pengampu.
 - Tab Jadwal Talaqqi berhasil menyimpan sesi simulasi Santri 01 pada 25 November 2026 pukul 09.00 WIB, durasi 30 menit, fokus makharijul huruf dan ghunnah; status Terjadwal.
 - Tab Munaqasyah berhasil menyimpan sesi simulasi Tasmi' juz 1–3 untuk Santri 02 pada 24 November 2026 pukul 09.00 WIB, durasi 45 menit; status Terjadwal.
-- Pada sesi Ustadz, tombol Pengingat, Penilaian Audio AI, dan Notifikasi tampil nonaktif/belum tersedia. Ekspor Laporan kini memiliki alur CSV dengan filter tanggal, paginasi server, batas 10.000 catatan, dan pembatalan saat cakupan akun berubah; verifikasi klik dan unduhan pada preview PR masih menunggu.
+- Pada sesi Ustadz, tombol Pengingat, Penilaian Audio AI, dan Notifikasi tampil nonaktif/belum tersedia. Ekspor Laporan memiliki alur CSV dengan filter tanggal, paginasi server, batas 10.000 catatan, dan pembatalan saat cakupan akun berubah; klik dan unduhan telah terverifikasi pada preview PR #185.
+- Uji unduh CSV pada preview PR #185 berhasil untuk rentang 1–21 November 2026. Berkas berisi tiga setoran sintetis yang terlihat di cakupan halaqah Ustadz: dua Ziyadah dan satu Muroja'ah, dengan kolom identitas/relasi, surah-ayat, penilaian, catatan, dan pencatat. Data tetap berlabel UAT; tidak ada data Production yang dibaca atau diubah.
 - Pemeriksaan kode menemukan teks statis yang keliru menyatakan jadwal tidak dapat disimpan karena benturan; teks diperbaiki menjadi keterangan bahwa benturan akan diperiksa.
 - Tab Penilaian Antar-Santri belum memiliki fixture yang dapat diverifikasi; sesi baca di preview utama berhenti pada status memuat dan sesi tersebut kemudian berakhir. Tidak ada penilaian atau jadwal yang dibuat melalui UI pada sesi ini.
 - PR #185 menggunakan preview `https://framed-slateblue-rail-79.hostingersite.com/`. UAT Ustadz berhasil pada preview tersebut: ringkasan Halaqah, riwayat, target, manajemen halaqah, dua jenis jadwal, leaderboard, dan katalog Al-Qur'an dapat diperiksa. Sesi pada preview staging utama berakhir saat pemeriksaan tab Jadwal; alur Admin modul lain masih memerlukan sesi Admin tersendiri.
@@ -42,10 +43,10 @@ Data dummy hanya dibuat pada modul yang runtime-nya tersedia dan dapat diuji lew
 ## Hasil verifikasi build
 
 - `npm run test:tahfidz-leaderboard`: lulus pada revisi PR sebelum perubahan teks form jadwal.
-- `npm run test:tahfidz-record-pagination`: lulus; mencakup paginasi ekspor lengkap, kursor berulang, batas jumlah baris, dan tanggal kabisat.
+- `npm run test:tahfidz-record-pagination`: lulus; mencakup paginasi ekspor lengkap, kursor berulang, batas jumlah baris, dan tanggal kabisat. Unduhan CSV juga lulus pada UAT browser: tiga record dalam rentang yang dipilih, termasuk Muroja'ah dan dua Ziyadah.
 - `npm run lint` dan `npm run build`: lulus untuk perubahan ini; build memberi peringatan dependensi tentang anotasi komentar Zod dan ukuran chunk di atas 500 KB, bukan error build.
 - `git diff --check`: lulus.
-- GitHub Actions run `44888174336` pada commit `59db5f4` lulus semua job, termasuk build, replay migrasi, pgTAP, API auth/isolasi tenant, dan integrasi Tahfidz. Perubahan teks form jadwal sesudahnya sudah lulus lint/build lokal; CI perlu berjalan kembali setelah perubahan didorong.
+- GitHub Actions run `44893115713` pada commit `bde071b` lulus semua job: replay migrasi dari baseline Production historis pada database lokal terisolasi, pgTAP, pemeriksaan auth/isolasi tenant, alur Storage, cadangan-pemulihan, typecheck, seluruh uji frontend, build, dan instalasi NPM untuk lingkungan pelanggan.
 - Tes pgTAP dijalankan di CI; tidak dijalankan ulang secara lokal.
 - Migrasi `20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql` belum diterapkan ke VQE atau Production dalam pekerjaan ini. Pemeriksaan bentuk katalog VQE sebelumnya menunjukkan tabel, indeks, trigger, dan RPC yang diperlukan sudah ada.
 - PR #185 masih draft dan belum di-merge. Tidak ada perubahan pada PTSAS Production.
