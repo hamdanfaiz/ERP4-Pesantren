@@ -1,3 +1,21 @@
+## Checkpoint terbaru — 21 November 2026, 22.51 WIB
+
+### Source dan paket pemasangan mandiri
+
+- `main` berada pada merge commit `de6c2deb8e98188ab9a730b9d024de4fc63f26e6`.
+- PR #196 menutup celah konfigurasi Docker: `PUBLIC_PPDB_ENABLED` dan `PUBLIC_PPDB_TENANT_ID` kini diteruskan ke proses server. PPDB tetap nonaktif secara bawaan; variabel tenant tidak ditambahkan ke konfigurasi browser.
+- PR #197 memperjelas panduan pendaftaran Wali dan PPDB publik pada [panduan deployment terkelola pelanggan](../../guides/CUSTOMER_MANAGED_DEPLOYMENT.md).
+- CI PR #196 dan #197 lulus 3/3 job wajib, termasuk instalasi NPM bersih, build/Docker/guard Firebase, replay migrasi sintetis, pgTAP, isolasi API/tenant, Storage, dan backup-restore database lokal. [Run PR #197](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44920290816).
+- Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka. Status domain hosting belum diverifikasi terhadap commit `main`.
+
+### Batas hasil
+
+- Tidak ada perubahan database, Auth, Storage, atau konfigurasi cloud pada VQE maupun PTSAS Production dalam pekerjaan ini. CI berjalan pada database lokal terisolasi.
+- Estimasi kasar pengembangan source tetap sekitar **75%**; bukan skor UAT. Login browser lintas role/modul, simpan-baca penuh pada staging, verifikasi hosting, diff DDL Production, serta backup-restore cloud tetap belum terbukti.
+- Tidak ada operasi manual yang dilakukan. Lanjutkan UAT browser setelah pemilik akun aktif; Production belum dinyatakan siap deploy atau komersial.
+
+---
+
 ## Checkpoint terbaru — 21 November 2026, 20.30 WIB
 
 ### Source dan pemeriksaan otomatis
