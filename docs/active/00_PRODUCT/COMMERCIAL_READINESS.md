@@ -1,10 +1,10 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Checkpoint terbaru — 21 November 2026, 19.09 WIB
+## Checkpoint terbaru — 21 November 2026, 19.24 WIB
 
 ### Source, Tahfidz, dan CI
 
-- PR #185 telah **tergabung ke `main`** pada `3080422ffc552b82704da0941b574cf8d220b45a`. PR #186, pembaruan checkpoint pasca-merge, juga telah **tergabung** pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`. PR #182 ditutup sebagai duplikat yang superseded oleh #185. Pencarian terakhir tidak menemukan PR terbuka.
+- PR #185 telah **tergabung ke `main`** pada `3080422ffc552b82704da0941b574cf8d220b45a`; PR #186 pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`; dan checkpoint pasca-UAT PR #187 pada `1365ba1e007c52c7b906f11fe29bfe5c44fbcc78`. PR #182 ditutup sebagai duplikat yang superseded oleh #185. Pencarian repo setelah merge #187 tidak menemukan PR terbuka.
 - UAT browser sebelumnya pada preview Hostinger PR #185 dengan akun Ustadz sintetis VQE menunjukkan 2 santri, 1 halaqah, 3 setoran hari itu, cakupan target 2/2, satu panel leaderboard, dan peringkat 15 lalu 10 ayat unik. Riwayat setoran memakai nama Surah serta rentang ayat dari katalog. Tab preview yang tersedia sekarang kembali ke layar publik/masuk; UAT lanjutan perlu sesi login staging baru.
 - Empat pemeriksaan lokal pada source aplikasi `c19f8c2` lulus: kontrak environment Compose (100 variabel tercakup, nilai secret kosong), konfigurasi deployment (31 nilai runtime publik dan 38 gerbang server fail-closed), graph runtime Supabase tanpa Firebase (169 modul, 26 rute Supabase, arsip impor ditutup), dan leaderboard Tahfidz (95 assertion database).
 - CI PR #185 dan PR #186 lulus tiga job wajib: frontend/build guard, instalasi paket pelanggan, dan migrasi/API Auth/pgTAP. Tes database berjalan pada Supabase lokal terisolasi. Job Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch.
@@ -13,8 +13,8 @@
 
 - Pemeriksaan baca-saja VQE `vqemuyzveuirlkvdggjd` saat ini menunjukkan status `ACTIVE_HEALTHY`, **165/165 pasangan versi dan nama migrasi** cocok dengan 165 file source, hingga `20270404000000_tahfidz_unique_ayah_projection_indexes`. Inventaris schema menemukan 180 tabel `public` dan semuanya melaporkan RLS aktif.
 - Kecocokan ledger versi/nama dan RLS aktif bukan bukti checksum/DDL lengkap, ketepatan setiap policy, UAT seluruh modul, atau backup/restore cloud. Tidak ada migrasi atau baris data yang ditulis ke VQE pada pemeriksaan ini.
-- Snapshot Production terakhir dalam dokumen lama membandingkan 100 baris ledger dengan source yang saat itu berisi 163 migrasi. Karena source `main` kini berisi 165 file, angka lama **sudah usang** dan tidak boleh dipakai sebagai rencana deploy. PTSAS perlu inventaris baca-saja baru, rekonsiliasi nama/payload/DDL/dependensi satu per satu, lalu rehearsal setelah backup dapat dipulihkan.
-- PTSAS Production tidak disentuh dalam pekerjaan ini.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` terbaca `ACTIVE_HEALTHY` (PostgreSQL 17.11.0.003). Ledger baca-saja memuat **100 versi** sampai `20270316000000`. Dibanding 165 file migrasi source: **97 pasangan versi/nama cocok persis**, **3 nama ledger kosong** (`20261205000000`, `20261206000000`, `20270118000000`), dan **65 versi source tidak memiliki baris ledger** (mulai `20261207000000` sampai `20270404000000`). Tidak terlihat versi ledger di luar set versi source.
+- Pembacaan ini hanya metadata versi/nama, bukan payload SQL, DDL aktual, policy, atau data aplikasi. Tidak ada migration/repair/data write ke PTSAS. Jangan menyusun rencana promosi dari jumlah ledger; tim backend tetap perlu membandingkan DDL/dependensi dan membuktikan restore sebelum rehearsal.
 
 ### Gerbang produk yang masih terbuka
 
