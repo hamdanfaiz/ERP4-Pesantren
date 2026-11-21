@@ -882,7 +882,7 @@ export function SettingsManager() {
                 {role === 'SuperAdmin' && SUPABASE_SYSTEM_SETTINGS_IMPORT && (
                   <section className="p-5 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-3" aria-labelledby="settings-import-title">
                     <div>
-                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Migrasi Pengaturan Pesantren dari arsip lama</h3>
+                      <h3 id="settings-import-title" className="font-semibold text-sm text-slate-800 dark:text-slate-200">Impor pengaturan pesantren dari arsip lama</h3>
                       <p className="text-xs text-slate-500 mt-1">Pratinjau membaca data sumber pesantren aktif dan mengabaikan kolom kredensial. Terapkan hanya setelah memeriksa nama pesantren dan tahun ajaran.</p>
                     </div>
                     {settingsMigrationError && <p role="alert" className="text-xs text-rose-500">{settingsMigrationError}</p>}
