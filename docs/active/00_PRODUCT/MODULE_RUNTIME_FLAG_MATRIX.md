@@ -94,7 +94,7 @@ Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.en
 | Koperasi | `SUPABASE_COOPERATIVE_RUNTIME_ENABLED` | — | Perlu migrasi serta uji kontrol ledger dan transaksi sebelum aktivasi. |
 | Donasi/Wakaf | `SUPABASE_DONATION_RUNTIME_ENABLED` | — | Data donor, kampanye, penerimaan, dan aset wakaf memakai RPC tenant-scoped. Data contoh lama jangan diperlakukan sebagai histori keuangan. |
 | Dokumen Digital | `SUPABASE_DOCUMENT_RUNTIME_ENABLED` | — | Surat tenant-scoped, transisi review tercatat, dan lampiran PDF privat; perlu migrasi serta verifikasi non-production. |
-| CRM | `SUPABASE_CRM_RUNTIME_ENABLED` | — | Kontak dan catatan interaksi tenant-scoped. Source menyatakan modul ini tidak mengirim kampanye. |
+| CRM | `SUPABASE_CRM_RUNTIME_ENABLED` | — | Kontak, interaksi, dan analitik tenant-scoped; juga mendukung siaran WhatsApp melalui OpenWA. Pengiriman hanya untuk Admin/SuperAdmin dengan izin CRM, maksimal 50 kontak yang menyetujui informasi (`granted`) dan memiliki nomor valid. Memerlukan endpoint OpenWA di Pengaturan tenant atau `WA_GATEWAY_ENDPOINT`/`OPENWA_BASE_URL`, serta `WA_GATEWAY_API_KEY` pada environment server. Kunci tidak dikirim ke browser. Ledger idempotensi batch belum tersedia; jangan otomatis mengulang pengiriman dengan hasil gateway yang ambigu. |
 | Laundry | `SUPABASE_LAUNDRY_RUNTIME_ENABLED` | — | Perlu migrasi `20261204000000` dan verifikasi non-production. |
 
 Flag yang mengatur fitur inti dapat bergantung pada lebih dari satu nilai. Contohnya, tagihan PPDB memerlukan gerbang PPDB dan Keuangan; onboarding santri memerlukan PPDB, Data Induk, dan Asrama. Mengaktifkan hanya flag antarmuka dapat menampilkan kontrol yang kemudian ditolak API.
