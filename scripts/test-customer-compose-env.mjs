@@ -19,6 +19,8 @@ assert.match(compose, /^\s+PUBLIC_PPDB_TENANT_ID: \$\{PUBLIC_PPDB_TENANT_ID:-\}$
 assert.match(example, /^PUBLIC_PPDB_ENABLED=false$/m, ".env.example must keep public PPDB disabled");
 assert.match(example, /^PUBLIC_PPDB_TENANT_ID=$/m, ".env.example must not select a tenant for public PPDB");
 assert.doesNotMatch(compose, /^\s+VITE_PUBLIC_PPDB_(?:ENABLED|TENANT_ID):/m, "public PPDB server settings must not enter browser runtime config");
+assert.match(compose, /^\s+WA_GATEWAY_API_KEY: \$\{WA_GATEWAY_API_KEY:-\}$/m, "OpenWA API key must be passed as an optional server-only secret");
+assert.doesNotMatch(compose, /^\s+VITE_WA_GATEWAY_API_KEY:/m, "OpenWA API key must never be exposed to the browser");
 const missingVariables = composeVariables.filter((name) => !exampleVariables.has(name));
 assert.deepEqual(
   missingVariables,
@@ -46,6 +48,7 @@ const serverSecrets = new Set([
   "PII_ENCRYPTION_KEY",
   "PII_FINGERPRINT_KEY",
   "SUPABASE_LEGACY_FINGERPRINT_KEY",
+  "WA_GATEWAY_API_KEY",
 ]);
 for (const line of example.split(/\r?\n/)) {
   const match = line.match(/^\s*([A-Z][A-Z0-9_]*)\s*=\s*(.*)$/);
