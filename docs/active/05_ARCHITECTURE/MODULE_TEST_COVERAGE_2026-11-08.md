@@ -150,3 +150,7 @@ Run CI di atas menjalankan backend Supabase lokal terisolasi dengan fixture sint
 - Migrasi korektif `20270308000000_academic_class_unit_admin_role_baseline.sql` lulus replay migrasi dan pgTAP di [CI run #42468708677](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/42468708677), lalu diterapkan ke VQE staging. Ledger staging kini cocok dengan source **140/140 versi dan nama**; UI berhasil memuat antrean tanpa error. Tidak ada kelas belum terpetakan pada tenant sintetis, jadi assignment aktual melalui UI masih belum teruji.
 - Perubahan tidak menyentuh PTSAS Production. UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.
 - UAT lintas role dan alur simpan-baca UI untuk semua modul masih belum lengkap; status tabel di atas tetap membatasi klaim pada cakupan tes yang benar-benar dijalankan.
+
+## Pembaruan audit dependensi — 21 November 2026
+
+Catatan audit dependency pada bagian terdahulu adalah snapshot 8 November. `xlsx` dan `react-quill-new` kini dihapus bersama halaman CBT Firebase legacy yang tidak dirutekan; CBT aktif tetap `SupabaseCBTManager`. Audit terbaru dan hasil pemeriksaannya dicatat di [DEPENDENCY_AUDIT_2026-11-21.md](DEPENDENCY_AUDIT_2026-11-21.md). UAT browser seluruh modul tetap belum tercakup.
