@@ -411,7 +411,7 @@ function DataWarehouse() {
                  <div className="flex items-center gap-3">
                     <Database className="w-5 h-5 text-blue-500" />
                     <div>
-                      <p className="font-bold text-sm text-slate-800 dark:text-slate-200">PostgreSQL (Akademik)</p>
+                      <p className="font-bold text-sm text-slate-800 dark:text-slate-200">Data Akademik</p>
                       <p className="text-xs text-slate-500">Sinkronisasi bertahap</p>
                     </div>
                  </div>
