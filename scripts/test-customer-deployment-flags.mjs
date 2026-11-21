@@ -200,7 +200,6 @@ for (const [module, file] of [
   ["Akademik", "src/pages/AcademicManagerLegacy.tsx"],
   ["Asrama", "src/pages/BoardingManagerLegacy.tsx"],
   ["Keuangan", "src/pages/FinanceManagerLegacy.tsx"],
-  ["CBT", "src/pages/CBTManagerLegacy.tsx"],
   ["Komunikasi", "src/pages/CommunicationHubLegacy.tsx"],
   ["Koperasi", "src/pages/CooperativeManagerLegacy.tsx"],
   ["Enterprise", "src/pages/EnterpriseManager.tsx"],
