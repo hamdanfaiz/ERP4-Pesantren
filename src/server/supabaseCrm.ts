@@ -205,9 +205,26 @@ export type CrmBroadcastDraft = {
   clientRequestId: string;
   message: string;
   subject?: string;
-  contactIds?: string[];
+  contactIds: string[];
   dryRun?: boolean;
 };
+
+export function normalizeCrmBroadcastContactIds(raw: unknown): string[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new SupabaseCrmError(400, "Pilih sedikitnya satu penerima untuk siaran.");
+  }
+  if (raw.length > 50) {
+    throw new SupabaseCrmError(400, "Maksimal 50 penerima per siaran.");
+  }
+  if (raw.some((id) => !uuid(id))) {
+    throw new SupabaseCrmError(400, "Daftar penerima siaran tidak valid.");
+  }
+  const ids = [...new Set(raw as string[])];
+  if (ids.length === 0 || ids.length > 50) {
+    throw new SupabaseCrmError(400, "Pilih 1 sampai 50 penerima untuk siaran.");
+  }
+  return ids;
+}
 
 export async function sendSupabaseCrmOpenWaBroadcast(
   tenantId: string,
@@ -221,10 +238,7 @@ export async function sendSupabaseCrmOpenWaBroadcast(
   const message = cleanText(raw.message, 4000, "Isi siaran", true) || "";
   if (message.length < 5) throw new SupabaseCrmError(400, "Isi siaran minimal 5 karakter.");
   const subject = cleanText(raw.subject, 200, "Judul siaran") || "Siaran WhatsApp CRM";
-  const requestedIds = Array.isArray(raw.contactIds)
-    ? [...new Set(raw.contactIds.filter((id) => uuid(id)))]
-    : [];
-  if (requestedIds.length > 50) throw new SupabaseCrmError(400, "Maksimal 50 penerima per siaran.");
+  const requestedIds = normalizeCrmBroadcastContactIds(raw.contactIds);
 
   const { openWaSendText, normalizeOpenWaChatId, OpenWaGatewayError, getOpenWaStatus } = await import("./openWaGateway");
   const status = await getOpenWaStatus(tenantId);
@@ -246,12 +260,10 @@ export async function sendSupabaseCrmOpenWaBroadcast(
     cursor = batch.nextCursor;
     if (!cursor) break;
   }
-  if (requestedIds.length) {
-    const found = new Set(audience.map((item) => item.id));
-    const missing = requestedIds.filter((id) => !found.has(id));
-    if (missing.length) {
-      throw new SupabaseCrmError(400, "Sebagian kontak dipilih tidak memiliki persetujuan atau nomor WhatsApp valid.");
-    }
+  const found = new Set(audience.map((item) => item.id));
+  const missing = requestedIds.filter((id) => !found.has(id));
+  if (missing.length) {
+    throw new SupabaseCrmError(400, "Sebagian kontak dipilih tidak memiliki persetujuan atau nomor WhatsApp valid.");
   }
   if (!audience.length) {
     throw new SupabaseCrmError(400, "Tidak ada penerima: butuh persetujuan menerima info dan nomor telepon valid.");
