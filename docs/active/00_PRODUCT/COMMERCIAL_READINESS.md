@@ -1,26 +1,30 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026 (verifikasi setelah PR #182)
+## Status otoritatif — 21 November 2026, 10.08 WIB (resume UAT PR #182)
 
 ### Source dan leaderboard
 
-- `main` saat verifikasi berada pada `775383e0b16e14373e3c1698f1a11ba6cb26d237`. PR #182 (`codex/tahfidz-unique-memorization-leaderboard-20261121`) masih terbuka dan mergeable pada head `db93fe0dac8d10c7fe94b87ce1b73fb7cff74d23`; ini satu-satunya PR yang terbuka.
-- PR #182 mengurutkan santri dengan jumlah ayat Ziyadah unik sepanjang masa. Setoran berulang dan rentang ayat yang tumpang tindih dihitung sekali; Admin dibatasi tenant aktif dan Ustadz pada halaqah tugasnya.
-- GitHub Actions pada head tersebut lulus untuk build/frontend, instalasi NPM pelanggan, serta migrasi/API/pgTAP. Supabase Preview CI dilewati; hasil CI bukan UAT browser.
-- Tampilan yang terakhir terlihat masih menunjukkan leaderboard lama berbasis setoran bulanan dan dua panel. Source PR menyisakan satu panel “Peringkat Hafalan Terbanyak”, tetapi belum merged atau dibuktikan tampil pada domain preview.
+- `main` saat verifikasi berada pada `775383e0b16e14373e3c1698f1a11ba6cb26d237`. PR #182 (`codex/tahfidz-unique-memorization-leaderboard-20261121`) masih terbuka dan mergeable pada head `cff6e16d34ba22c425e57303bae0547bf4b2eac8`.
+- PR #182 mengurutkan santri menurut jumlah ayat Ziyadah unik sepanjang masa; ayat berulang dan rentang tumpang-tindih dihitung sekali. Scope Admin tetap per tenant aktif, sedangkan Ustadz hanya melihat halaqah tugasnya.
+- GitHub Actions terbaru, run #44856486244, selesai sukses untuk tiga job wajib: build/frontend, instalasi NPM pelanggan, serta migrasi/API/pgTAP. Supabase Preview CI dilewati. Belum ada review submission atau thread inline.
+- Preview PR Hostinger `private-salmon-seal-24.hostingersite.com` telah diuji dengan sesi Admin UAT. Modul Tahfidz menampilkan satu panel “Peringkat Hafalan Terbanyak”, keterangan ayat unik, dan keadaan kosong yang benar; tombol “Muat ulang” kembali tanpa error.
+- Tenant uji yang terlihat memiliki 1 santri aktif, tetapi belum memiliki halaqah, keanggotaan, atau setoran aktif. Form setoran tidak menawarkan santri yang belum ditempatkan di halaqah aktif; tab Manajemen Halaqah menyatakan belum ada Ustadz aktif. Tidak ada data yang ditulis selama pemeriksaan ini. CI menguji deduplikasi, urutan, tenant, dan scope halaqah, tetapi tampilan leaderboard berisi peringkat nyata belum diverifikasi lewat UI.
+- Untuk UAT ranking nonkosong, operator perlu menyediakan profil akun Ustadz staging yang sah, lalu Admin membuat halaqah/keanggotaan dan setoran sintetis melalui antarmuka aplikasi. Jangan membuat hubungan atau setoran dengan SQL langsung atau mengganti role akun Admin yang sedang dipakai.
+- Form PPDB publik di preview masih menyatakan pendaftaran belum tersedia. Tenant staging belum memiliki baris pengaturan tenant atau tahun ajaran aktif; flag server untuk PPDB belum diverifikasi. Alur PPDB publik belum lulus UAT.
 
 ### Status database
 
-- `main` memiliki 163 file migrasi sampai `20270402000000`; VQE staging memiliki 165 versi yang cocok persis dengan branch PR #182. Tidak ada versi source tertinggal atau versi staging tambahan.
-- PTSAS Production memiliki 100 versi ledger sampai `20270316000000`. Sebanyak 63 versi `main` belum tercatat dan tidak ada versi Production-only dibanding `main`. Dua migrasi PR #182 (`20270403000000`, `20270404000000`) juga belum tercatat di Production.
-- Perbandingan ini hanya membaca versi ledger; tidak membuktikan DDL sama, urutan aman, atau backup dapat dipulihkan. Production tidak diubah.
+- `main` memiliki 163 file migrasi sampai `20270402000000`; VQE staging memiliki 165 versi yang cocok dengan branch PR #182, termasuk dua migrasi PR tersebut.
+- PTSAS Production memiliki 100 versi ledger sampai `20270316000000`. Sebanyak 63 versi `main` belum tercatat; terdapat tiga entri tanpa nama. Dua migrasi PR #182 (`20270403000000`, `20270404000000`) juga belum tercatat di Production.
+- Inventaris baca-saja sebelumnya memastikan Production belum memiliki `public.quran_surahs`, kolom `tahfidz_records.surah_number`, atau RPC leaderboard. Perbandingan ledger tidak membuktikan DDL sama atau urutan migrasi aman. Production tidak diubah.
 
 ### Gerbang yang masih terbuka
 
-- UAT visual pada build PR #182 di VQE preview, termasuk memastikan hanya satu leaderboard tampil dan urutannya sesuai ayat hafalan.
-- Rekonsiliasi 63 versi Production beserta tiga entri tanpa nama dan perbedaan katalog; jangan jalankan seluruh selisih dengan `db push`.
-- Diff DDL penuh, urutan/dependensi migrasi, rehearsal pada salinan, dan bukti backup/restore oleh tim backend.
-- UAT lintas role dan modul, verifikasi build/flag hosting, serta clean install/upgrade/restore pada lingkungan pelanggan.
+- UAT UI leaderboard nonkosong setelah akun Ustadz staging, halaqah, dan keanggotaan disiapkan melalui alur yang berwenang.
+- Lengkapi konfigurasi tenant staging dan flag PPDB, lalu uji pendaftaran publik, penyimpanan kandidat, dan lampiran privat secara terisolasi.
+- UAT lintas role/modul, simpan-baca, transaksi, unggahan, dan tampilan responsif masih belum lengkap.
+- Rekonsiliasi 63 versi Production, tiga nama ledger kosong, perbedaan katalog/DDL, urutan dan dependensi migrasi, rehearsal pada salinan, serta bukti backup/restore tetap menjadi pekerjaan tim backend.
+- Verifikasi build/flag hosting dan clean install/upgrade/restore di lingkungan pelanggan.
 
 Produk belum dinyatakan siap Production atau siap komersial. Persentase penyelesaian total tetap tidak dihitung karena daftar penerimaan dan denominator UAT lintas lingkungan belum tersedia.
 
