@@ -1,5 +1,12 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
+## Checkpoint terbaru — 21 November 2026, 17.58 WIB
+
+- PR #185 tetap **open/draft** pada `main`; head saat ini `7a86679a1a8746b9e0800edd92b2759d7bb72d82`. PR memuat pemeringkatan hafalan ayat unik, migrasi tabel kemajuan, serta ekspor CSV Tahfidz yang dibatasi tenant/cakupan akun dan berpaginasi.
+- UAT Ustadz di preview PR #185 berhasil untuk ringkasan Halaqah, leaderboard (15 dan 10 ayat unik), tiga setoran sintetis, serta ekspor CSV rentang 1–21 November 2026. Hasil unduhan memuat ketiga catatan dalam cakupan halaqah Ustadz. Detail ada di [catatan fixture UAT](UAT_VQE_FIXTURES_2026-11-21.md).
+- GitHub Actions runs [44896253322](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44896253322) dan [44896249709](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44896249709) lulus. Keduanya menjalankan job frontend/build, paket instalasi pelanggan, dan migrasi/API/pgTAP pada Supabase lokal terisolasi.
+- Perubahan Production atau deployment ke domain pelanggan tidak dilakukan. Kelulusan Tahfidz ini tidak menutup gerbang UAT modul lain, perbedaan DDL/ledger Production, bukti backup/restore cloud, maupun uji instalasi/upgrade self-hosted. Produk belum dinyatakan siap go-live atau komersial.
+
 ## Status otoritatif — 21 November 2026, 03.52 WIB
 
 ### Source dan hasil pengembangan
