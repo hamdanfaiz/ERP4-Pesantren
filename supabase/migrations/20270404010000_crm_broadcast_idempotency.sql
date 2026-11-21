@@ -29,7 +29,7 @@ CREATE TABLE public.crm_broadcast_recipients (
     CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'unknown')),
   message_id TEXT CHECK (message_id IS NULL OR (length(message_id) <= 200 AND message_id !~ '[[:cntrl:]]')),
   error_code TEXT CHECK (error_code IS NULL OR error_code IN (
-    'consent_revoked', 'provider_rejected', 'provider_unavailable', 'delivery_unknown'
+    'consent_revoked', 'invalid_recipient', 'provider_rejected', 'provider_unavailable', 'delivery_unknown'
   )),
   interaction_logged_at TIMESTAMPTZ,
   interaction_error_code TEXT CHECK (interaction_error_code IS NULL OR interaction_error_code = 'interaction_log_failed'),
