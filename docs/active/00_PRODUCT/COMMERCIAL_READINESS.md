@@ -1,3 +1,15 @@
+## Checkpoint setelah PR #214 — 22 November 2026, 04.50 WIB
+
+- `main` berada pada merge commit `e6062fee5f38752d0f275bebe3f65bf60a7784c5`; PR #214 sudah tergabung, pemeriksaan CI pada PR lulus **3/3 job**, dan pencarian GitHub menunjukkan **tidak ada PR terbuka**.
+- PR #214 merapikan istilah pada layar agar lebih sesuai untuk pengguna dan menambahkan pemeriksaan otomatis pada teks antarmuka yang dirender. Tidak ada migrasi, data, Auth, Storage, atau konfigurasi cloud yang diubah.
+- Perkiraan kematangan source tetap **sekitar 75%**. Ini estimasi lama yang dipertahankan, bukan angka UAT; denominator fitur berbobot dan bukti penerimaan lengkap belum tersedia.
+- Pembacaan metadata ledger pada 22 November 2026, 04.53 WIB: VQE staging memiliki **166 versi** (unik, tanpa nama kosong), terakhir `20270404010000`; PTSAS Production memiliki **100 versi** (unik), terakhir `20270316000000`, dengan **3 nama kosong**. Pemeriksaan hanya membaca versi/nama ledger; tidak membaca baris operasional, DDL, atau menulis ke database.
+- Belum ada bukti UAT browser terkini lintas Admin, Ustadz, Wali, dan role lain untuk alur simpan-baca seluruh modul. Preview yang menjalankan commit terbaru juga belum dibuktikan.
+- DDL aktual PTSAS, penjelasan dan urutan untuk migration yang belum tercatat, bukti pemulihan backup Production, serta versi yang benar-benar aktif di hosting masih perlu dibuktikan oleh tim backend. **Jangan menjalankan `db push` massal ke Production.**
+- Berikutnya: lanjutkan UAT staging dengan sesi pengguna yang tersedia; catat skenario lulus/gagal per role dan modul; setelah itu backend owner merekonsiliasi DDL dan rencana promosi Production secara bertahap.
+
+---
+
 ## Pembaruan setelah PR #211 — 22 November 2026
 
 - `main` saat snapshot ini berada pada merge commit `da399a88967f1c093cd8ef99fb620e04e67d4533`. PR #211 merged setelah PR #210; tiga job CI required lulus pada run [#44943499275](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44943499275). Perubahannya hanya dokumentasi.
