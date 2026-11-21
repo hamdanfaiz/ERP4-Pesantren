@@ -1,18 +1,21 @@
 # Status Cutover Runtime Firebase ke Supabase
 
-> Ruang lingkup: data Firestore pemilik dinyatakan dummy dan tidak perlu disalin. Fokus migrasi adalah runtime Supabase-only, kontrak skema/tenant, uji logika serta isolasi role, dan persiapan instalasi pelanggan. Bukti kerja lama di bawah diberi konteks tanggal; gunakan status terbaru ini.
+> Ruang lingkup: data Firestore pemilik dinyatakan dummy dan tidak perlu disalin. Fokus migrasi adalah runtime Supabase-only, kontrak skema/tenant, uji logika serta isolasi role, dan persiapan instalasi pelanggan.
 
-## Status terverifikasi — 20 November 2026, setelah PR #147
+## Status terverifikasi — 21 November 2026, setelah PR #191
 
-- Source aplikasi terakhir berada pada a138895783f7118a657a0d5bd94e5872f60f2cba; commit b72450777c78d848bb5c79f39481a163a621754b menambahkan dokumentasi melalui PR #147, tanpa perubahan aplikasi atau migrasi.
-- CI PR #147 lulus 3/3 job. Guard memastikan graph frontend aktif dan dependency produksi tidak memakai Firebase; CI juga menjalankan replay migrasi/API/pgTAP dan build image pelanggan pada environment lokal terisolasi.
-- Referensi, helper, atau layar Firebase lama yang tersisa di repository tidak otomatis menjadi runtime. Status runtime dibuktikan oleh guard import graph dan production bundle; arsip/kompatibilitas tidak boleh diaktifkan sebagai fallback.
-- Ledger VQE staging memuat 163/163 versi source sampai 20270402000000. Ini membuktikan catatan versi ledger, bukan kesetaraan semua DDL atau UAT semua modul.
-- PTSAS Production memuat 100 entri dari 163 versi source; 63 versi belum tercatat. Pemeriksaan katalog public terarah menemukan tabel/kolom/constraint yang hilang, walau status RLS aktif cocok pada 162 tabel bersama. Lihat [runbook Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
-- Belum ada bukti diff DDL lengkap PTSAS, backup/restore Production, atau UAT menyeluruh pada target hosting. Produk belum dinyatakan siap go-live.
-- Tidak ada perubahan database Production dalam sesi ini. Tim backend harus menyelesaikan rekonsiliasi dan rehearsal sebelum memilih migrasi apa pun untuk Production. Jangan menjalankan db push hanya untuk mengejar jumlah ledger.
+- Source `main` berada pada commit `32565c547a37a8449ed92e0a362e661c3b8ef37b`. Source berisi **165 migration files** hingga `20270404000000`.
+- **VQE staging:** ledger memuat **165/165 versi dan nama** yang cocok dengan source saat ini. Ini membuktikan paritas metadata ledger; bukan checksum SQL, kesamaan DDL, atau UAT semua modul.
+- **PTSAS Production:** ledger memuat **100 versi** hingga `20270316000000`. Dari 165 migration source, **65 versi belum tercatat**, tidak ada versi Production-only, dan tiga entri Production tidak menyertakan nama: `20261205000000`, `20261206000000`, `20270118000000`. Rincian versi tertinggal tercatat di [revalidasi ledger 21 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-21.md).
+- Hasil tersebut berasal dari pembacaan metadata migrasi. Tidak ada DDL, data aplikasi, setting, atau migrasi Production yang dibaca/diubah dalam pemeriksaan ledger ini. Jangan menganggap 65 versi itu sebagai perintah untuk menjalankan `db push`.
+- Pemeriksaan katalog Production sebelumnya menunjukkan perbedaan nyata pada tabel, kolom, constraint, indeks, trigger, fungsi, dan policy dibanding VQE. Ledger saja tidak cukup untuk menilai efek migrasi atau menyusun urutan promosi; gunakan [runbook audit Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
+- CI pada merge PR #191 lulus 3/3 job: suite database sintetis, build/guard runtime frontend, dan instalasi NPM pelanggan. Ini bukan uji login pada hosting atau pemulihan Production.
+- Runtime aktif telah menggunakan Supabase; source Firebase lama yang tersisa berada pada jalur historis/kompatibilitas yang dikunci. Guard CI menguji graph aktif dan dependency produksi, bukan semua source arsip.
+- **Belum dinyatakan siap go-live.** Diff DDL Production penuh, tinjauan urutan migrasi oleh backend owner, bukti restore backup Production, dan UAT hosting menyeluruh masih belum terbukti. Production tidak diubah.
 
-> Bagian di bawah ini adalah catatan historis per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
+> Bagian di bawah ini adalah catatan historis dan dapat memuat hitungan/commit yang telah digantikan oleh status di atas.
+
+ per checkpoint. Gunakan status terverifikasi di atas untuk keadaan sekarang.
 
 ## Arsip status diverifikasi setelah PR #17 — 31 Oktober 2026
 
