@@ -66,7 +66,7 @@ function cooperativeFinancialIssueLabel(code: string): string {
     target_wallet_mapped_more_than_once: "Satu dompet tujuan dipakai lebih dari satu kali.",
     target_wallet_student_missing: "Dompet tujuan tidak terhubung dengan data santri.",
     target_wallet_has_existing_history: "Dompet tujuan sudah memiliki riwayat transaksi.",
-    target_wallet_balance_must_be_zero: "Saldo dompet tujuan harus nol sebelum migrasi.",
+    target_wallet_balance_must_be_zero: "Saldo dompet tujuan harus nol sebelum catatan lama dipindahkan.",
     opening_balance_required: "Masukkan saldo pembuka yang sudah dikonfirmasi.",
     opening_balance_less_than_archived_sales: "Saldo pembuka lebih kecil daripada total penjualan arsip.",
     opening_balance_does_not_reconcile: "Saldo pembuka tidak cocok dengan saldo akhir arsip.",
