@@ -26,6 +26,8 @@ assert.match(migration, /ALTER TABLE public\.tahfidz_student_ayah_progress ENABL
   "Persisted ayah progress is forced through row-level security.");
 assert.match(migration, /CREATE POLICY tahfidz_student_ayah_progress_owner_all[\s\S]*?FOR ALL TO %I[\s\S]*?current_setting\(%L, true\)/,
   "Only the migration owner can access progress, scoped to the active tenant.");
+assert.ok(migration.includes("USING (tenant_id = (SELECT NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID)) WITH CHECK (tenant_id = (SELECT NULLIF(pg_catalog.current_setting(%L, true), %L)::UUID))"),
+  "The progress policy evaluates the unchanged tenant context once per statement for reads and writes.");
 assert.match(migration, /CREATE INDEX IF NOT EXISTS tahfidz_student_ayah_progress_tenant_halaqah_idx/,
   "The applied follow-up migration includes the tenant and halaqah lookup index.");
 assert.match(migration, /CREATE TRIGGER tahfidz_records_sync_student_ayah_progress[\s\S]*?AFTER INSERT ON public\.tahfidz_records/,
