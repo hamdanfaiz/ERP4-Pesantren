@@ -2095,7 +2095,7 @@ export function MasterDataManager() {
                     {isServerPaginatedSantri ? (
                       <span className="font-medium">Halaman {currentPage} · {serverStudentHasMore ? "ada data berikutnya" : "halaman terakhir"}</span>
                     ) : <>Jumlah data:{" "}
-                      <span className="font-mono text-emerald-400 text-sm font-bold">{filteredData.length}</span>
+                      <span className="font-mono text-emerald-400 text-sm font-bold" role="status" aria-live="polite">{activeTab === "structure" && SUPABASE_MASTER_DATA_STRUCTURE_CATEGORIES.has(activeSubTab) ? structureLoadError ? "Tidak tersedia" : structureLoadBusy ? "Memuat…" : filteredData.length : filteredData.length}</span>
                     </>}
                   </span>
                 </div>
