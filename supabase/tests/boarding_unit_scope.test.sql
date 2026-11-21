@@ -15,7 +15,7 @@ INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, e
 
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
 VALUES
-  ('e7300000-0000-4000-8000-000000000011','e7300000-0000-4000-8000-000000000001','boarding-unit-admin@test.invalid','Admin Unit','admin','active','{"boarding":true}'),
+  ('e7300000-0000-4000-8000-000000000011','e7300000-0000-4000-8000-000000000001','boarding-unit-admin@test.invalid','Admin Unit','admin','active','{}'),
   ('e7300000-0000-4000-8000-000000000012','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-a@test.invalid','Ustadz Unit A','ustadz','active','{"boarding":true}'),
   ('e7300000-0000-4000-8000-000000000013','e7300000-0000-4000-8000-000000000001','boarding-unit-ustadz-unassigned@test.invalid','Ustadz Belum Dipetakan','ustadz','active','{"boarding":true}');
 \ir test_support/seed_tenant_reference_catalogs.psql
@@ -49,7 +49,7 @@ SELECT throws_ok($$SELECT public.assign_tenant_boarding_location_unit(
   '23514','Petakan gedung induk ke unit yang sama sebelum memetakan kamar','rooms cannot be mapped before their parent building');
 SELECT is(public.assign_tenant_boarding_location_unit(
   'e7300000-0000-4000-8000-000000000001','e7300000-0000-4000-8000-000000000011','admin','Gedung','BUS-G-A',
-  'e7300000-0000-4000-8000-000000000101','e7300000-0000-4000-8000-000000000402')->>'success','true','Admin maps a building to its organization unit');
+  'e7300000-0000-4000-8000-000000000101','e7300000-0000-4000-8000-000000000402')->>'success','true','Admin without an explicit Asrama override inherits the role baseline');
 SELECT is(public.assign_tenant_boarding_location_unit(
   'e7300000-0000-4000-8000-000000000001','e7300000-0000-4000-8000-000000000011','admin','Gedung','BUS-G-A',
   'e7300000-0000-4000-8000-000000000101','e7300000-0000-4000-8000-000000000402')->>'alreadyApplied','true','repeating the same client request is idempotent');

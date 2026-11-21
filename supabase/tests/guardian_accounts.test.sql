@@ -21,7 +21,7 @@ INSERT INTO auth.users (
 
 INSERT INTO public.profiles (user_id, tenant_id, email, display_name, role, status, module_permissions)
 VALUES ('c7000000-0000-4000-8000-000000000011', 'c7000000-0000-4000-8000-000000000007',
-  'guardian-admin@test.invalid', 'Admin Uji', 'admin', 'active', '{"users":true}'),
+  'guardian-admin@test.invalid', 'Admin Uji', 'admin', 'active', '{}'),
  ('c7000000-0000-4000-8000-000000000015', 'c7000000-0000-4000-8000-000000000007',
   'guardian-legacy@test.invalid', 'Wali Lama', 'wali_santri', 'active', '{}');
 \ir test_support/seed_tenant_reference_catalogs.psql
@@ -156,8 +156,18 @@ SELECT is(
 SELECT is(
   public.link_existing_guardian_account('c7000000-0000-4000-8000-000000000007', 'c7000000-0000-4000-8000-000000000302', 'c7000000-0000-4000-8000-000000000015', 'c7000000-0000-4000-8000-000000000011')->>'success',
   'true',
-  'an Admin can link a verified legacy Wali profile to its selected guardian record'
+  'an Admin with an empty permission map inherits the Users role baseline when linking a verified Wali profile'
 );
+UPDATE public.profiles SET module_permissions = '{"users":false}'::jsonb
+WHERE user_id = 'c7000000-0000-4000-8000-000000000011';
+SELECT throws_ok(
+  $$SELECT public.link_existing_guardian_account('c7000000-0000-4000-8000-000000000007', 'c7000000-0000-4000-8000-000000000302', 'c7000000-0000-4000-8000-000000000015', 'c7000000-0000-4000-8000-000000000011')$$,
+  '42501',
+  'Admin tenant tidak berwenang memetakan akun Wali',
+  'an explicit Users denial continues to block Wali account mapping'
+);
+UPDATE public.profiles SET module_permissions = '{}'::jsonb
+WHERE user_id = 'c7000000-0000-4000-8000-000000000011';
 SELECT ok(
   public.guardian_can_access_student('c7000000-0000-4000-8000-000000000007', 'c7000000-0000-4000-8000-000000000015', 'c7000000-0000-4000-8000-000000000202'),
   'the linked legacy Wali gains access only through the canonical guardian relationship'
