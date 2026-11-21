@@ -24,8 +24,8 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Baca-saja pada tabel kemajuan staging mengonfirmasi Santri 02 memiliki 15 ayat hafalan unik dan Santri 01 memiliki 10; jumlah setoran masing-masing 1. Ini membuktikan pemicu pencatatan hafalan ikut terisi, tetapi UI leaderboard masih menunggu frontend baru diterbitkan.
 - Akun Ustadz sintetis telah dibuat dan dibatasi ke modul Tahfidz pada tenant UAT. Login sebagai Ustadz dan pembatasan daftar ke halaqah tugasnya masih menunggu verifikasi dari sesi pengguna; tidak ada password di repositori.
 - Leaderboard pada preview sebelumnya gagal karena kontrak API UI mengharuskan payload bulanan, sementara RPC VQE mengirim `uniqueMemorizedAyahs` seumur pencatatan tanpa `periodStart`. Frontend kini menampilkan peringkat hafalan unik dan tetap dapat membaca payload bulanan lama tanpa menyebutnya sebagai total hafalan.
-- Migrasi baru `20270402000000_tahfidz_lifetime_hafalan_leaderboard.sql` membawa tabel kemajuan ayat unik, backfill dari setoran lama, sinkronisasi transaksional untuk setoran baru, dan RPC berperingkat hafalan. Pemeriksaan katalog VQE menunjukkan bentuk tabel, indeks, trigger, dan payload RPC yang sudah ada sejalan dengan desain ini. Migrasi source belum diterapkan ulang ke VQE.
-- Perubahan kode sudah dipindahkan ke branch lokal berbasis `main` terbaru (`0d810eb4cd1b3430210698fdd1854df3ef3d9207`), tetapi belum di-commit, dipush, atau diterbitkan ke preview.
+- Migrasi baru `20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql` membawa tabel kemajuan ayat unik, backfill dari setoran lama, sinkronisasi transaksional untuk setoran baru, dan RPC berperingkat hafalan. Nomor versi dipilih setelah CI menemukan versi `20270402000000` sudah dipakai migrasi ketelitian target massal. Pemeriksaan katalog VQE menunjukkan bentuk tabel, indeks, trigger, dan payload RPC yang sudah ada sejalan dengan desain ini. Migrasi source belum diterapkan ulang ke VQE.
+- Perubahan kode berada di branch berbasis `main` terbaru (`0d810eb4cd1b3430210698fdd1854df3ef3d9207`), sudah di-commit dan dipush sebagai draft PR #185. Preview PR dan verifikasi login Ustadz masih menunggu UAT.
 
 ## Modul yang tidak diisi
 
@@ -37,6 +37,6 @@ Data dummy hanya dibuat pada modul yang runtime-nya tersedia dan dapat diuji lew
 - `npm run lint`: lulus.
 - `npm run build`: lulus; muncul peringatan dependensi tentang anotasi komentar Zod serta ukuran chunk vendor besar, bukan error build.
 - `git diff --check`: lulus.
-- Pengujian pgTAP lokal belum dijalankan karena Docker, Supabase CLI, dan `psql` tidak tersedia pada workspace.
+- Pengujian pgTAP pada run CI pertama berhenti saat persiapan database: ditemukan versi migrasi duplikat `20270402000000`, lalu kegagalan primary-key ledger. Migrasi baru dipindah ke `20270403000000`; CI perlu berjalan ulang untuk memastikan perbaikan menyelesaikan hambatan tersebut. Pengujian pgTAP lokal belum dijalankan karena Docker, Supabase CLI, dan `psql` tidak tersedia pada workspace.
 - Login Ustadz sintetis serta pembatasan daftar ke halaqah tugasnya masih menunggu verifikasi pada sesi pengguna.
 - Belum ada perubahan ke Supabase Production.

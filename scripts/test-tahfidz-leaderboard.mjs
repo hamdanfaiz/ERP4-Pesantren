@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { normalizeTahfidzLeaderboardResult, readTahfidzLeaderboardParticipantCount } from "../src/lib/tahfidzLeaderboardResponse.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270402000000_tahfidz_lifetime_hafalan_leaderboard.sql"), "utf8");
+const migration = fs.readFileSync(path.join(root, "supabase/migrations/20270403000000_tahfidz_lifetime_hafalan_leaderboard.sql"), "utf8");
 const service = fs.readFileSync(path.join(root, "src/server/supabaseTahfidz.ts"), "utf8");
 const server = fs.readFileSync(path.join(root, "server.ts"), "utf8");
 const page = fs.readFileSync(path.join(root, "src/pages/TahfidzManager.tsx"), "utf8");
