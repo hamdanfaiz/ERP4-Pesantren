@@ -39,7 +39,7 @@ const sourceLabels: Record<SupabaseMasterDataAuditEntry["changeSource"], string>
   master_data_import: "Impor Data Induk",
   ppdb_onboarding: "PPDB",
   boarding_runtime: "Operasional Asrama",
-  legacy_import: "Migrasi lama",
+  legacy_import: "Impor arsip",
   system: "Sistem",
 };
 
