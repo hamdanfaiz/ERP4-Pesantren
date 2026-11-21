@@ -155,11 +155,11 @@ SELECT is(public.finish_tenant_crm_broadcast(
   'c3900000-0000-4000-8000-000000000406'
 )->>'status', 'completed', 'invalid phone does not block campaign completion');
 
-SELECT throws_ok($SELECT public.reserve_tenant_crm_broadcast(
+SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000012', 'admin',
   'c3900000-0000-4000-8000-000000000404', decode(repeat('d', 64), 'hex'),
   ARRAY['c3900000-0000-4000-8000-000000000101']::UUID[]
-)$, '42501', 'Akses aktif Admin ke CRM diperlukan', 'explicitly denied CRM permission is enforced');
+)$$, '42501', 'Akses aktif Admin ke CRM diperlukan', 'explicitly denied CRM permission is enforced');
 SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
   'c4900000-0000-4000-8000-000000000002', 'c4900000-0000-4000-8000-000000000021', 'admin',
   'c4900000-0000-4000-8000-000000000405', decode(repeat('e', 64), 'hex'),
