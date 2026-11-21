@@ -100,6 +100,7 @@ Ledger PTSAS mencapai `20270316000000`. Tiga entri Production tidak menyertakan 
 - Pemeriksaan ini tidak membuktikan kesetaraan DDL, keberhasilan setiap fitur, backup/restore, atau kesiapan UAT.
 - Tidak ada migrasi, perbaikan ledger, data, atau konfigurasi yang diubah di VQE maupun PTSAS.
 - Perubahan Production dan persetujuan urutan migrasi tetap menjadi pekerjaan operator/backend owner yang berwenang.
+
 ## Hasil Supabase Advisors baca-saja — 21 November 2026
 
 Pemeriksaan Advisors hanya membaca metadata/configuration yang dilaporkan Supabase. Tidak membaca baris aplikasi dan tidak mengubah policy, function, index, Auth setting, atau data. Snapshot advisories bukan bukti bahwa seluruh DDL Production cocok dengan source.
