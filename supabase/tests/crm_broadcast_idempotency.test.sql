@@ -203,11 +203,11 @@ SELECT is(public.claim_tenant_crm_broadcast_recipient(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000011', 'admin',
   'c3900000-0000-4000-8000-000000000403', 'c3900000-0000-4000-8000-000000000101'
 )->>'claimed', 'false', 'uncertain campaign cannot retry external delivery');
-SELECT throws_ok($SELECT public.reserve_tenant_crm_broadcast(
+SELECT throws_ok($$SELECT public.reserve_tenant_crm_broadcast(
   'c3900000-0000-4000-8000-000000000001', 'c3900000-0000-4000-8000-000000000013', 'admin',
   'c3900000-0000-4000-8000-000000000403', decode(repeat('c', 64), 'hex'),
   ARRAY['c3900000-0000-4000-8000-000000000101']::UUID[]
-)$, '23505', 'ID permintaan siaran telah dipakai untuk payload berbeda', 'a different actor cannot reuse the campaign request');
+)$$, '23505', 'ID permintaan siaran telah dipakai untuk payload berbeda', 'a different actor cannot reuse the campaign request');
 
 RESET ROLE;
 SELECT * FROM finish();
