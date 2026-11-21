@@ -218,6 +218,9 @@ export function MasterDataManager() {
   const [structureLoadBusy, setStructureLoadBusy] = useState(false);
   const [structureLoadError, setStructureLoadError] = useState("");
   const [structureLoadRetryKey, setStructureLoadRetryKey] = useState(0);
+  const [studentStructureLoadBusy, setStudentStructureLoadBusy] = useState(false);
+  const [studentStructureLoadError, setStudentStructureLoadError] = useState("");
+  const [studentStructureRetryKey, setStudentStructureRetryKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -534,6 +537,45 @@ export function MasterDataManager() {
     void loadSupabase();
     return () => { cancelled = true; };
   }, [activeTab, activeSubTab, user?.tenantId, user?.uid, currentPage, searchQuery, statusFilter, genderFilter, gradeFilter, dormitoryFilter, completenessFilter, legacyMigrationRefreshKey, structureLoadRetryKey]);
+
+  useEffect(() => {
+    const shouldLoadStudentStructures = SUPABASE_MASTER_DATA_RUNTIME
+      && activeTab === "entities"
+      && activeSubTab === "Santri"
+      && isModalOpen;
+
+    if (!shouldLoadStudentStructures) {
+      setStudentStructureLoadBusy(false);
+      setStudentStructureLoadError("");
+      return;
+    }
+
+    let cancelled = false;
+    setStudentStructureLoadBusy(true);
+    setStudentStructureLoadError("");
+
+    const loadStudentStructures = async () => {
+      try {
+        const items = await listSupabaseMasterDataStructures();
+        if (cancelled) return;
+        setDataSources((prev) => ({
+          ...prev,
+          Gedung: items.filter((item) => item.category === "Gedung"),
+          Kamar: items.filter((item) => item.category === "Kamar"),
+          Kelas: items.filter((item) => item.category === "Kelas"),
+        }));
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Supabase Master Data student structure options failed:", error);
+        setStudentStructureLoadError("Pilihan kelas dan asrama belum dapat dimuat. Coba lagi.");
+      } finally {
+        if (!cancelled) setStudentStructureLoadBusy(false);
+      }
+    };
+
+    void loadStudentStructures();
+    return () => { cancelled = true; };
+  }, [activeTab, activeSubTab, isModalOpen, user?.tenantId, user?.uid, legacyMigrationRefreshKey, studentStructureRetryKey]);
 
   const handleTabChange = (
     tabId: string,
@@ -3419,6 +3461,9 @@ export function MasterDataManager() {
                 availableWali={dataSources["Wali Santri"] || MOCK_WALISANTRI}
                 availableSantri={dataSources["Santri"] || MOCK_SANTRI}
                 availableStructure={dataSources}
+                structureLoading={SUPABASE_MASTER_DATA_RUNTIME && activeSubTab === "Santri" && studentStructureLoadBusy}
+                structureError={SUPABASE_MASTER_DATA_RUNTIME && activeSubTab === "Santri" ? studentStructureLoadError : ""}
+                onRetryStructureLoad={() => setStudentStructureRetryKey((value) => value + 1)}
               />
             </div>
           ) : (
