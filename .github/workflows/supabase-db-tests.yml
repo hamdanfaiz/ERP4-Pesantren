@@ -119,6 +119,9 @@ jobs:
       - name: Verify API route authentication policy
         run: npm run test:api-route-auth-policy
 
+      - name: Verify CRM broadcast has an explicit valid audience
+        run: npm run test:crm-broadcast-audience
+
       - name: Verify customer deployment feature flag wiring
         run: npm run test:customer-deployment-flags
 
