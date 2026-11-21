@@ -1,6 +1,30 @@
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
-## Status otoritatif — 21 November 2026, 03.52 WIB
+## Status otoritatif — 21 November 2026 (verifikasi setelah PR #182)
+
+### Source dan leaderboard
+
+- `main` saat verifikasi berada pada `775383e0b16e14373e3c1698f1a11ba6cb26d237`. PR #182 (`codex/tahfidz-unique-memorization-leaderboard-20261121`) masih terbuka dan mergeable pada head `db93fe0dac8d10c7fe94b87ce1b73fb7cff74d23`; ini satu-satunya PR yang terbuka.
+- PR #182 mengurutkan santri dengan jumlah ayat Ziyadah unik sepanjang masa. Setoran berulang dan rentang ayat yang tumpang tindih dihitung sekali; Admin dibatasi tenant aktif dan Ustadz pada halaqah tugasnya.
+- GitHub Actions pada head tersebut lulus untuk build/frontend, instalasi NPM pelanggan, serta migrasi/API/pgTAP. Supabase Preview CI dilewati; hasil CI bukan UAT browser.
+- Tampilan yang terakhir terlihat masih menunjukkan leaderboard lama berbasis setoran bulanan dan dua panel. Source PR menyisakan satu panel “Peringkat Hafalan Terbanyak”, tetapi belum merged atau dibuktikan tampil pada domain preview.
+
+### Status database
+
+- `main` memiliki 163 file migrasi sampai `20270402000000`; VQE staging memiliki 165 versi yang cocok persis dengan branch PR #182. Tidak ada versi source tertinggal atau versi staging tambahan.
+- PTSAS Production memiliki 100 versi ledger sampai `20270316000000`. Sebanyak 63 versi `main` belum tercatat dan tidak ada versi Production-only dibanding `main`. Dua migrasi PR #182 (`20270403000000`, `20270404000000`) juga belum tercatat di Production.
+- Perbandingan ini hanya membaca versi ledger; tidak membuktikan DDL sama, urutan aman, atau backup dapat dipulihkan. Production tidak diubah.
+
+### Gerbang yang masih terbuka
+
+- UAT visual pada build PR #182 di VQE preview, termasuk memastikan hanya satu leaderboard tampil dan urutannya sesuai ayat hafalan.
+- Rekonsiliasi 63 versi Production beserta tiga entri tanpa nama dan perbedaan katalog; jangan jalankan seluruh selisih dengan `db push`.
+- Diff DDL penuh, urutan/dependensi migrasi, rehearsal pada salinan, dan bukti backup/restore oleh tim backend.
+- UAT lintas role dan modul, verifikasi build/flag hosting, serta clean install/upgrade/restore pada lingkungan pelanggan.
+
+Produk belum dinyatakan siap Production atau siap komersial. Persentase penyelesaian total tetap tidak dihitung karena daftar penerimaan dan denominator UAT lintas lingkungan belum tersedia.
+
+## Snapshot sebelum PR #182 — 21 November 2026, 03.52 WIB
 
 ### Source dan hasil pengembangan
 
