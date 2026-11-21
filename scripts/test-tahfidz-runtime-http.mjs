@@ -313,8 +313,9 @@ async function main() {
       headers: { Authorization: `Bearer ${ustadzToken}` },
     }), 200, 'Read Tahfidz leaderboard as assigned Ustadz');
     const rankedStudent = leaderboard.students.find((student) => student.id === studentId);
+    assert.equal(leaderboard.rankingMode, 'lifetime_hafalan', 'Leaderboard should identify its lifetime memorization metric.');
     assert.equal(rankedStudent?.ziyadahRecords, 1, 'Leaderboard should count the persisted Ziyadah record.');
-    assert.equal(rankedStudent?.uniqueMemorizedAyahs, 5, 'Leaderboard should count the persisted unique ayah range.');
+    assert.equal(rankedStudent?.hafalanAyahs, 5, 'Leaderboard should count the persisted unique ayah range.');
 
     const learnerSnapshot = await readJson(await fetch(`${apiBase}/api/tahfidz/snapshot`, {
       headers: { Authorization: `Bearer ${learnerToken}` },
