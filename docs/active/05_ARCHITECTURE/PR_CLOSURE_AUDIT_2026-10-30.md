@@ -1,5 +1,7 @@
 # Audit status PR ERP4 Pesantren — 30 Oktober 2026
 
+> **Pembaruan status — 22 November 2026:** Dokumen ini adalah snapshot 30 Oktober. Untuk status GitHub terkini dan peta pengganti source PR #1–#11, gunakan [audit supersession terbaru](PR1_TO_PR11_SUPERSESSION_AUDIT_2026-11-22.md). Angka progres 73% dan status CI dalam dokumen ini bersifat historis; lihat [Commercial Readiness](../00_PRODUCT/COMMERCIAL_READINESS.md) untuk checkpoint produk terbaru.
+
 ## Hasil verifikasi GitHub
 
 Pemeriksaan terbaru pada repository `hamdanfaiz/ERP4-Pesantren` menunjukkan:
@@ -12,7 +14,7 @@ Pemeriksaan terbaru pada repository `hamdanfaiz/ERP4-Pesantren` menunjukkan:
 
 Head PR #13 `af9460e7fbdcbf788ee01c53d3bd31ae3089c5be` lulus GitHub Actions [run 41049963343](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/41049963343), **2/2 job**. Run mencakup typecheck/build, guard RBAC yang mengunci PPOB dari permission, Docker/Compose, rehearsal migration lokal sintetis, pgTAP, API/tenant, transaksi serentak, Storage, serta backup/restore. Peer Review Tahfidz teks memiliki 33 pemeriksaan pgTAP pada run 41047481907.
 
-Audit source PR #1–#11 memiliki matriks pengganti pada PR #13; tidak ada branch lama yang perlu digabung terpisah. Pemilik produk memutuskan PPOB/payment gateway dikeluarkan dari rilis awal; modul dan pengaturan provider dihapus, dan permission tersimpan lama tidak dapat membukanya kembali. PR #13 telah masuk ke `main` sebagai baseline source yang diuji; ini bukan pernyataan bahwa ERP siap dijual. Rekonsiliasi ledger Supabase target tetap prasyarat penerapan migration. Peer Review teks lulus tes sintetis; audio dan akses Wali tidak termasuk. Bukti Wali sebelum onboarding belum tersedia; Admin dapat mencatat pelunasan manual pada tagihan kandidat. Tidak ada migration live yang diterapkan. Deployment hosting serta UAT dilakukan tim penerapan. Rincian ada di [progres penyelesaian pengembangan](PROJECT_COMPLETION_PROGRESS_2026-10-30.md), [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md), [audit paritas PR #1–#11](PR1_TO_PR11_PARITY_AUDIT_2026-10-30.md), dan [klasifikasi source Firebase](LEGACY_FIREBASE_SOURCE_CLASSIFICATION_2026-10-30.md).
+Audit source PR #1–#11 memiliki matriks pengganti pada PR #13; tidak ada branch lama yang perlu digabung terpisah. Pemilik produk memutuskan PPOB/payment gateway dikeluarkan dari rilis awal; modul dan pengaturan provider dihapus, dan permission tersimpan lama tidak dapat membukanya kembali. PR #13 telah masuk ke `main` sebagai baseline source yang diuji; ini bukan pernyataan bahwa ERP siap dijual. Rekonsiliasi ledger Supabase target tetap prasyarat penerapan migration. Peer Review teks lulus tes sintetis; audio dan akses Wali tidak termasuk. Bukti Wali sebelum onboarding belum tersedia; Admin dapat mencatat pelunasan manual pada tagihan kandidat. Tidak ada migration live yang diterapkan. Deployment hosting serta UAT dilakukan tim penerapan. Rincian ada di [progres penyelesaian pengembangan](../00_PRODUCT/COMMERCIAL_READINESS.md), [audit integrasi lintas-modul](CROSS_MODULE_INTEGRATION_AUDIT_2026-10-30.md), [audit paritas PR #1–#11](PR1_TO_PR11_SUPERSESSION_AUDIT_2026-11-22.md), dan [klasifikasi source Firebase](LEGACY_FIREBASE_SOURCE_CLASSIFICATION_2026-10-30.md).
 
 ## Penutupan branch lama
 
