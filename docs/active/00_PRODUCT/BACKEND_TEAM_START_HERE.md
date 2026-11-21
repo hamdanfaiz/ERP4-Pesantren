@@ -1,18 +1,33 @@
 > Agent / multi-agent: mulai dari AGENT_START_HERE.md. Checkpoint di bawah tetap menjadi arsip; gunakan pembaruan terbaru ini untuk angka dan urutan kerja saat ini.
 
-## Pembaruan terbaru — 20 November 2026, setelah PR #147
+> **Status terkini — 21 November 2026, 19.09 WIB.** Gunakan ringkasan ini untuk handoff; bagian checkpoint setelahnya adalah arsip bertanggal dan dapat memiliki angka lama.
 
-- Branch main berada pada b72450777c78d848bb5c79f39481a163a621754b; PR #147 adalah perubahan dokumentasi dan sudah merged. Source aplikasi/migrasi terakhir tetap a138895783f7118a657a0d5bd94e5872f60f2cba.
-- Pada pemeriksaan awal setelah PR #147 dan sebelum PR #148, tidak ada PR terbuka di repository.
-- PR #147 CI lulus 3/3 job pada [run #44708456273](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44708456273): install paket pelanggan, build/guard frontend dan Docker, serta migration replay, API auth/tenant, pgTAP, Storage, dan backup/restore pada Supabase lokal terisolasi. Ini bukan bukti restore atau UAT Production.
-- Source main memuat 163 file migrasi sampai 20270402000000. VQE staging (vqemuyzveuirlkvdggjd) mencatat 163 versi tersebut tanpa versi source yang hilang atau versi ledger-only.
-- PTSAS Production (ptsasgdvgrbdtgyqieie) mencatat 100 versi sampai 20270316000000; 63 file source belum tercatat. Nama ledger kosong pada tiga versi: 20261205000000, 20261206000000, dan 20270118000000.
-- Perbandingan katalog public terarah menemukan 179 tabel di VQE dan 162 di PTSAS; 17 tabel, 10 kolom, serta empat kontrak constraint terpilih berbeda. Status RLS aktif sama pada 162 tabel bersama, tetapi policy, grant, dan DDL penuh belum dibandingkan. Rincian: [audit promosi Production](../06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md).
-- Pemindaian 63 migrasi yang belum tercatat menemukan lima migration dengan efek data saat penerapan; runbook mencatat tabel sasaran, kondisi, dan risiko. Ini perlu dihitung/rehearsal pada salinan yang dapat dipulihkan sebelum promosi.
-- Tidak ada migration, repair ledger, atau perubahan database yang dilakukan pada PTSAS dalam pekerjaan ini. Jangan mengejar kesamaan hitungan dengan db push massal.
-- PTSAS Production masih memerlukan perbandingan DDL menyeluruh, rekonsiliasi urutan/alias migrasi, bukti backup/restore, dan keputusan operator backend. Jika CLI memerlukan koneksi pooler, hostname harus disalin tepat dari dialog Connect project target; nomor cluster tidak dapat ditebak.
+## Source dan PR
 
-CI hijau dan ledger lengkap VQE belum membuktikan UAT browser setiap modul/role atau kesiapan Production. Handoff ini tidak menyatakan deploy/komersial siap.
+- `main` memuat PR #185 pada merge commit `3080422ffc552b82704da0941b574cf8d220b45a` dan pembaruan dokumentasi PR #186 pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`. PR #182 ditutup sebagai superseded, bukan merged. Pencarian terakhir tidak menemukan PR terbuka.
+- Source aplikasi Tahfidz pada PR #185 diuji di preview dengan akun Ustadz sintetis: satu halaqah, dua santri, tiga setoran hari itu, target 2/2, dan satu leaderboard yang memeringkat 15 lalu 10 ayat unik. Browser yang tersedia kini kembali ke layar masuk; UAT lintas modul/role memerlukan login staging baru.
+- CI pada PR #185 dan #186 lulus 3/3 job wajib (frontend/build guard, paket pelanggan, serta migrasi/API Auth/pgTAP). Supabase Preview dilewati karena tidak ada tautan Supabase Branch.
+- Pemeriksaan lokal tambahan pada source aplikasi `c19f8c2` lulus: Compose dan .env example, 31 public runtime values/38 server gates, runtime Supabase-only tanpa dependency Firebase, serta leaderboard Tahfidz dengan 95 assertion database.
+
+## VQE staging
+
+- Project `vqemuyzveuirlkvdggjd` terbaca `ACTIVE_HEALTHY`.
+- Ledger VQE memuat **165/165 versi dan nama** yang cocok dengan 165 file source, sampai `20270404000000_tahfidz_unique_ayah_projection_indexes). Inventaris metadata melaporkan 180 tabel `public`, semuanya RLS aktif.
+- Pemeriksaan ini baca-saja. Ledger yang cocok tidak membuktikan SQL migrasi/DDL live sama, semua policy benar, atau UAT setiap modul lulus. Tidak ada migrasi atau data yang ditulis ke VQE.
+
+## PTSAS Production dan batas promosi
+
+- PTSAS Production tidak disentuh. Snapshot terdahulu mencatat 100 entri ledger saat source masih 163 migrasi; source kini 165, sehingga snapshot tersebut bukan angka pembanding terkini.
+- Sebelum deploy schema, tim backend perlu mengambil ulang inventaris baca-saja Production, membandingkan isi/DDL dan dependensi migrasi, menjelaskan baris ledger kosong/alias, serta membuktikan backup dan restore sebelum rehearsal. Jangan menjalankan `db push` massal hanya untuk menyamakan jumlah.
+- Hasil tes Supabase lokal terisolasi, metadata staging, dan UAT satu role tidak menggantikan verifikasi Production atau pengujian browser lintas modul.
+
+## Tindakan berikutnya
+
+1. Ulangi UAT browser Admin, Wali, Santri, Ustadz, dan petugas terkait di VQE untuk simpan-baca, permission/tenant, Storage, serta keadaan error/kosong pada modul prioritas.
+2. Lakukan rekonsiliasi migrasi dan DDL Production baca-saja dari source `main` terbaru, lalu siapkan rencana rehearsal yang eksplisit dan dapat dipulihkan.
+3. Buktikan restore pada salinan terisolasi dan uji clean install/upgrade/restore pada profil host yang akan didukung (Docker/VPS/on-premise).
+4. Tetapkan commit rilis dan variabel/flag environment pelanggan; hanya setelah seluruh gerbang ini lulus, pertimbangkan promosi.
+5. Produk belum dinyatakan siap go-live/komersial; persentase total tidak dihitung tanpa denominator penerimaan yang disepakati.
 
 ## Pembaruan terdahulu — 20 November 2026
 
