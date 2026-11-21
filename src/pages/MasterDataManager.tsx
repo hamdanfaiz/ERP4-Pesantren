@@ -2532,7 +2532,7 @@ export function MasterDataManager() {
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <span className="font-semibold text-slate-800 dark:text-slate-100">
                                             {{
-                                              baseline_snapshot: "Kondisi awal migrasi",
+                                              baseline_snapshot: "Kondisi awal",
                                               initial_assignment: "Penempatan awal",
                                               assigned: "Penempatan kamar",
                                               moved: "Perpindahan kamar",
@@ -2553,7 +2553,7 @@ export function MasterDataManager() {
                                           </p>
                                         )}
                                         <p className="mt-1 text-slate-500 dark:text-slate-400">
-                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Kondisi awal migrasi" : "Sistem"}
+                                          Oleh {entry.changedByName} · {entry.changeSource === "master_data" ? "Master Data" : entry.changeSource === "boarding_runtime" ? "Asrama" : entry.changeSource === "legacy_import" ? "Impor arsip" : entry.changeSource === "ppdb_onboarding" ? "Penerimaan PPDB" : entry.changeSource === "migration_baseline" ? "Kondisi awal" : "Sistem"}
                                         </p>
                                         {entry.eventType === "baseline_snapshot" && (
                                           <p className="mt-2 text-amber-700 dark:text-amber-300">
