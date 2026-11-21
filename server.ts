@@ -2285,7 +2285,7 @@ async function startServer() {
         return res.status(403).json({ error: "Siaran WhatsApp hanya untuk Admin tenant." });
       }
       const result = await sendSupabaseCrmOpenWaBroadcast(actor.tenantId, actor.uid, actor.role, req.body?.broadcast || {});
-      return res.status(result.dryRun ? 200 : 201).json(result);
+      return res.status(result.dryRun || result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return crmRouteError(res, error); }
   });
 
