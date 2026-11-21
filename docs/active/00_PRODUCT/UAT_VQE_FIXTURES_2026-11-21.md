@@ -13,7 +13,7 @@
 |---|---|---|
 | Data Induk | 1 gedung, 2 kamar, 1 kelas, 2 santri | Struktur kamar → gedung, kelas → jenjang, dan relasi santri ke kelas/asrama terhubung. NIS berasal dari Naming Series. |
 | Asrama | 2 penempatan; 2 permohonan izin; 2 catatan kedisiplinan; 2 catatan kehadiran; 2 tiket fasilitas; 2 audit kebersihan | Data tampil pada cakupan tenant UAT. Tiket dan audit dapat dipakai untuk membandingkan prioritas/status dan skor. |
-| Tahfidz | 1 halaqah aktif, 2 santri anggota, 2 target aktif, 1 akun Ustadz sintetis berizin Tahfidz, 2 setoran Ziyadah | Setoran yang disimpan: Al-Baqarah ayat 1–10 dan Al-Kahf ayat 1–15. Pilihan surah memakai katalog 114 surah; ayat dipilih dari opsi sesuai surah, bukan teks bebas. Catatan kemajuan tersimpan sebagai 10 dan 15 ayat unik; peringkat yang diharapkan adalah Santri 02 lalu Santri 01. |
+| Tahfidz | 1 halaqah aktif, 2 santri anggota, 2 target aktif, 1 akun Ustadz sintetis berizin Tahfidz, 2 setoran Ziyadah, 1 jadwal Talaqqi, 1 jadwal ujian Tasmi' | Setoran yang disimpan: Al-Baqarah ayat 1–10 dan Al-Kahf ayat 1–15. Pilihan surah memakai katalog 114 surah; ayat dipilih dari opsi sesuai surah, bukan teks bebas. Catatan kemajuan tersimpan sebagai 10 dan 15 ayat unik; peringkat yang diharapkan adalah Santri 02 lalu Santri 01. Sesi tambahan dibuat lewat UI Ustadz untuk menguji dua jenis penjadwalan. |
 | Dokumen Digital | 3 dokumen internal bertanda UAT, tanpa lampiran | Daftar dokumen terbaca; tidak ada file Storage yang diunggah. |
 
 Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, transaksi PPDB, kiriman pesan, bukti pembayaran, atau lampiran yang menyerupai data nyata.
@@ -25,7 +25,9 @@ Nama dan catatan record diberi penanda UAT. Tidak dibuat pembayaran, tagihan, tr
 - Dashboard Tahfidz pada preview PR #185 menampilkan 2 santri, 1 halaqah aktif, 2 setoran hari ini, dan cakupan target 2/2.
 - UI leaderboard terverifikasi menempatkan Santri 02 di peringkat pertama dengan 15 ayat hafalan unik, lalu Santri 01 dengan 10 ayat. Riwayat setoran memakai pilihan surah dari katalog dan ayat sesuai surah; dua catatan UAT terbaca pada UI.
 - Tab Target & Rapor memuat dua target aktif dengan periode dan kebijakan berbeda. Tab Manajemen Halaqah menampilkan dua anggota dan Ustadz pengampu.
-- Tab Jadwal Talaqqi terbuka, tetapi belum memiliki data contoh. Form jadwal tidak disimpan selama UAT. Pemeriksaan kode menemukan teks statis yang keliru menyatakan jadwal tidak dapat disimpan karena benturan; teks diperbaiki menjadi keterangan bahwa benturan akan diperiksa.
+- Tab Jadwal Talaqqi berhasil menyimpan sesi simulasi Santri 01 pada 25 November 2026 pukul 09.00 WIB, durasi 30 menit, fokus makharijul huruf dan ghunnah; status Terjadwal.
+- Tab Munaqasyah berhasil menyimpan sesi simulasi Tasmi' juz 1–3 untuk Santri 02 pada 24 November 2026 pukul 09.00 WIB, durasi 45 menit; status Terjadwal.
+- Pemeriksaan kode menemukan teks statis yang keliru menyatakan jadwal tidak dapat disimpan karena benturan; teks diperbaiki menjadi keterangan bahwa benturan akan diperiksa.
 - Tab Penilaian Antar-Santri belum memiliki fixture yang dapat diverifikasi; sesi baca di preview utama berhenti pada status memuat dan sesi tersebut kemudian berakhir. Tidak ada penilaian atau jadwal yang dibuat melalui UI pada sesi ini.
 - PR #185 menggunakan preview `https://framed-slateblue-rail-79.hostingersite.com/`. Sesi Ustadz tetap aktif di preview tersebut. Sesi pada preview staging utama berakhir saat pemeriksaan tab Jadwal.
 - Leaderboard versi lama gagal karena kontrak UI mengharuskan payload bulanan, sementara RPC VQE mengirim `uniqueMemorizedAyahs` seumur pencatatan tanpa `periodStart`. Frontend kini menghitung dan menampilkan peringkat hafalan unik, serta tetap menerima payload bulanan lama tanpa menyebutnya sebagai total hafalan.
