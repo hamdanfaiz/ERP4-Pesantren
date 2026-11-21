@@ -75,7 +75,8 @@ const SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED = SUPABASE_TAHFIDZ_RUNTIME
 const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
 
 type TahfidzLeaderboard = {
-  periodStart: string;
+  rankingMode: "lifetime_hafalan" | "monthly_ziyadah";
+  periodStart: string | null;
   businessDate: string;
   students: Array<{
     rank: number;
@@ -84,7 +85,8 @@ type TahfidzLeaderboard = {
     grade: string;
     halaqah: string;
     ziyadahRecords: number;
-    ziyadahAyahs: number;
+    hafalanAyahs: number | null;
+    ziyadahAyahs: number | null;
     ziyadahActiveDays: number;
   }>;
   hasMore: boolean;
@@ -1888,7 +1890,9 @@ export function TahfidzManager() {
     const leaderboardPeriod = leaderboard?.periodStart
       ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })
         .format(new Date(`${leaderboard.periodStart}T00:00:00Z`))
-      : "Bulan berjalan";
+      : leaderboard?.businessDate
+        ? `data hingga ${new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${leaderboard.businessDate}T00:00:00Z`))}`
+        : "data tersimpan";
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
@@ -1913,8 +1917,10 @@ export function TahfidzManager() {
         {showLeaderboard && <section aria-labelledby="tahfidz-leaderboard-title" className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm dark:border-amber-500/20 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 px-5 py-4 dark:border-amber-500/10">
             <div>
-              <h2 id="tahfidz-leaderboard-title" className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-5 w-5 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
-              <p className="mt-1 text-sm text-slate-500">Berdasarkan jumlah setoran, ayat yang disetorkan, dan hari aktif pada {leaderboardPeriod}.</p>
+              <h2 id="tahfidz-leaderboard-title" className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-5 w-5 text-amber-500" /> {leaderboard?.rankingMode !== "monthly_ziyadah" ? "Peringkat Hafalan Santri" : "Peringkat Setoran Ziyadah"}</h2>
+              <p className="mt-1 text-sm text-slate-500">{leaderboard?.rankingMode !== "monthly_ziyadah"
+                ? `Diurutkan dari jumlah ayat hafalan unik yang tersimpan hingga ${leaderboardPeriod}; jumlah setoran dan hari aktif menjadi pemecah seri.`
+                : `Berdasarkan jumlah setoran, ayat Ziyadah, dan hari aktif pada ${leaderboardPeriod}.`}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{leaderboard?.participants ?? 0} peserta</span>
@@ -1928,11 +1934,11 @@ export function TahfidzManager() {
                   {leaderboard.students.map((student) => <li key={student.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
                     <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-sm font-bold ${student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : student.rank === 2 ? "border-slate-200 bg-slate-100 text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-slate-300" : student.rank === 3 ? "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300" : "border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"}`}>{student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}</span>
                     <div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-900 dark:text-slate-100">{student.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum tercatat"}{student.halaqah ? ` · ${student.halaqah}` : ""}</p></div>
-                    <div className="flex flex-wrap justify-end gap-1.5 text-[11px]"><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">{student.ziyadahRecords} setoran</span><span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 dark:bg-blue-400/10 dark:text-blue-200">{student.ziyadahAyahs} ayat</span><span className="rounded-full bg-violet-50 px-2.5 py-1 font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200">{student.ziyadahActiveDays} hari aktif</span></div>
+                    <div className="flex flex-wrap justify-end gap-1.5 text-[11px]"><span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 dark:bg-blue-400/10 dark:text-blue-200">{student.hafalanAyahs !== null ? `${student.hafalanAyahs} ayat hafalan` : `${student.ziyadahAyahs} ayat Ziyadah`}</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">{student.ziyadahRecords} setoran</span><span className="rounded-full bg-violet-50 px-2.5 py-1 font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200">{student.ziyadahActiveDays} hari aktif</span></div>
                   </li>)}
                 </ol>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 dark:border-white/5"><p className="text-xs text-slate-500">Peringkat hanya mencakup santri pada halaqah yang berada dalam akses akun Anda.</p>{leaderboardLimit === 5 && leaderboard.hasMore && <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-xs font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Lihat hingga 20 peserta</button>}</div>
-              </> : <div className="px-5 py-8 text-center"><p className="font-medium text-slate-800 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini</p><p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p></div>}
+              </> : <div className="px-5 py-8 text-center"><p className="font-medium text-slate-800 dark:text-slate-200">{leaderboard?.rankingMode !== "monthly_ziyadah" ? "Belum ada data hafalan tersimpan" : "Belum ada setoran Ziyadah pada periode ini"}</p><p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah catatan hafalan tersimpan.</p></div>}
         </section>}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
@@ -2022,8 +2028,10 @@ export function TahfidzManager() {
         {["Admin", "SuperAdmin", "Ustadz"].includes(role) && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
           <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
-              <p className="mt-1 text-sm text-slate-500">Peringkat dihitung dari setoran Ziyadah bulan ini yang dapat Anda lihat.</p>
+              <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> {currentLeaderboard?.rankingMode !== "monthly_ziyadah" ? "Peringkat Hafalan Santri" : "Peringkat Setoran Ziyadah"}</h2>
+              <p className="mt-1 text-sm text-slate-500">{currentLeaderboard?.rankingMode !== "monthly_ziyadah"
+                ? "Diurutkan berdasarkan jumlah ayat hafalan unik yang tersimpan; setoran Ziyadah dan hari aktif menjadi pemecah seri."
+                : "Peringkat dihitung dari setoran Ziyadah pada periode ini yang dapat Anda lihat."}</p>
             </div>
             {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
               {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
@@ -2036,8 +2044,8 @@ export function TahfidzManager() {
           {leaderboardLoading && !currentLeaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
           {!leaderboardLoading && !leaderboardError && (currentLeaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
             <Trophy className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini.</p>
-            <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p>
+            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">{currentLeaderboard?.rankingMode !== "monthly_ziyadah" ? "Belum ada data hafalan tersimpan." : "Belum ada setoran Ziyadah pada periode ini."}</p>
+            <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah catatan hafalan tersimpan.</p>
           </div>}
           {!!currentLeaderboard?.students?.length && <>
             <ol className="divide-y divide-slate-100 dark:divide-white/5">
@@ -2050,16 +2058,15 @@ export function TahfidzManager() {
                   <p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum diatur"}{student.halaqah ? ` · Halaqah ${student.halaqah}` : ""}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.ziyadahRecords} setoran</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahAyahs} ayat</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahActiveDays} hari aktif</p>
+                  <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.hafalanAyahs !== null ? `${student.hafalanAyahs} ayat hafalan` : `${student.ziyadahAyahs} ayat Ziyadah`}</p>
+                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahRecords} setoran · {student.ziyadahActiveDays} hari aktif</p>
                 </div>
               </li>)}
             </ol>
             {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
               {leaderboardLimit === 5
                 ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
-                : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Urutan memakai jumlah setoran, jumlah ayat, lalu hari aktif sebagai pemecah seri.</p>}
+                : <p className="text-xs text-slate-500">Menampilkan 20 teratas sesuai cakupan halaqah akun Anda.</p>}
             </div>}
           </>}
         </section>}

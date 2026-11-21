@@ -2,7 +2,7 @@ import { listGuardianStudentIds } from "./identityStore";
 import { findSupabaseQuranSurah, isValidSupabaseQuranAyahRange, listSupabaseQuranSurahs } from "./supabaseQuranCatalog";
 import { createHash } from "node:crypto";
 import { isValidTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
-import { readTahfidzLeaderboardParticipantCount } from "../lib/tahfidzLeaderboardResponse.mjs";
+import { normalizeTahfidzLeaderboardResult } from "../lib/tahfidzLeaderboardResponse.mjs";
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
@@ -432,41 +432,14 @@ export async function listSupabaseTahfidzLeaderboard(
       p_limit: pageSize,
     }),
   });
-  const participants = readTahfidzLeaderboardParticipantCount(result);
-  if (!result || typeof result !== "object" || !Array.isArray(result.students)
-    || result.students.length > pageSize || typeof result.hasMore !== "boolean"
-    || participants === null || participants < result.students.length
-    || (result.hasMore && participants <= result.students.length)
-    || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.periodStart || ""))
-    || !/^\d{4}-\d{2}-\d{2}$/.test(String(result.businessDate || ""))) {
-    throw new SupabaseTahfidzError(503, "Peringkat Tahfidz belum dapat dimuat.");
-  }
-  const students = result.students.map((student: JsonObject) => ({
-    rank: Number(student.rank),
-    id: String(student.id || ""),
-    name: String(student.name || ""),
-    grade: String(student.grade || ""),
-    halaqah: String(student.halaqah || ""),
-    ziyadahRecords: Number(student.ziyadahRecords),
-    ziyadahAyahs: Number(student.ziyadahAyahs),
-    ziyadahActiveDays: Number(student.ziyadahActiveDays),
-  }));
-  if (students.some((student, index) => !isUuid(student.id)
-    || !student.name.trim()
-    || student.rank !== index + 1
-    || !Number.isSafeInteger(student.ziyadahRecords) || student.ziyadahRecords < 1
-    || !Number.isSafeInteger(student.ziyadahAyahs) || student.ziyadahAyahs < 1
-    || !Number.isSafeInteger(student.ziyadahActiveDays) || student.ziyadahActiveDays < 1
-    || student.ziyadahActiveDays > student.ziyadahRecords)) {
+  // VQE currently ranks lifetime unique memorized ayat. Older deployed
+  // databases still return a monthly Ziyadah shape, which the response marks
+  // explicitly so the UI never mislabels monthly activity as total hafalan.
+  const normalized = normalizeTahfidzLeaderboardResult(result, pageSize);
+  if (!normalized) {
     throw new SupabaseTahfidzError(503, "Data peringkat Tahfidz tidak valid.");
   }
-  return {
-    periodStart: String(result.periodStart),
-    businessDate: String(result.businessDate),
-    students,
-    hasMore: result.hasMore,
-    participants,
-  };
+  return normalized;
 }
 
 export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, actorSupabaseUid: string, role: string, includeRecords = true) {
