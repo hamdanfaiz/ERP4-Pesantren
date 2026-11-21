@@ -1,3 +1,22 @@
+## Checkpoint terbaru — 21 November 2026, 23.11 WIB
+
+### Source dan deployment mandiri
+
+- `main` berada pada commit `a8c1b86d494a530a465c8ff975fae8e9762c3f0d`.
+- PR #199 meneruskan `WA_GATEWAY_API_KEY` dari environment host ke container server; nilai opsionalnya kosong secara bawaan dan tidak boleh masuk ke browser. Panduan deployment dan pemeriksaan Compose juga diperbarui.
+- PR #196 sebelumnya menambahkan pass-through server-only untuk `PUBLIC_PPDB_ENABLED` dan `PUBLIC_PPDB_TENANT_ID`, tetap fail-closed.
+- CI PR #199 lulus **3/3 job**: instalasi NPM pelanggan, build/Docker/guard Firebase, serta migrasi sintetis, pgTAP, API tenant, Storage, dan backup-restore lokal. [Run #2162](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44922434357).
+- PR #196–#199 sudah digabung; pemeriksaan GitHub tidak menemukan PR terbuka.
+
+### Batas bukti
+
+- Tidak ada perubahan data, Auth, Storage, atau konfigurasi Supabase di VQE maupun PTSAS Production. CI menjalankan database lokal terisolasi; hasil backup-restore CI bukan bukti pemulihan cloud.
+- Konektor web tidak dapat mengakses domain pelanggan untuk memverifikasi commit yang sedang disajikan. Deployment hosting tetap belum terkonfirmasi.
+- Estimasi source tetap sekitar **75%** dan bersifat kasar, bukan skor UAT. Login browser lintas role/modul, simpan-baca penuh pada staging, rekonsiliasi DDL Production, serta rehearsal backup-restore cloud masih terbuka.
+- Tidak ada langkah manual yang dilakukan; pekerjaan browser/hosting yang memerlukan sesi pemilik akun ditunda sampai pemilik aktif.
+
+---
+
 ## Checkpoint terbaru — 21 November 2026, 22.51 WIB
 
 ### Source dan paket pemasangan mandiri
