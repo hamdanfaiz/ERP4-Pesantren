@@ -225,6 +225,14 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
 
 -- The write RPC and role guards are tested above. Seed this aggregate fixture
 -- directly so leaderboard assertions isolate query behavior from write-policy tests.
+-- The earlier write-path checks already asserted their inserted rows. Remove
+-- those rows and their aggregate progress so they cannot inflate this ranking
+-- fixture's deliberately small, overlapping ayah ranges.
+SELECT set_config('app.tahfidz_progress_tenant_id', 'd1800000-0000-4000-8000-000000000009', TRUE);
+DELETE FROM public.tahfidz_records
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009';
+DELETE FROM public.tahfidz_student_ayah_progress
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009';
 INSERT INTO public.tahfidz_records (
   tenant_id, student_id, halaqah_id, activity_type, surah_name, surah_number,
   ayah_start, ayah_end, fluency_grade, tajweed_grade, performed_at,
