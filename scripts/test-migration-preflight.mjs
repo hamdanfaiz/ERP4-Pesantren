@@ -111,7 +111,8 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 165);
+assert.equal(sourceMigrationsWithSql.length, 166);
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404010000_crm_broadcast_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404000000_tahfidz_unique_ayah_projection_indexes.sql'));
@@ -597,7 +598,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 118);
+assert.equal(productionBaseline.pending.length, 119);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

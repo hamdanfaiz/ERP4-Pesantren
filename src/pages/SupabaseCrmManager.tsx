@@ -89,7 +89,18 @@ export function SupabaseCrmManager() {
   const [broadcastSubject, setBroadcastSubject] = useState("Siaran WhatsApp CRM");
   const [broadcastBusy, setBroadcastBusy] = useState(false);
   const [broadcastStatus, setBroadcastStatus] = useState<{ configured: boolean } | null>(null);
-  const [broadcastResult, setBroadcastResult] = useState<{ sent?: number; failed?: number; dryRun?: boolean; recipientCount?: number; recipients?: Array<{ name: string; phone: string }>; results?: Array<{ name: string; phone: string; status: string; error?: string }> } | null>(null);
+  const [broadcastResult, setBroadcastResult] = useState<{
+    sent?: number;
+    failed?: number;
+    unknown?: number;
+    pending?: number;
+    status?: "processing" | "completed" | "uncertain";
+    alreadyApplied?: boolean;
+    dryRun?: boolean;
+    recipientCount?: number;
+    recipients?: Array<{ name: string; phone: string }>;
+    results?: Array<{ name: string; phone: string; status: string; error?: string; errorCode?: string; interactionLogged?: boolean }>;
+  } | null>(null);
   const canManage = (role === "Admin" || role === "SuperAdmin") && user?.modulePermissions?.crm !== false;
   const selectedContact = useMemo(() => contacts.find((contact) => contact.id === selectedId) || null, [contacts, selectedId]);
   const broadcastAudience = useMemo(
@@ -224,11 +235,15 @@ export function SupabaseCrmManager() {
         method: "POST",
         body: JSON.stringify({ broadcast: { ...payload, clientRequestId: lease.requestId } }),
       });
-      lease.clear();
+      if (dryRun || result?.status === "completed") lease.clear();
       setBroadcastResult(result || null);
       setNotice(dryRun
         ? `Pratinjau: ${result?.recipientCount || 0} kontak memenuhi syarat untuk siaran.`
-        : `Siaran selesai: ${result?.sent || 0} terkirim, ${result?.failed || 0} gagal.`);
+        : result?.status === "processing"
+          ? `Siaran masih diproses. ${result?.pending || 0} penerima menunggu; jangan kirim ulang dengan ID baru.`
+          : result?.status === "uncertain"
+            ? `Hasil siaran belum dapat dipastikan untuk ${result?.unknown || 0} penerima. Jangan kirim ulang pesan tersebut.`
+            : `Siaran selesai: ${result?.sent || 0} terkirim, ${result?.failed || 0} gagal.`);
       if (!dryRun) await loadContacts(null, false);
     } catch (sendError: any) {
       setError(toERPUserMessage(sendError, "Siaran WhatsApp belum dapat diproses saat ini. Silakan coba kembali."));
@@ -284,9 +299,30 @@ export function SupabaseCrmManager() {
       </div>}
       {(error || notice) && tab === "broadcast" && <div role={error ? "alert" : "status"} className={`rounded-xl border px-4 py-3 text-sm ${error ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-950/30 dark:text-rose-200" : "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-950/30 dark:text-emerald-200"}`}>{error || notice}</div>}
       {broadcastResult && <div className="rounded-xl border border-slate-200 p-4 text-sm dark:border-white/10">
-        <p className="font-medium text-slate-900 dark:text-white">{broadcastResult.dryRun ? `Pratinjau · ${broadcastResult.recipientCount || 0} penerima` : `Hasil · terkirim ${broadcastResult.sent || 0} · gagal ${broadcastResult.failed || 0}`}</p>
+        <p className="font-medium text-slate-900 dark:text-white">
+          {broadcastResult.dryRun
+            ? `Pratinjau · ${broadcastResult.recipientCount || 0} penerima`
+            : broadcastResult.status === "processing"
+              ? `Sedang diproses · ${broadcastResult.pending || 0} menunggu`
+              : broadcastResult.status === "uncertain"
+                ? `Hasil belum pasti · ${broadcastResult.unknown || 0} penerima`
+                : `Hasil · terkirim ${broadcastResult.sent || 0} · gagal ${broadcastResult.failed || 0}`}
+        </p>
         {broadcastResult.dryRun && Array.isArray(broadcastResult.recipients) && broadcastResult.recipients.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">{broadcastResult.recipients.map((item, index) => <li key={`${item.phone}-${index}`}>{item.name} · {item.phone}</li>)}</ul>}
-        {!broadcastResult.dryRun && Array.isArray(broadcastResult.results) && broadcastResult.results.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">{broadcastResult.results.map((item, index) => <li key={`${item.phone}-${index}`}>{item.name} · {item.phone} · {item.status}{item.error ? ` · ${item.error}` : ""}</li>)}</ul>}
+        {!broadcastResult.dryRun && Array.isArray(broadcastResult.results) && broadcastResult.results.length > 0 && <ul className="mt-3 max-h-48 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">{broadcastResult.results.map((item, index) => {
+          const label = item.status === "sent" ? "Terkirim"
+            : item.status === "failed" ? "Gagal"
+              : item.status === "unknown" ? "Belum pasti"
+                : item.status === "sending" ? "Sedang diproses" : "Menunggu";
+          const detail = item.errorCode === "consent_revoked" ? "persetujuan telah dicabut"
+            : item.errorCode === "invalid_recipient" ? "nomor WhatsApp tidak valid"
+              : item.errorCode === "provider_unavailable" ? "layanan belum tersedia"
+                : item.errorCode === "provider_rejected" ? "pesan belum berhasil dikirim"
+                  : item.errorCode === "delivery_unknown" ? "hasil pengiriman belum dipastikan"
+                : item.errorCode === "interaction_log_failed" ? "catatan interaksi belum tersimpan"
+                  : item.error || "";
+          return <li key={`${item.phone}-${index}`}>{item.name} · {item.phone} · {label}{detail ? ` · ${detail}` : ""}</li>;
+        })}</ul>}
       </div>}
       {loading ? <div className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat audiens…</div>
         : broadcastAudience.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada kontak berpersetujuan dengan nomor telepon.</p>

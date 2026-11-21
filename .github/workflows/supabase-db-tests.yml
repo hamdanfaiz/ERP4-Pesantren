@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: supabase-db-${{ github.workflow }}-${{ github.ref }}
+  group: supabase-db-${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
