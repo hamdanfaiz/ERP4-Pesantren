@@ -81,3 +81,16 @@ Pemeriksaan terbaru menghitung record tenant UAT berdasarkan kolom `tenant_id` d
 - Sebelum mengisi modul kosong, cek ulang flag dan referensi staging, lalu simpan data dengan penanda UAT dan verifikasi baca-ulang/relasi. Jangan membuat transaksi keuangan/pembayaran atau mengunggah berkas sebelum alur staging tersebut teruji.
 - Inventaris ini tidak mencakup data tenant lain atau isi pribadi record.
 
+
+## Revalidasi baca-saja — 21 November 2026
+
+Pemeriksaan terbaru pada VQE dilakukan setelah PR #193 dan #194 tergabung ke `main`. Pemeriksaan ini memakai hitungan agregat dan tidak membaca nama santri, email, catatan, atau isi data identitas.
+
+- Tabel sumber Tahfidz memuat **3 setoran Ziyadah**. Rentang ayat semuanya cocok dengan katalog Al-Qur’an.
+- Hasil hitung ulang ayat unik dari catatan tersebut berjumlah **30**; tabel proyeksi menyimpan **30**. Tidak ditemukan ayat proyeksi yang kurang atau berlebih.
+- Tidak ditemukan relasi keanggotaan Tahfidz yang kehilangan santri atau halaqah.
+- Agregat profil aktif menunjukkan **1 Ustadz aktif** dengan **1 halaqah aktif**, **2 santri aktif**, dan **1 setoran tersimpan** pada cakupan penugasannya. Dua profil Ustadz berstatus ditangguhkan masih memiliki baris penugasan lama; jangan menganggap penugasan itu sebagai akses aktif.
+- Preview Hostinger staging yang diperiksa saat ini menampilkan halaman masuk. UAT visual belum diulang pada sesi ini; perlu sesi Admin dan Ustadz staging yang sudah masuk untuk memeriksa ulang tampilan dan alur simpan-baca.
+- Tidak ada fixture yang dibuat atau diubah pada pemeriksaan ini. PTSAS Production tidak disentuh.
+
+Hitungan ayat unik **30** menggantikan angka **25** pada inventaris sebelumnya. Perbedaan ini dicatat sebagai perubahan kondisi staging; laporan ini tidak mencoba mengidentifikasi atau mengubah catatan penyebabnya.
