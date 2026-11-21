@@ -361,7 +361,10 @@ BEGIN
     INTO v_pending, v_unknown
   FROM public.crm_broadcast_recipients
   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id;
-  v_status := CASE WHEN v_pending > 0 OR v_unknown > 0 THEN 'uncertain' ELSE 'completed' END;
+  IF v_pending > 0 THEN
+    RETURN jsonb_build_object('status', 'processing', 'alreadyApplied', TRUE);
+  END IF;
+  v_status := CASE WHEN v_unknown > 0 THEN 'uncertain' ELSE 'completed' END;
   UPDATE public.crm_broadcast_requests
   SET status = v_status, updated_at = now(), completed_at = now()
   WHERE tenant_id = p_tenant_id AND client_request_id = p_client_request_id;
