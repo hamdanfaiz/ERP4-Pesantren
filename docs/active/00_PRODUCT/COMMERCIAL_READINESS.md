@@ -1,3 +1,24 @@
+## Checkpoint terbaru — 21 November 2026, 23.49 WIB
+
+### Source, audit CRM, dan CI
+- `main` berada pada commit `7af9ea5257634309b0d059694e183a5395fa947b`; saat pencatatan ini tidak ada PR terbuka.
+- PR #201 menyelaraskan matriks runtime CRM dengan fitur siaran OpenWA yang memang ada di UI dan API. PR #203 menolak siaran tanpa daftar penerima eksplisit atau dengan ID tidak valid, mencegah permintaan yang salah ditafsirkan sebagai siaran ke semua kontak; daftar dibatasi maksimal 50 penerima.
+- Dokumentasi kini membedakan keberadaan fitur di source dari aktivasi setiap environment. Dokumentasi juga mencatat risiko yang belum selesai: pengiriman batch belum memiliki ledger idempotensi tahan lama, jadi hasil gateway yang ambigu tidak boleh di-retry otomatis.
+- Pemeriksaan CI wajib lulus 3/3 pada PR #201 (run [#44924702796](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44924702796)) dan PR #203 (run [#44925670535](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44925670535)). Pemeriksaan Supabase Preview dilewati karena branch tidak terhubung ke Supabase Branch.
+
+### Progress dan bukti yang belum ada
+- Estimasi penyelesaian source tetap sekitar **75%**. Ini angka perkiraan dari checkpoint sebelumnya, bukan hitungan fitur lulus UAT.
+- Tidak ada perubahan database, Auth, Storage, secret, atau konfigurasi di VQE maupun PTSAS Production. Job database CI berjalan pada Supabase lokal yang terisolasi.
+- UAT browser menyeluruh lintas role/modul, verifikasi source yang benar-benar tersaji di hosting, perbandingan DDL Production, dan rehearsal backup-restore cloud tetap belum terbukti.
+- Pengiriman OpenWA CRM masih memiliki celah idempotensi batch. Sebelum mengaktifkan kampanye operasional/otomatis, perlu rancangan migration yang dibuat lewat Supabase CLI, ledger/penanganan status pengiriman, pgTAP concurrency/retry, serta UAT staging.
+
+### Langkah berikutnya
+1. Rancang dan implementasikan ledger idempotensi siaran OpenWA; jangan menerapkan migration ke Production sebelum preflight, tinjauan urutan migration, dan rehearsal staging lulus.
+2. Lanjutkan UAT staging setelah sesi browser tersedia: simpan-baca, refresh, isolasi tenant, role, dan relasi untuk setiap modul yang dinyatakan siap.
+3. Minta tim backend memverifikasi commit yang dilayani hosting serta mencocokkan DDL dan backup/restore Production sebelum deploy operasional.
+
+---
+
 ## Checkpoint terbaru — 21 November 2026, 23.11 WIB
 
 ### Source dan deployment mandiri
