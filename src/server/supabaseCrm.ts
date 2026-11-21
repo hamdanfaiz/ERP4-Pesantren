@@ -248,7 +248,7 @@ async function readSupabaseCrmBroadcastStatus(
     dryRun: false,
     provider: "open-wa",
     clientRequestId: result.clientRequestId,
-    status: result.status,
+    status: result.status as "processing" | "completed" | "uncertain",
     sent: Number(result.sent || 0),
     failed: Number(result.failed || 0),
     unknown: Number(result.unknown || 0),
@@ -270,41 +270,43 @@ export async function sendSupabaseCrmOpenWaBroadcast(
   if (message.length < 5) throw new SupabaseCrmError(400, "Isi siaran minimal 5 karakter.");
   const subject = cleanText(raw.subject, 200, "Judul siaran") || "Siaran WhatsApp CRM";
   const requestedIds = normalizeCrmBroadcastContactIds(raw.contactIds);
-
   const { openWaSendText, normalizeOpenWaChatId, OpenWaGatewayError, getOpenWaStatus } = await import("./openWaGateway");
-  const gatewayStatus = await getOpenWaStatus(tenantId);
 
-  const audience: Array<{ id: string; name: string; phone: string; chatId: string }> = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < 20; page += 1) {
-    const batch = await listSupabaseCrmContactsPage(tenantId, actorId, role, { cursor, pageSize: 100 });
-    for (const contact of batch.contacts) {
-      if (contact.marketingConsent !== "granted" || !requestedIds.includes(contact.id)) continue;
-      const chatId = normalizeOpenWaChatId(contact.phone);
-      if (chatId) audience.push({ id: contact.id, name: contact.name, phone: contact.phone, chatId });
+  const readSelectedContacts = async () => {
+    const { data, error } = await client().from("crm_contacts")
+      .select("id,name,phone,marketing_consent")
+      .eq("tenant_id", tenantId)
+      .in("id", requestedIds);
+    if (error) fail(error, "Daftar penerima siaran CRM belum dapat dimuat.");
+    const contacts = new Map<string, { id: string; name: string; phone: string; consent: string; chatId: string | null }>();
+    for (const row of (Array.isArray(data) ? data : []) as any[]) {
+      contacts.set(String(row.id), {
+        id: String(row.id),
+        name: String(row.name || ""),
+        phone: row.phone ? String(row.phone) : "",
+        consent: String(row.marketing_consent || "unknown"),
+        chatId: normalizeOpenWaChatId(row.phone),
+      });
     }
-    cursor = batch.nextCursor;
-    if (!cursor) break;
-  }
-  const found = new Set(audience.map((item) => item.id));
-  const missing = requestedIds.filter((id) => !found.has(id));
-  if (missing.length) {
-    throw new SupabaseCrmError(400, "Sebagian kontak dipilih tidak memiliki persetujuan atau nomor WhatsApp valid.");
-  }
-  if (!audience.length) {
-    throw new SupabaseCrmError(400, "Tidak ada penerima: butuh persetujuan menerima info dan nomor telepon valid.");
-  }
-  if (audience.length > 50) {
-    throw new SupabaseCrmError(400, "Audiens melebihi 50 penerima. Persempit daftar atau kirim bertahap.");
-  }
+    const missing = requestedIds.filter((id) => !contacts.has(id));
+    if (missing.length) throw new SupabaseCrmError(503, "Data penerima siaran CRM berubah dan perlu dimuat ulang.");
+    return contacts;
+  };
 
   if (raw.dryRun) {
+    const gatewayStatus = await getOpenWaStatus(tenantId);
+    const contacts = await readSelectedContacts();
+    const recipients = requestedIds.map((id) => contacts.get(id)!).filter((contact) =>
+      contact.consent === "granted" && Boolean(contact.chatId));
+    if (recipients.length !== requestedIds.length) {
+      throw new SupabaseCrmError(400, "Sebagian kontak tidak memiliki persetujuan atau nomor WhatsApp valid.");
+    }
     return {
       dryRun: true,
       configured: Boolean(gatewayStatus.configured),
       provider: "open-wa",
-      recipientCount: audience.length,
-      recipients: audience.map(({ id, name, phone, chatId }) => ({ id, name, phone, chatId })),
+      recipientCount: recipients.length,
+      recipients: recipients.map(({ id, name, phone, chatId }) => ({ id, name, phone, chatId })),
     };
   }
 
@@ -321,21 +323,24 @@ export async function sendSupabaseCrmOpenWaBroadcast(
     p_expected_role: roleForDatabase(role),
     p_client_request_id: raw.clientRequestId,
     p_payload_sha256: "\\x" + payloadSha256,
-    p_contact_ids: audience.map((item) => item.id),
+    p_contact_ids: requestedIds,
   });
   if (reservationError) fail(reservationError, "Permintaan siaran CRM belum dapat dicatat.");
   const reservation = reservationData as { created?: boolean; status?: string } | null;
   if (!reservation || typeof reservation.created !== "boolean") {
     throw new SupabaseCrmError(503, "Respons pencatatan siaran CRM tidak valid.");
   }
-  if (!reservation.created) {
+  if (!reservation.created && reservation.status !== "processing") {
     return {
       ...(await readSupabaseCrmBroadcastStatus(tenantId, actorId, role, raw.clientRequestId)),
       alreadyApplied: true,
     };
   }
 
-  for (const recipient of audience) {
+  const gatewayStatus = await getOpenWaStatus(tenantId);
+  const contacts = await readSelectedContacts();
+  for (const id of requestedIds) {
+    const recipient = contacts.get(id)!;
     const { data: claimData, error: claimError } = await client().rpc("claim_tenant_crm_broadcast_recipient", {
       p_tenant_id: tenantId,
       p_actor_user_id: actorId,
@@ -346,6 +351,15 @@ export async function sendSupabaseCrmOpenWaBroadcast(
     if (claimError) fail(claimError, "Penerima siaran CRM belum dapat diproses.");
     if (!(claimData as any)?.claimed) continue;
 
+    if (!recipient.chatId) {
+      const { error } = await client().rpc("record_tenant_crm_broadcast_delivery", {
+        p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
+        p_client_request_id: raw.clientRequestId, p_contact_id: recipient.id,
+        p_status: "failed", p_message_id: null, p_error_code: "invalid_recipient",
+      });
+      if (error) fail(error, "Status penerima siaran CRM belum dapat dicatat.");
+      continue;
+    }
     if (!gatewayStatus.configured) {
       const { error } = await client().rpc("record_tenant_crm_broadcast_delivery", {
         p_tenant_id: tenantId, p_actor_user_id: actorId, p_expected_role: roleForDatabase(role),
@@ -414,6 +428,6 @@ export async function sendSupabaseCrmOpenWaBroadcast(
   if (finishError) fail(finishError, "Status akhir siaran CRM belum dapat dicatat.");
   return {
     ...(await readSupabaseCrmBroadcastStatus(tenantId, actorId, role, raw.clientRequestId)),
-    alreadyApplied: false,
+    alreadyApplied: !reservation.created,
   };
 }
