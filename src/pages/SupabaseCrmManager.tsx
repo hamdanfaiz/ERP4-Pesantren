@@ -315,7 +315,8 @@ export function SupabaseCrmManager() {
               : item.status === "unknown" ? "Belum pasti"
                 : item.status === "sending" ? "Sedang diproses" : "Menunggu";
           const detail = item.errorCode === "consent_revoked" ? "persetujuan telah dicabut"
-            : item.errorCode === "provider_unavailable" ? "layanan belum tersedia"
+            : item.errorCode === "invalid_recipient" ? "nomor WhatsApp tidak valid"
+              : item.errorCode === "provider_unavailable" ? "layanan belum tersedia"
               : item.errorCode === "delivery_unknown" ? "hasil pengiriman belum dipastikan"
                 : item.errorCode === "interaction_log_failed" ? "catatan interaksi belum tersimpan"
                   : item.error || "";
