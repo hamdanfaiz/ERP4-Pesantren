@@ -33,4 +33,4 @@ assert.throws(
   "more than 50 recipients are rejected",
 );
 
-console.log("CRM broadcast audience validation: 9 assertions passed.");
+console.log("CRM broadcast audience validation: 8 assertions passed.");
