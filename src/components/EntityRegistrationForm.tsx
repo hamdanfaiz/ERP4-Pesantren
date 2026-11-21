@@ -12,6 +12,9 @@ interface EntityRegistrationFormProps {
   availableWali?: any[];
   availableSantri?: any[];
   availableStructure?: Record<string, any[]>;
+  structureLoading?: boolean;
+  structureError?: string;
+  onRetryStructureLoad?: () => void;
 }
 
 import {
@@ -34,6 +37,9 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
   availableWali = [],
   availableSantri = [],
   availableStructure,
+  structureLoading = false,
+  structureError = "",
+  onRetryStructureLoad,
 }) => {
   const { user } = useAuth();
   const [gradeLevels, setGradeLevels] = useState<SupabaseReferenceItem[]>([]);
@@ -547,12 +553,28 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                           Struktur Pesantren
                         </span>
                       </div>
+                      {structureLoading && (
+                        <p role="status" className="rounded-lg border border-sky-400/20 bg-sky-500/10 px-3 py-2 text-xs text-sky-200">
+                          Memuat pilihan kelas, gedung, dan kamar…
+                        </p>
+                      )}
+                      {structureError && (
+                        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-400/25 bg-rose-950/20 px-3 py-2 text-xs text-rose-200">
+                          <span>{structureError}</span>
+                          {onRetryStructureLoad && (
+                            <button type="button" onClick={onRetryStructureLoad} className="rounded-md border border-rose-300/30 px-3 py-1.5 font-semibold hover:bg-rose-400/10">
+                              Coba lagi
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
                             Kelas / Jenjang
                           </label>
                           <select
+                            disabled={structureLoading || Boolean(structureError)}
                             value={formData.classId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -568,12 +590,12 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">{classOptions.length ? "-- Pilih kelas --" : "Belum ada kelas tersedia"}</option>
+                            <option value="">{structureLoading ? "Memuat kelas…" : structureError ? "Kelas tidak dapat dimuat" : classOptions.length ? "-- Pilih kelas --" : "Belum ada kelas tersedia"}</option>
                             {classOptionsForGrade.map((item) => (
                               <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
                             ))}
                           </select>
-                          {!classOptionsForGrade.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas aktif pada jenjang terpilih di tab Struktur terlebih dahulu.</p>}
+                          {!classOptionsForGrade.length && !structureLoading && !structureError && <p className="mt-1 text-xs text-amber-300">Tambahkan kelas aktif pada jenjang terpilih di tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>
@@ -581,6 +603,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             Gedung / Asrama
                           </label>
                           <select
+                            disabled={structureLoading || Boolean(structureError)}
                             value={formData.dormitoryId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -596,12 +619,12 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">{buildingOptions.length ? "-- Pilih gedung/asrama --" : "Belum ada gedung tersedia"}</option>
+                            <option value="">{structureLoading ? "Memuat gedung…" : structureError ? "Gedung tidak dapat dimuat" : buildingOptions.length ? "-- Pilih gedung/asrama --" : "Belum ada gedung tersedia"}</option>
                             {buildingOptions.map((item) => (
                               <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
                             ))}
                           </select>
-                          {!buildingOptions.length && <p className="mt-1 text-xs text-amber-300">Tambahkan gedung pada tab Struktur terlebih dahulu.</p>}
+                          {!buildingOptions.length && !structureLoading && !structureError && <p className="mt-1 text-xs text-amber-300">Tambahkan gedung pada tab Struktur terlebih dahulu.</p>}
                         </div>
 
                         <div>
@@ -609,6 +632,7 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             Kamar
                           </label>
                           <select
+                            disabled={structureLoading || Boolean(structureError)}
                             value={formData.roomId || ""}
                             onChange={(e) => {
                               const val = e.target.value;
@@ -625,12 +649,12 @@ export const EntityRegistrationForm: React.FC<EntityRegistrationFormProps> = ({
                             }}
                             className="w-full bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                           >
-                            <option value="">{roomOptionsForBuilding.length ? "-- Pilih kamar --" : "Belum ada kamar tersedia"}</option>
+                            <option value="">{structureLoading ? "Memuat kamar…" : structureError ? "Kamar tidak dapat dimuat" : roomOptionsForBuilding.length ? "-- Pilih kamar --" : "Belum ada kamar tersedia"}</option>
                             {roomOptionsForBuilding.map((item) => (
                               <option key={item.id} value={item.id}>{item.name} ({item.id})</option>
                             ))}
                           </select>
-                          {!roomOptionsForBuilding.length && <p className="mt-1 text-xs text-amber-300">Tambahkan kamar pada tab Struktur, lalu hubungkan ke gedung/asrama.</p>}
+                          {!roomOptionsForBuilding.length && !structureLoading && !structureError && <p className="mt-1 text-xs text-amber-300">Tambahkan kamar pada tab Struktur, lalu hubungkan ke gedung/asrama.</p>}
                         </div>
 
                         <div>
