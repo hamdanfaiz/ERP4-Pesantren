@@ -88,7 +88,8 @@
     "test:tahfidz-quran-catalog": "node scripts/test-tahfidz-quran-catalog.mjs",
     "test:tahfidz-target-print": "node scripts/test-tahfidz-target-print.mjs",
     "test:user-messages:security": "node scripts/test-user-messages.mjs",
-    "test:crm-broadcast-audience": "tsx scripts/test-crm-broadcast-audience.ts"
+    "test:crm-broadcast-audience": "tsx scripts/test-crm-broadcast-audience.ts",
+    "test:ui-copy": "node scripts/test-ui-copy.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

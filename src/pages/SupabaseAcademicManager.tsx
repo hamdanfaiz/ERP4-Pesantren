@@ -569,10 +569,10 @@ export function SupabaseAcademicManager() {
         method: "POST",
         body: JSON.stringify({ action: "apply", expectedFingerprint: migrationPreview.snapshotFingerprint }),
       });
-      setMigrationNotice("Migrasi selesai: " + Number(result.imported || 0) + " data baru, " + Number(result.skipped || 0) + " data sudah pernah diimpor.");
+      setMigrationNotice("Impor arsip selesai: " + Number(result.imported || 0) + " data baru, " + Number(result.skipped || 0) + " data sudah pernah diimpor.");
       setMigrationPreview(null);
       await refresh();
-    } catch (cause: any) { setMigrationError(toERPUserMessage(cause, "Migrasi data lama gagal.")); }
+    } catch (cause: any) { setMigrationError(toERPUserMessage(cause, "Impor arsip data lama belum berhasil.")); }
     finally { setMigrationLoading(false); }
   };
 

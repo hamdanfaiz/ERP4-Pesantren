@@ -6356,7 +6356,7 @@ export function TahfidzManager() {
                   <input type="date" required min={reportDateFrom} max={currentTenantDate()} value={reportDateTo} onChange={(event) => { setReportDateTo(event.target.value); setTahfidzExportError(""); }} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/30" />
                 </label>
               </div>
-              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">Berkas hanya memuat catatan dalam tenant dan cakupan akses akun Anda. Batas satu unduhan adalah 10.000 catatan.</p>
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">Berkas hanya memuat catatan yang dapat diakses oleh akun Anda. Maksimal 10.000 catatan per unduhan.</p>
               {tahfidzExportError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">{tahfidzExportError}</p>}
             </div>
             <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-black/20">

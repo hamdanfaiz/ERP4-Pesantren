@@ -134,6 +134,9 @@ jobs:
       - name: Verify customer-facing error message security rules
         run: npm run test:user-messages:security
 
+      - name: Verify internal technical terms stay out of user-facing screens
+        run: npm run test:ui-copy
+
       - name: Verify trusted reverse proxy hop configuration
         run: npm run test:trusted-proxy-hops
 

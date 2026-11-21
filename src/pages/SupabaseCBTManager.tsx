@@ -120,7 +120,7 @@ function ImportPreviewDetails({ preview }: { preview: ImportPreview | null }) {
       <div className="border-b border-slate-200 px-4 py-3 text-sm font-medium dark:border-white/10">Perlu ditinjau ({preview.issueCount})</div>
       {preview.issues.length ? <ul className="divide-y divide-slate-100 dark:divide-white/5">{preview.issues.map((issue, index) => <li key={`${issue.code}-${index}`} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm"><span className="font-medium text-slate-700 dark:text-slate-200">{cbtImportIssueLabel(issue.code)}</span><span className={issue.severity === "blocking" ? "text-rose-700 dark:text-rose-300" : "text-amber-700 dark:text-amber-300"}>{issue.severity === "blocking" ? "Perlu diperbaiki" : "Perhatian"}</span></li>)}</ul> : <p className="p-4 text-sm text-slate-500">Semua data memenuhi pemeriksaan.</p>}
     </div>
-    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan." : "Data belum dapat diterapkan; perbaiki konflik atau selesaikan rekonsiliasi terlebih dahulu."}</p>
+    <p className={preview.canApply ? "text-sm font-medium text-emerald-700 dark:text-emerald-300" : "text-sm font-medium text-amber-700 dark:text-amber-300"}>{preview.canApply ? "Data siap diterapkan." : "Data belum dapat diterapkan. Perbaiki konflik dan lengkapi pemetaan sebelum melanjutkan."}</p>
   </div>;
 }
 
@@ -1024,7 +1024,7 @@ export function SupabaseCBTManager() {
           { label: "Poin benar", value: snapshot.settings.correctPoints },
           { label: "Poin salah", value: snapshot.settings.wrongPoints },
           { label: "Poin kosong", value: snapshot.settings.blankPoints },
-          { label: "Sumber konfigurasi", value: snapshot.settings.sourceSystem === "legacy_firestore" ? "Migrasi arsip" : "Pengaturan pesantren" },
+          { label: "Sumber konfigurasi", value: snapshot.settings.sourceSystem === "legacy_firestore" ? "Arsip lama" : "Pengaturan pesantren" },
         ].map((item) => <div key={item.label} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><dt className="text-xs text-slate-500">{item.label}</dt><dd className="mt-2 text-lg font-semibold text-slate-900 dark:text-white">{item.value}</dd></div>)}
       </dl>
       <div className="flex flex-wrap gap-2">
@@ -1119,7 +1119,7 @@ export function SupabaseCBTManager() {
       </section>
       <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div><h2 className="font-semibold text-slate-900 dark:text-white">Impor konfigurasi CBT arsip lama</h2><p className="mt-1 text-sm text-slate-500">Konfigurasi hanya dapat diimpor jika cocok dengan pemetaan pesantren. Nilai penilaian manual tidak disertakan karena ujian menggunakan penilaian otomatis.</p></div>
-        <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Sumber pengaturan aktif: <strong>{snapshot.settings.sourceSystem === "legacy_firestore" ? "hasil migrasi arsip lama" : "nilai bawaan pesantren"}</strong>. Nilai menjadi default form ujian setelah dimuat.</p>
+        <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600 dark:bg-white/5 dark:text-slate-300">Sumber pengaturan aktif: <strong>{snapshot.settings.sourceSystem === "legacy_firestore" ? "hasil impor arsip lama" : "nilai bawaan pesantren"}</strong>. Nilai menjadi default form ujian setelah dimuat.</p>
         <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacySettingsImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Pratinjau konfigurasi</button><button type="button" disabled={saving || !settingsImportPreview?.canApply} onClick={() => void runLegacySettingsImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan konfigurasi</button></div>
         <ImportPreviewDetails preview={settingsImportPreview} />
       </section>

@@ -163,7 +163,7 @@ export function SupabaseNamingSeriesManager() {
     </header>
 
     <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">
-      Perubahan pola hanya memengaruhi nomor yang akan dibuat berikutnya. Nomor yang sudah diterbitkan dan nomor historis hasil impor tidak diubah. Nomor impor tetap dipertahankan agar dokumen lama dan rekonsiliasi tetap cocok.
+      Perubahan pola hanya memengaruhi nomor yang dibuat berikutnya. Nomor yang sudah diterbitkan dan nomor dari data lama tidak berubah agar tetap sesuai dengan dokumen yang sudah ada.
     </div>
     <div role="note" className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300">
       NIS mempertahankan format 10 digit. Nomor dokumen, kuitansi, kode aset, pesanan, dan produk dibuat otomatis; seri yang sudah terbit tidak digunakan ulang.
