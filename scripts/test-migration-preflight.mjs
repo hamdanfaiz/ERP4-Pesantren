@@ -111,8 +111,10 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 163);
+assert.equal(sourceMigrationsWithSql.length, 165);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404000000_tahfidz_unique_ayah_projection_indexes.sql'));
 const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
 assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
 assert.match(quranCatalogMigration.statements.join('\n'), /CREATE TABLE IF NOT EXISTS public\.quran_surahs/i);
@@ -595,7 +597,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 116);
+assert.equal(productionBaseline.pending.length, 118);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

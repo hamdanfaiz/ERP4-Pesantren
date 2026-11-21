@@ -56,8 +56,10 @@ import { legacyArchiveImportEnabled, supabaseRuntimeEnabled } from "../runtimeBa
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso, tenantTime } from "../lib/tenantTimeZone";
 import { resolveGuardianStudentId } from "../lib/guardianStudentSelection";
 import { getTahfidzAchievementProgress } from "../lib/tahfidzAchievements";
+import { loadTahfidzReportPages, nextCalendarDate, TAHFIDZ_REPORT_EXPORT_PAGE_SIZE } from "../lib/tahfidzReportExport";
 import { buildTahfidzViewScopeKey, getRowsForTahfidzViewScope, isTahfidzViewScopeCurrent } from "../lib/tahfidzViewScope";
 import { cn, generateUniqueId } from "../lib/utils";
+import { downloadTransferCsv } from "../utils/dataTransferCsv";
 import {
   AreaChart,
   Area,
@@ -75,7 +77,8 @@ const SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED = SUPABASE_TAHFIDZ_RUNTIME
 const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
 
 type TahfidzLeaderboard = {
-  periodStart: string;
+  rankingMode: "lifetime_hafalan" | "monthly_ziyadah";
+  periodStart: string | null;
   businessDate: string;
   students: Array<{
     rank: number;
@@ -84,7 +87,8 @@ type TahfidzLeaderboard = {
     grade: string;
     halaqah: string;
     ziyadahRecords: number;
-    ziyadahAyahs: number;
+    hafalanAyahs: number | null;
+    ziyadahAyahs: number | null;
     ziyadahActiveDays: number;
   }>;
   hasMore: boolean;
@@ -422,6 +426,7 @@ export function TahfidzManager() {
   const currentTenantTime = (value: Date = new Date()) => SUPABASE_TAHFIDZ_RUNTIME ? tenantTime(value, timeZone) : localTime(value);
   const canManageTahfidz = ["Admin", "SuperAdmin"].includes(role);
   const canRecordTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
+  const canExportTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
   const canManageTargets = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
   const isTahfidzLearner = ["Santri", "Walisantri"].includes(role);
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, records, targets, quran
@@ -583,6 +588,13 @@ export function TahfidzManager() {
   const [recordsNextCursor, setRecordsNextCursor] = useState("");
   const [recordsOldestDate, setRecordsOldestDate] = useState("");
   const [recordsLoadingMore, setRecordsLoadingMore] = useState(false);
+  const [isTahfidzExportOpen, setIsTahfidzExportOpen] = useState(false);
+  const [reportDateFrom, setReportDateFrom] = useState(() => `${currentTenantDate().slice(0, 7)}-01`);
+  const [reportDateTo, setReportDateTo] = useState(() => currentTenantDate());
+  const [isExportingTahfidzReport, setIsExportingTahfidzReport] = useState(false);
+  const [tahfidzExportError, setTahfidzExportError] = useState("");
+  const tahfidzExportController = useRef<AbortController | null>(null);
+  const tahfidzExportRequestSequence = useRef(0);
   const [achievementRows, setAchievementRows] = useState<any[]>([]);
   const [achievementHasMore, setAchievementHasMore] = useState(false);
   const [achievementNextCursor, setAchievementNextCursor] = useState("");
@@ -603,8 +615,21 @@ export function TahfidzManager() {
     role,
     modulePermission: user?.modulePermissions?.tahfidz,
   });
+  const currentTahfidzScopeKeyRef = useRef(currentTahfidzScopeKey);
+  currentTahfidzScopeKeyRef.current = currentTahfidzScopeKey;
   const currentLeaderboardScopeKey = currentTahfidzScopeKey;
   const currentAchievementScopeKey = currentTahfidzScopeKey;
+
+  useEffect(() => {
+    setIsTahfidzExportOpen(false);
+    setIsExportingTahfidzReport(false);
+    setTahfidzExportError("");
+    return () => {
+      tahfidzExportRequestSequence.current += 1;
+      tahfidzExportController.current?.abort();
+      tahfidzExportController.current = null;
+    };
+  }, [currentTahfidzScopeKey]);
 
   useEffect(() => {
     if (role !== "Walisantri") {
@@ -686,6 +711,94 @@ export function TahfidzManager() {
     } finally {
       setRecordsLoadingMore(false);
     }
+  };
+
+  const exportTahfidzReport = async () => {
+    if (!SUPABASE_TAHFIDZ_RUNTIME || !canExportTahfidz || isExportingTahfidzReport) return;
+    setTahfidzExportError("");
+    if (!reportDateFrom || !reportDateTo || reportDateFrom > reportDateTo) {
+      setTahfidzExportError("Pilih rentang tanggal yang valid.");
+      return;
+    }
+
+    const requestSequence = ++tahfidzExportRequestSequence.current;
+    const requestScope = currentTahfidzScopeKeyRef.current;
+    const controller = new AbortController();
+    tahfidzExportController.current = controller;
+    setIsExportingTahfidzReport(true);
+
+    try {
+      const from = tenantLocalDateTimeToIso(`${reportDateFrom}T00:00`, timeZone);
+      const to = tenantLocalDateTimeToIso(`${nextCalendarDate(reportDateTo)}T00:00`, timeZone);
+      const reportRows = await loadTahfidzReportPages(async (cursor) => {
+        if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+          || requestScope !== currentTahfidzScopeKeyRef.current) {
+          throw new DOMException("Ekspor dibatalkan.", "AbortError");
+        }
+        const params = new URLSearchParams({
+          from,
+          to,
+          pageSize: String(TAHFIDZ_REPORT_EXPORT_PAGE_SIZE),
+        });
+        if (cursor) params.set("cursor", cursor);
+        const page = await requestSupabaseTahfidzApi(`/api/tahfidz/records?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+          || requestScope !== currentTahfidzScopeKeyRef.current) {
+          throw new DOMException("Ekspor dibatalkan.", "AbortError");
+        }
+        return { records: page?.records, hasMore: page?.hasMore, nextCursor: page?.nextCursor };
+      });
+
+      if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current
+        || requestScope !== currentTahfidzScopeKeyRef.current) return;
+
+      const halaqahNameById = new Map(halaqahList.map((halaqah) => [String(halaqah.id), String(halaqah.name || "")]));
+      const exportedRows = reportRows.map((record: any) => {
+        const performedAt = new Date(record?.performedAt);
+        if (!Number.isFinite(performedAt.getTime()) || !record?.studentId) {
+          throw new Error("Ada catatan Tahfidz yang tidak lengkap. Laporan tidak diunduh.");
+        }
+        return {
+          Tanggal: currentTenantDate(performedAt),
+          Waktu: currentTenantTime(performedAt),
+          NIS: record.nis || "",
+          "Nama Santri": record.studentName || "Santri tidak tersedia",
+          Halaqah: halaqahNameById.get(String(record.halaqahId || "")) || "",
+          "Jenis Setoran": record.activityType || "",
+          Surah: record.surah || "",
+          "Ayat Mulai": Number(record.ayahStart),
+          "Ayat Akhir": Number(record.ayahEnd),
+          Kelancaran: record.fluency || "Belum dinilai",
+          Tajwid: record.tajweed || "Belum dinilai",
+          Catatan: record.notes || "",
+          "Dicatat Oleh": record.recordedByName || "",
+        };
+      });
+      downloadTransferCsv(
+        `laporan-tahfidz-${reportDateFrom}-${reportDateTo}.csv`,
+        ["Tanggal", "Waktu", "NIS", "Nama Santri", "Halaqah", "Jenis Setoran", "Surah", "Ayat Mulai", "Ayat Akhir", "Kelancaran", "Tajwid", "Catatan", "Dicatat Oleh"],
+        exportedRows,
+      );
+      setIsTahfidzExportOpen(false);
+    } catch (error: any) {
+      if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current || error?.name === "AbortError") return;
+      setTahfidzExportError(error?.message || "Laporan Tahfidz belum dapat diunduh.");
+    } finally {
+      if (requestSequence === tahfidzExportRequestSequence.current) {
+        setIsExportingTahfidzReport(false);
+        if (tahfidzExportController.current === controller) tahfidzExportController.current = null;
+      }
+    }
+  };
+
+  const cancelTahfidzReportExport = () => {
+    tahfidzExportRequestSequence.current += 1;
+    tahfidzExportController.current?.abort();
+    tahfidzExportController.current = null;
+    setIsExportingTahfidzReport(false);
+    setIsTahfidzExportOpen(false);
   };
 
   const loadMoreTahfidzRoster = async () => {
@@ -1888,7 +2001,9 @@ export function TahfidzManager() {
     const leaderboardPeriod = leaderboard?.periodStart
       ? new Intl.DateTimeFormat("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })
         .format(new Date(`${leaderboard.periodStart}T00:00:00Z`))
-      : "Bulan berjalan";
+      : leaderboard?.businessDate
+        ? `data hingga ${new Intl.DateTimeFormat("id-ID", { dateStyle: "long", timeZone: "UTC" }).format(new Date(`${leaderboard.businessDate}T00:00:00Z`))}`
+        : "data tersimpan";
     return (
       <div className="space-y-6">
         <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200">
@@ -1913,8 +2028,10 @@ export function TahfidzManager() {
         {showLeaderboard && <section aria-labelledby="tahfidz-leaderboard-title" className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm dark:border-amber-500/20 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 px-5 py-4 dark:border-amber-500/10">
             <div>
-              <h2 id="tahfidz-leaderboard-title" className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-5 w-5 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
-              <p className="mt-1 text-sm text-slate-500">Berdasarkan jumlah setoran, ayat yang disetorkan, dan hari aktif pada {leaderboardPeriod}.</p>
+              <h2 id="tahfidz-leaderboard-title" className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-5 w-5 text-amber-500" /> {leaderboard?.rankingMode !== "monthly_ziyadah" ? "Peringkat Hafalan Santri" : "Peringkat Setoran Ziyadah"}</h2>
+              <p className="mt-1 text-sm text-slate-500">{leaderboard?.rankingMode !== "monthly_ziyadah"
+                ? `Diurutkan dari jumlah ayat hafalan unik yang tersimpan hingga ${leaderboardPeriod}; jumlah setoran dan hari aktif menjadi pemecah seri.`
+                : `Berdasarkan jumlah setoran, ayat Ziyadah, dan hari aktif pada ${leaderboardPeriod}.`}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{leaderboard?.participants ?? 0} peserta</span>
@@ -1928,11 +2045,11 @@ export function TahfidzManager() {
                   {leaderboard.students.map((student) => <li key={student.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
                     <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full border text-sm font-bold ${student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : student.rank === 2 ? "border-slate-200 bg-slate-100 text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-slate-300" : student.rank === 3 ? "border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-300" : "border-slate-200 bg-slate-50 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"}`}>{student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}</span>
                     <div className="min-w-0 flex-1"><p className="truncate font-medium text-slate-900 dark:text-slate-100">{student.name}</p><p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum tercatat"}{student.halaqah ? ` · ${student.halaqah}` : ""}</p></div>
-                    <div className="flex flex-wrap justify-end gap-1.5 text-[11px]"><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">{student.ziyadahRecords} setoran</span><span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 dark:bg-blue-400/10 dark:text-blue-200">{student.ziyadahAyahs} ayat</span><span className="rounded-full bg-violet-50 px-2.5 py-1 font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200">{student.ziyadahActiveDays} hari aktif</span></div>
+                    <div className="flex flex-wrap justify-end gap-1.5 text-[11px]"><span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 dark:bg-blue-400/10 dark:text-blue-200">{student.hafalanAyahs !== null ? `${student.hafalanAyahs} ayat hafalan` : `${student.ziyadahAyahs} ayat Ziyadah`}</span><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200">{student.ziyadahRecords} setoran</span><span className="rounded-full bg-violet-50 px-2.5 py-1 font-semibold text-violet-800 dark:bg-violet-400/10 dark:text-violet-200">{student.ziyadahActiveDays} hari aktif</span></div>
                   </li>)}
                 </ol>
                 <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-3 dark:border-white/5"><p className="text-xs text-slate-500">Peringkat hanya mencakup santri pada halaqah yang berada dalam akses akun Anda.</p>{leaderboardLimit === 5 && leaderboard.hasMore && <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-xs font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Lihat hingga 20 peserta</button>}</div>
-              </> : <div className="px-5 py-8 text-center"><p className="font-medium text-slate-800 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini</p><p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p></div>}
+              </> : <div className="px-5 py-8 text-center"><p className="font-medium text-slate-800 dark:text-slate-200">{leaderboard?.rankingMode !== "monthly_ziyadah" ? "Belum ada data hafalan tersimpan" : "Belum ada setoran Ziyadah pada periode ini"}</p><p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah catatan hafalan tersimpan.</p></div>}
         </section>}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
@@ -2019,50 +2136,6 @@ export function TahfidzManager() {
             </div>
           </section>
         </div>
-        {["Admin", "SuperAdmin", "Ustadz"].includes(role) && <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-          <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100"><Trophy className="h-4 w-4 text-amber-500" /> Peringkat Setoran Ziyadah</h2>
-              <p className="mt-1 text-sm text-slate-500">Peringkat dihitung dari setoran Ziyadah bulan ini yang dapat Anda lihat.</p>
-            </div>
-            {currentLeaderboard?.periodStart && <span className="w-fit rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-semibold capitalize text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">
-              {new Date(`${currentLeaderboard.periodStart}T00:00:00Z`).toLocaleDateString("id-ID", { month: "long", year: "numeric", timeZone: "UTC" })}
-            </span>}
-          </div>
-          {leaderboardError && <div role="alert" className="flex flex-col gap-2 p-5 text-sm text-rose-800 dark:text-rose-200 sm:flex-row sm:items-center sm:justify-between">
-            <span>{leaderboardError}</span>
-            <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(leaderboardLimit)} className="shrink-0 font-semibold underline">Coba lagi</button>
-          </div>}
-          {leaderboardLoading && !currentLeaderboard && <p role="status" className="p-5 text-sm text-slate-500">Memuat peringkat…</p>}
-          {!leaderboardLoading && !leaderboardError && (currentLeaderboard?.students?.length || 0) === 0 && <div className="p-8 text-center">
-            <Trophy className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
-            <p className="mt-3 font-medium text-slate-700 dark:text-slate-200">Belum ada setoran Ziyadah bulan ini.</p>
-            <p className="mt-1 text-sm text-slate-500">Peringkat akan terisi setelah setoran tersimpan.</p>
-          </div>}
-          {!!currentLeaderboard?.students?.length && <>
-            <ol className="divide-y divide-slate-100 dark:divide-white/5">
-              {currentLeaderboard.students.map((student: any) => <li key={student.id} className="flex items-center gap-3 px-5 py-3.5">
-                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold", student.rank === 1 ? "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
-                  {student.rank === 1 ? <Medal className="h-4 w-4" /> : student.rank}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-slate-900 dark:text-slate-100">{student.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{student.grade || "Kelas belum diatur"}{student.halaqah ? ` · Halaqah ${student.halaqah}` : ""}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">{student.ziyadahRecords} setoran</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahAyahs} ayat</p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">{student.ziyadahActiveDays} hari aktif</p>
-                </div>
-              </li>)}
-            </ol>
-            {currentLeaderboard.hasMore && <div className="border-t border-slate-100 px-5 py-3 text-center dark:border-white/5">
-              {leaderboardLimit === 5
-                ? <button type="button" onClick={() => void loadSupabaseTahfidzLeaderboard(20)} disabled={leaderboardLoading} className="text-sm font-semibold text-emerald-700 hover:underline disabled:opacity-50 dark:text-emerald-300">Tampilkan 20 teratas</button>
-                : <p className="text-xs text-slate-500">Menampilkan 20 teratas. Urutan memakai jumlah setoran, jumlah ayat, lalu hari aktif sebagai pemecah seri.</p>}
-            </div>}
-          </>}
-        </section>}
       </div>
     );
   };
@@ -3933,7 +4006,17 @@ export function TahfidzManager() {
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Ekspor Laporan</span>
-          </button> : <button type="button" disabled title="Ekspor laporan Tahfidz belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
+          </button> : canExportTahfidz && <button
+            type="button"
+            onClick={() => {
+              const today = currentTenantDate();
+              setReportDateFrom(`${today.slice(0, 7)}-01`);
+              setReportDateTo(today);
+              setTahfidzExportError("");
+              setIsTahfidzExportOpen(true);
+            }}
+            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-black/40 dark:text-slate-300 dark:hover:bg-white/5"
+          ><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
           {!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() => {
               setSelectedSantri(displaySantri[0]);
@@ -6248,6 +6331,38 @@ export function TahfidzManager() {
                 <p className="border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-white/10">Rencana ini mencerminkan data yang tersimpan saat dicetak. Setoran terbaru menampilkan paling banyak lima catatan yang sudah dimuat.</p>
               </article>
             </div>
+          </section>
+        </div>
+      )}
+
+      {isTahfidzExportOpen && SUPABASE_TAHFIDZ_RUNTIME && canExportTahfidz && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="tahfidz-export-title">
+          <section className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100">
+            <header className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-white/10">
+              <div>
+                <h2 id="tahfidz-export-title" className="text-lg font-semibold">Ekspor laporan Tahfidz</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Pilih tanggal setoran yang akan dimasukkan ke berkas CSV.</p>
+              </div>
+              <button type="button" onClick={cancelTahfidzReportExport} aria-label="Tutup ekspor laporan" className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"><X className="h-4 w-4" /></button>
+            </header>
+            <div className="space-y-4 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Dari tanggal
+                  <input type="date" required max={reportDateTo || currentTenantDate()} value={reportDateFrom} onChange={(event) => { setReportDateFrom(event.target.value); setTahfidzExportError(""); }} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/30" />
+                </label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                  Sampai tanggal
+                  <input type="date" required min={reportDateFrom} max={currentTenantDate()} value={reportDateTo} onChange={(event) => { setReportDateTo(event.target.value); setTahfidzExportError(""); }} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-black/30" />
+                </label>
+              </div>
+              <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">Berkas hanya memuat catatan dalam tenant dan cakupan akses akun Anda. Batas satu unduhan adalah 10.000 catatan.</p>
+              {tahfidzExportError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">{tahfidzExportError}</p>}
+            </div>
+            <footer className="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-4 dark:border-white/10 dark:bg-black/20">
+              <button type="button" onClick={cancelTahfidzReportExport} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{isExportingTahfidzReport ? "Batalkan" : "Tutup"}</button>
+              <button type="button" onClick={() => void exportTahfidzReport()} disabled={isExportingTahfidzReport || !reportDateFrom || !reportDateTo || reportDateFrom > reportDateTo} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"><Download className="h-4 w-4" />{isExportingTahfidzReport ? "Menyiapkan laporan…" : "Unduh CSV"}</button>
+            </footer>
           </section>
         </div>
       )}

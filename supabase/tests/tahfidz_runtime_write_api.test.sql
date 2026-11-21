@@ -4,7 +4,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 SET LOCAL TIME ZONE 'UTC';
-SELECT plan(93);
+SELECT plan(95);
 
 INSERT INTO public.tenants (id, slug, name, status, time_zone)
 VALUES
@@ -225,6 +225,14 @@ SELECT throws_ok($$SELECT public.record_tahfidz_setoran(
 
 -- The write RPC and role guards are tested above. Seed this aggregate fixture
 -- directly so leaderboard assertions isolate query behavior from write-policy tests.
+-- The earlier write-path checks already asserted their inserted rows. Remove
+-- those rows and their aggregate progress so they cannot inflate this ranking
+-- fixture's deliberately small, overlapping ayah ranges.
+SELECT set_config('app.tahfidz_progress_tenant_id', 'd1800000-0000-4000-8000-000000000009', TRUE);
+DELETE FROM public.tahfidz_records
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009';
+DELETE FROM public.tahfidz_student_ayah_progress
+WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009';
 INSERT INTO public.tahfidz_records (
   tenant_id, student_id, halaqah_id, activity_type, surah_name, surah_number,
   ayah_start, ayah_end, fluency_grade, tajweed_grade, performed_at,
@@ -243,23 +251,29 @@ VALUES
     'Ziyadah', 'Al-Fatihah', 1, 1, 3, 'A', 'A', ((CURRENT_DATE - 1) + TIME '07:00')::TIMESTAMPTZ,
     'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000595'),
   ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000202', 'd1800000-0000-4000-8000-000000000402',
-    'Ziyadah', 'Al-Fatihah', 1, 4, 5, 'A', 'A', (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
+    'Ziyadah', 'Al-Fatihah', 1, 4, 6, 'A', 'A', (CURRENT_DATE + TIME '07:15')::TIMESTAMPTZ,
     'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000596'),
   ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
     (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
     'Muroja''ah', 'Al-Fatihah', 1, 1, 7, 'A', 'A', (CURRENT_DATE + TIME '07:30')::TIMESTAMPTZ,
-    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000597');
-SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'tahfidz_records_ziyadah_leaderboard_idx'), 'leaderboard has a partial covering index for Ziyadah records');
-SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'monthly ranking uses tenant-local active days to break equal setoran and ayah totals');
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000597'),
+  ('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000201',
+    (SELECT id FROM public.tahfidz_halaqahs WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND name = 'Halaqah C'),
+    'Ziyadah', 'Al-Fatihah', 1, 2, 4, 'A', 'A', (CURRENT_DATE + TIME '07:45')::TIMESTAMPTZ,
+    'd1800000-0000-4000-8000-000000000011', 'Admin A', 'd1800000-0000-4000-8000-000000000598');
+SELECT ok(EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'tahfidz_student_ayah_progress_leaderboard_idx'), 'leaderboard has a covering index for saved ayah progress');
+SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'lifetime ranking puts the learner with the most unique hafalan first');
+SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'uniqueMemorizedAyahs'), '6', 'leaderboard counts unique ayat rather than summed ranges');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0->>'ziyadahActiveDays'), '2', 'leaderboard returns distinct active days');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->1->>'id'), 'd1800000-0000-4000-8000-000000000201', 'the next ranking position is stable');
+SELECT is((SELECT count(*)::INTEGER FROM public.tahfidz_student_ayah_progress WHERE tenant_id = 'd1800000-0000-4000-8000-000000000009' AND student_id = 'd1800000-0000-4000-8000-000000000201'), 5, 'overlapping Ziyadah ranges persist each student ayah once');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->1->>'ziyadahActiveDays'), '1', 'same-day records count as one active day');
-SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->1->>'ziyadahRecords'), '2', 'Murojaah does not inflate the Ziyadah total');
+SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->1->>'ziyadahRecords'), '3', 'Murojaah does not inflate the Ziyadah total');
 SELECT ok(NOT ((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 5)->'students'->0) ? 'nis'), 'ranking response excludes student NIS');
 SELECT ok((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->>'hasMore')::BOOLEAN AND jsonb_array_length((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->'students')) = 1, 'ranking limit is respected and signals more results');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000011', 'admin', CURRENT_DATE, 1)->>'participants')::INTEGER, 2, 'participant total includes students beyond the selected limit');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000201', 'Ustadz sees only a student in their assigned halaqah');
-SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'ziyadahAyahs'), '5', 'Ustadz totals include only records in their assigned halaqah');
+SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000012', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'uniqueMemorizedAyahs'), '5', 'Ustadz totals include only ayat in their assigned halaqah');
 SELECT is((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5)->'students'->0->>'id'), 'd1800000-0000-4000-8000-000000000202', 'another Ustadz sees their own assigned student');
 SELECT ok(NOT EXISTS (SELECT 1 FROM jsonb_array_elements((public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd1800000-0000-4000-8000-000000000013', 'ustadz', CURRENT_DATE, 5)->'students')) AS row WHERE row->>'id' = 'd1800000-0000-4000-8000-000000000201'), 'Ustadz cannot see students outside assigned halaqahs');
 SELECT throws_ok($$SELECT public.list_tahfidz_leaderboard('d1800000-0000-4000-8000-000000000009', 'd2800000-0000-4000-8000-000000000021', 'admin', CURRENT_DATE, 5)$$, '42501', 'Profil tenant atau izin Tahfidz tidak aktif', 'administrator from another tenant cannot read ranking data');

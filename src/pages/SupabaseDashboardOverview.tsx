@@ -19,8 +19,9 @@ type DashboardSnapshot = {
 };
 type TahfidzLeaderboard = {
   businessDate: string;
-  periodStart: string;
-  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; ziyadahRecords: number; ziyadahAyahs: number; ziyadahActiveDays: number }>;
+  rankingMode: "lifetime_hafalan" | "monthly_ziyadah";
+  periodStart: string | null;
+  students: Array<{ id: string; rank: number; name: string; grade: string; halaqah: string; ziyadahRecords: number; hafalanAyahs: number | null; ziyadahAyahs: number | null; ziyadahActiveDays: number }>;
   hasMore: boolean;
 };
 type DocumentSearchResult = {
@@ -80,7 +81,8 @@ async function loadTahfidzLeaderboard(limit: 5 | 20, signal?: AbortSignal): Prom
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Capaian Tahfidz belum dapat dimuat.");
-  if (!payload || !Array.isArray(payload.students) || typeof payload.businessDate !== "string") {
+  if (!payload || !Array.isArray(payload.students) || typeof payload.businessDate !== "string"
+    || !["lifetime_hafalan", "monthly_ziyadah"].includes(payload.rankingMode)) {
     throw new Error("Format capaian Tahfidz tidak valid.");
   }
   return payload as TahfidzLeaderboard;
