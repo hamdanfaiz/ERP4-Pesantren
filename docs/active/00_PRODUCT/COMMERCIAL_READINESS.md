@@ -1,3 +1,26 @@
+## Checkpoint terbaru — 21 November 2026, 20.30 WIB
+
+### Source dan pemeriksaan otomatis
+- PR #189 telah tergabung ke `main` pada commit `1223e12fbdb96e0942c5bf504ad2f77fcc0b37d4`: halaman CBT Firebase lama yang tidak dirutekan dan dependensi rentan yang hanya dipakainya dihapus; CBT aktif `SupabaseCBTManager` dipertahankan.
+- GitHub Actions [run #44908590992](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44908590992) lulus 3/3 job: instalasi NPM bersih, frontend/build/Docker dan guard runtime, serta replay migrasi, pgTAP, API/tenant, Storage, Document Center, dan backup-restore database lokal sintetis.
+- Pemeriksaan tersebut berjalan pada source yang kemudian di-merge. Tidak ada migrasi, perubahan record, atau operasi Storage ke PTSAS Production. Status deployment hosting/domain pelanggan belum diverifikasi.
+
+### Progress dan batas klaim
+- Estimasi kasar pengembangan source sampai serah-terima tim: **sekitar 75%**. Ini bukan persentase fitur yang telah lulus UAT; denominator berbobot untuk semua skenario belum ditetapkan.
+- CI membuktikan suite otomatis pada Supabase lokal terisolasi, bukan UAT browser semua role/modul dan bukan kesetaraan DDL atau pemulihan Production.
+- Catatan fixture staging 21 November melaporkan data tenant uji pada 43 dari 177 tabel ber-tenant; beberapa modul masih belum memiliki skenario simpan-baca. Angka tabel tidak membuktikan fitur siap. Sebelum menambah fixture, hitung ulang data tenant saat ini dan buat hanya yang benar-benar belum tersedia agar tidak menduplikasi.
+- UAT browser lintas role/modul, upload pada hosting, responsivitas penuh, dan alur simpan-baca UI masih belum lengkap. Pembacaan Production terakhir yang terdokumentasi di checkpoint sebelumnya hanya metadata ledger/katalog; belum ada diff DDL penuh atau rehearsal backup-restore Production.
+
+### Langkah berikutnya
+1. Lanjutkan UAT browser staging pada sesi Admin yang sudah tersedia; catat hasil per modul/role dan tandai yang belum aktif sebagai belum diuji.
+2. Perbarui inventaris record tenant UAT dengan hitungan baca-saja. Tambahkan data sintetis hanya melalui UI/API staging, lalu buktikan relasi dan baca-ulang setelah refresh.
+3. Uji build hosting terhadap commit `1223e12` dan environment staging; status domain pelanggan perlu bukti deployment dan smoke test terpisah.
+4. Selesaikan pemeriksaan DDL/urutan migrasi dan rehearsal pemulihan Production sebelum menyimpulkan siap Production atau komersial.
+
+**Status:** PR #189 sudah closed/merged dan semua job CI lulus. Produk masih belum dinyatakan siap go-live atau komersial; UAT browser, environment pelanggan, serta bukti Production tetap terbuka.
+
+---
+
 # Kesiapan Komersial dan Go-Live — ERP4 Pesantren
 
 ## Checkpoint terbaru — 21 November 2026, 19.24 WIB
