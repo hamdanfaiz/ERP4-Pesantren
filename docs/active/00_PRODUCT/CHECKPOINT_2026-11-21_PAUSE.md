@@ -2,7 +2,7 @@
 
 **Tanggal:** 21 November 2026  
 **Tujuan aktif:** menyelesaikan ERP4 Pesantren dari Firebase-first ke Supabase dengan migrasi aman, pengujian yang cukup, dan kesiapan handoff rilis.  
-**Status:** dijeda atas permintaan pemilik. Pekerjaan belum selesai dan aplikasi belum dinyatakan siap Production.
+**Status:** checkpoint jeda tersimpan; proyek dilanjutkan pada 21 November 2026. Pekerjaan belum selesai dan aplikasi belum dinyatakan siap Production.
 
 ## Source dan PR aktif
 
@@ -62,3 +62,12 @@ Checkpoint ini tidak menjalankan tes, migrasi, perubahan data, atau deploy.
 3. Periksa error leaderboard di build PR, lalu retest riwayat setoran dan pemilihan ayat sampai simpan-baca berhasil.
 4. Pertahankan batas rilis Production di atas sampai tim backend membuktikan rekonsiliasi/rehearsal migrasi dan pemulihan.
 
+
+## Resume pemeriksaan — 21 November 2026, 10.08 WIB
+
+- PR #182 tetap terbuka; head `cff6e16d34ba22c425e57303bae0547bf4b2eac8`. CI terbaru #44856486244 lulus 3/3 job. Tidak ada review submission atau thread inline.
+- Preview PR `private-salmon-seal-24.hostingersite.com` menampilkan leaderboard baru “Peringkat Hafalan Terbanyak” dan keadaan kosong yang benar; muat ulang berhasil. Perubahan UI tampil pada build PR, bukan pada domain `lightgreen-jay-425688.hostingersite.com` yang masih menunjuk ke `main`.
+- Tenant Admin uji memiliki 1 santri aktif tetapi belum ada Ustadz aktif, halaqah, keanggotaan, atau setoran. Form setoran mengecualikan santri tanpa halaqah aktif. Tidak ada data yang dibuat/diubah pada sesi ini. Ranking yang berisi data tetap menunggu fixture role dan relasi yang sah.
+- Form PPDB publik belum tersedia; pengaturan tenant dan tahun ajaran belum disiapkan pada tenant staging. Flag server PPDB belum diverifikasi.
+- PTSAS Production tidak disentuh. Migrasi, DDL, dan backup/restore Production tetap gerbang tim backend; PR #182 belum digabung atau dipromosikan.
+- Langkah berikutnya: operator menyiapkan akun Ustadz uji staging; Admin membuat halaqah, menempatkan santri, lalu merekam setoran sintetis melalui UI. Sementara itu, lanjutkan audit modul yang tidak membutuhkan perubahan Production.
