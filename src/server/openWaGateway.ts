@@ -2,10 +2,12 @@ import { getTenantSystemSettings } from "./systemSettingsStore";
 
 export class OpenWaGatewayError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  deliveryUnknown: boolean;
+  constructor(status: number, message: string, deliveryUnknown = false) {
     super(message);
     this.name = "OpenWaGatewayError";
     this.status = status;
+    this.deliveryUnknown = deliveryUnknown;
   }
 }
 
@@ -58,16 +60,21 @@ export async function getOpenWaStatus(tenantId: string) {
 }
 
 async function postOpenWa(config: OpenWaConfig, path: string, body: Record<string, unknown>) {
-  const response = await fetch(`${config.baseUrl}${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-      "X-API-Key": config.apiKey,
-    },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-API-Key": config.apiKey,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch {
+    throw new OpenWaGatewayError(502, "Koneksi OpenWA terputus; hasil pengiriman belum dapat dipastikan.", true);
+  }
   const raw = await response.text();
   let payload: any = null;
   if (raw) {
@@ -97,7 +104,7 @@ export async function openWaSendText(tenantId: string, phoneOrChatId: string, co
     const detail = typeof payload?.message === "string" ? payload.message
       : typeof payload?.error === "string" ? payload.error
         : `HTTP ${response.status}`;
-    throw new OpenWaGatewayError(502, `OpenWA gagal mengirim: ${detail}`);
+    throw new OpenWaGatewayError(502, `OpenWA gagal mengirim: ${detail}`, response.status >= 500);
   }
   if (payload && payload.success === false) {
     throw new OpenWaGatewayError(502, "OpenWA menolak pengiriman pesan.");
