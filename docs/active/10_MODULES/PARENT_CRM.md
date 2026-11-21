@@ -11,7 +11,7 @@ Mengelola relasi wali, calon wali, alumni, donatur, dan mitra dalam ruang data t
 1. **Direktori kontak** — jenis `parent | prospect | alumni | donor | partner`, tahap lifecycle, consent pemasaran, pencarian, pagination.
 2. **Alur prospek** — filter tahap (UI memakai daftar yang sama dengan direktori).
 3. **Interaksi** — create catatan (`call | email | meeting | message | note`); immutable setelah tersimpan.
-4. **Siaran OpenWA** — `GET /api/crm/broadcast/status`, `POST /api/crm/broadcasts` (dry-run + kirim); maksimal 50; consent dan nomor diperiksa; permintaan dengan ID yang sama tidak mengirim ulang penerima berstatus `sending`, `sent`, atau `unknown`. Penerima `pending` dapat dilanjutkan dengan ID dan payload yang sama.
+4. **Siaran OpenWA** — `GET /api/crm/broadcast/status`, `POST /api/crm/broadcasts` (dry-run + kirim); maksimal 50; consent dan nomor diperiksa; permintaan dengan ID yang sama tidak mengirim ulang penerima berstatus `sending`, `sent`, `failed`, atau `unknown`. Penerima `pending` dapat dilanjutkan dengan ID dan payload yang sama.
 5. **Analitik tab** — ringkasan jumlah kontak / open leads / interaksi 30 hari / consent; distribusi tahap dari halaman termuat.
 
 ## Yang belum (jangan diklaim selesai)
