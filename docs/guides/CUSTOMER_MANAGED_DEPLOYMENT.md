@@ -33,7 +33,6 @@ PII_ENCRYPTION_KEY=
 PII_FINGERPRINT_KEY=
 # Optional; required only when outbound WhatsApp via OpenWA is enabled.
 WA_GATEWAY_API_KEY=
-SUPABASE_LEGACY_FINGERPRINT_KEY=
 
 # Feature gates stay off until the matching database and tenant checks are complete.
 SUPABASE_MASTER_DATA_RUNTIME_ENABLED=false
