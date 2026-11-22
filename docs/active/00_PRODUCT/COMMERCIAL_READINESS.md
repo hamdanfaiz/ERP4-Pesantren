@@ -1,3 +1,35 @@
+## Checkpoint terbaru — 22 November 2026, 10.37 WIB
+
+### Source dan pemeriksaan
+
+- `main` berada pada commit `734606ea5e1cbf87735f109a9a3865d104b5d441`. PR #221–#223 sudah merged; pencarian terakhir tidak menemukan PR terbuka.
+- PR #223 memperbaiki alur kelulusan Alumni: jika transaksi sudah tersimpan tetapi pembaruan daftar gagal, layar tidak lagi menyebut penyimpanan gagal. Kunci permintaan tetap dipertahankan saat penyimpanan benar-benar gagal.
+- CI PR #223 lulus pada tiga job: build/guard frontend dan Docker, replay migrasi serta API/tenant/pgTAP pada database lokal terisolasi, dan instalasi NPM untuk lingkungan pelanggan.
+- Pemeriksaan lokal terkait juga lulus: 21 assertion alur Alumni, pemeriksaan teks UI, guard runtime Supabase-only, typecheck, dan build. Build masih memberi peringatan ukuran chunk JavaScript; proses build tetap berhasil.
+- Tidak ada perubahan skema, data, atau konfigurasi Supabase Production pada pekerjaan ini.
+
+### Staging dan cakupan modul
+
+- Pemilik mengonfirmasi telah mengaktifkan enam flag modul di VQE staging (CBT, LMS, Komunikasi, Perpustakaan, Alumni, Laundry) dan flag tampilan pengumuman Komunikasi, kemudian melakukan redeploy.
+- Hasil UI keenam modul pada deployment terbaru belum dapat dibuktikan di checkpoint ini. Koneksi Git lokal gagal, sedangkan runtime inspeksi UI tidak berhasil dimulai. Karena itu, statusnya adalah **menunggu verifikasi visual pasca-deploy**, bukan lulus UAT.
+- Audit source mengonfirmasi beberapa batas fitur Alumni yang perlu dituntaskan: Tracer Study baru merangkum jumlah per angkatan dan belum menyimpan survei; Komunitas hanya menampilkan daftar alumni dan belum mengelola kegiatan. Panel Donasi Alumni bergantung pada flag Donasi yang belum dikonfirmasi aktif di VQE.
+- UAT lintas role/tenant dan alur simpan-baca seluruh modul masih belum lengkap. Data sintetis yang terlihat sebelumnya hanya cukup untuk beberapa skenario, bukan bukti seluruh modul.
+
+### Kesiapan produk dan gerbang Production
+
+- Estimasi kematangan source tetap **sekitar 75% secara kasar**. Ini bukan persentase UAT atau kesiapan deploy; pembobotan fitur dan bukti penerimaan penuh belum disusun.
+- Runtime aktif Supabase-only dan pemeriksaan source/CI lulus untuk jalur yang dijadwalkan. Ini tidak membuktikan seluruh antarmuka atau semua alur operasional telah lulus di hosting.
+- Production PTSAS tidak diubah. DDL aktual, ledger migrasi yang berbeda dari source, dan bukti pemulihan backup Production tetap perlu direkonsiliasi oleh tim backend sebelum promosi database. Jangan menjalankan `db push` massal ke Production.
+
+### Urutan lanjutan
+
+1. Verifikasi tampilan dan alur pada deployment VQE terbaru untuk keenam modul dengan akun Admin.
+2. Tuntaskan gap Alumni yang disepakati dan aktifkan Donasi hanya setelah konfigurasi staging siap.
+3. Lanjutkan UAT fungsi simpan-baca, role, dan isolasi tenant per modul; catat bukti lulus/gagal.
+4. Tim backend menyelesaikan rekonsiliasi DDL, urutan migrasi, serta latihan pemulihan Production sebelum perubahan database Production.
+
+---
+
 ## Checkpoint terbaru — 22 November 2026, 07.57 WIB
 
 ### Source, perubahan, dan preview
