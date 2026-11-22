@@ -1,32 +1,26 @@
-## Checkpoint terbaru — 22 November 2026, 10.37 WIB
+## Checkpoint UAT VQE staging — 22 November 2026
 
-### Source dan pemeriksaan
+### Hasil yang sudah terlihat
+- Admin UAT mengonfirmasi enam flag staging aktif (CBT, LMS, Komunikasi, Perpustakaan, Alumni, Laundry), pengumuman Komunikasi aktif, dan deployment staging telah diperbarui. Production PTSAS tidak disentuh.
+- CBT menampilkan 6 soal dan 1 ujian. Pada kunjungan awal daftar soal meminta dimuat ulang; setelah tombol ditekan, keenam soal tampil. Pesan tersebut sudah sesuai dengan PR #226 di main. Source kandidat memperbaiki pemuatan ulang daftar setelah tenant selesai diinisialisasi.
+- LMS menampilkan 1 kursus dan 1 tugas; pada kunjungan ulang data tampil setelah menunggu sekitar enam detik. Komunikasi menampilkan 1 pengumuman, Perpustakaan 5 judul/32 eksemplar tersedia/1 peminjaman, dan Laundry 1 pesanan.
+- Tahfidz memperlihatkan leaderboard berdasarkan ayat unik: dua santri dengan 15 dan 10 ayat, serta tiga catatan setoran.
+- Direktori Alumni dapat dibuka, tetapi belum ada profil alumni. Tracer Study hanya ringkasan per angkatan dan Komunitas hanya direktori. Tab Donasi Alumni menampilkan kegagalan layanan umum; penyebabnya belum dipastikan. Jangan aktifkan flag Donasi tanpa persetujuan terpisah.
+- Perpustakaan Digital belum tersedia dan memakai flag server tersendiri SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED, yang belum termasuk konfigurasi enam flag dan belum diaktifkan.
+- Pemeriksaan ini menavigasi tampilan saja; tidak membuat atau mengubah catatan operasional.
 
-- `main` berada pada commit `734606ea5e1cbf87735f109a9a3865d104b5d441`. PR #221–#223 sudah merged; pencarian terakhir tidak menemukan PR terbuka.
-- PR #223 memperbaiki alur kelulusan Alumni: jika transaksi sudah tersimpan tetapi pembaruan daftar gagal, layar tidak lagi menyebut penyimpanan gagal. Kunci permintaan tetap dipertahankan saat penyimpanan benar-benar gagal.
-- CI PR #223 lulus pada tiga job: build/guard frontend dan Docker, replay migrasi serta API/tenant/pgTAP pada database lokal terisolasi, dan instalasi NPM untuk lingkungan pelanggan.
-- Pemeriksaan lokal terkait juga lulus: 21 assertion alur Alumni, pemeriksaan teks UI, guard runtime Supabase-only, typecheck, dan build. Build masih memberi peringatan ukuran chunk JavaScript; proses build tetap berhasil.
-- Tidak ada perubahan skema, data, atau konfigurasi Supabase Production pada pekerjaan ini.
+### Kandidat source dan pemeriksaan lokal
+- Kandidat perubahan disusun pada checkout bersih dari main commit 5311861 (PR #226). Perubahan fungsional utama menata ulang request daftar soal CBT saat tenant siap; tambahan lain menyediakan regresi otomatis serta pemeriksa graph aset pada deployment.
+- Lulus: tes pemuatan awal CBT; validasi cursor CBT (20 assertion); tes workflow Alumni (21 assertion); konfigurasi deployment (17 nilai publik/38 gerbang server); runtime Supabase-only (169 modul, 26 route Supabase); pesan error pengguna (16 assertion); lint TypeScript; build frontend dan server; pemeriksaan diff.
+- Build lulus dengan peringatan ukuran chunk PDF yang besar dan peringatan komentar dependensi yang diabaikan Rollup.
+- Production PTSAS tidak diubah. UAT visual untuk perubahan CBT pada artefak kandidat belum dilakukan.
 
-### Staging dan cakupan modul
-
-- Pemilik mengonfirmasi telah mengaktifkan enam flag modul di VQE staging (CBT, LMS, Komunikasi, Perpustakaan, Alumni, Laundry) dan flag tampilan pengumuman Komunikasi, kemudian melakukan redeploy.
-- Hasil UI keenam modul pada deployment terbaru belum dapat dibuktikan di checkpoint ini. Koneksi Git lokal gagal, sedangkan runtime inspeksi UI tidak berhasil dimulai. Karena itu, statusnya adalah **menunggu verifikasi visual pasca-deploy**, bukan lulus UAT.
-- Audit source mengonfirmasi beberapa batas fitur Alumni yang perlu dituntaskan: Tracer Study baru merangkum jumlah per angkatan dan belum menyimpan survei; Komunitas hanya menampilkan daftar alumni dan belum mengelola kegiatan. Panel Donasi Alumni bergantung pada flag Donasi yang belum dikonfirmasi aktif di VQE.
-- UAT lintas role/tenant dan alur simpan-baca seluruh modul masih belum lengkap. Data sintetis yang terlihat sebelumnya hanya cukup untuk beberapa skenario, bukan bukti seluruh modul.
-
-### Kesiapan produk dan gerbang Production
-
-- Estimasi kematangan source tetap **sekitar 75% secara kasar**. Ini bukan persentase UAT atau kesiapan deploy; pembobotan fitur dan bukti penerimaan penuh belum disusun.
-- Runtime aktif Supabase-only dan pemeriksaan source/CI lulus untuk jalur yang dijadwalkan. Ini tidak membuktikan seluruh antarmuka atau semua alur operasional telah lulus di hosting.
-- Production PTSAS tidak diubah. DDL aktual, ledger migrasi yang berbeda dari source, dan bukti pemulihan backup Production tetap perlu direkonsiliasi oleh tim backend sebelum promosi database. Jangan menjalankan `db push` massal ke Production.
-
-### Urutan lanjutan
-
-1. Verifikasi tampilan dan alur pada deployment VQE terbaru untuk keenam modul dengan akun Admin.
-2. Tuntaskan gap Alumni yang disepakati dan aktifkan Donasi hanya setelah konfigurasi staging siap.
-3. Lanjutkan UAT fungsi simpan-baca, role, dan isolasi tenant per modul; catat bukti lulus/gagal.
-4. Tim backend menyelesaikan rekonsiliasi DDL, urutan migrasi, serta latihan pemulihan Production sebelum perubahan database Production.
+### Gerbang berikutnya
+1. Jalankan CI pada kandidat, tinjau hasil dan pastikan preview VQE dibangun dari commit yang sama.
+2. Ulangi CBT pada preview tanpa menekan muat ulang manual; pastikan daftar tampil setelah tenant siap.
+3. Catat gap Alumni, Donasi, dan Perpustakaan Digital; bedakan kebutuhan fitur dari kendala konfigurasi sebelum menentukan cakupan rilis.
+4. Lanjutkan uji role, tenant, dan simpan-baca modul lain pada staging dengan record sintetis yang disetujui.
+5. Rekonsiliasi DDL, urutan migrasi, dan latihan pemulihan Production tetap menjadi gerbang backend. Jangan menjalankan db push massal ke PTSAS.
 
 ---
 
@@ -49,7 +43,7 @@
 - Kematangan source keseluruhan tetap **sekitar 75% (estimasi kasar)** dari checkpoint terdahulu; denominator fitur berbobot belum dibuat, jadi angka ini bukan persentase UAT atau kesiapan deploy.
 - Milestone PR #218: **100% selesai** — merged, CI lulus, dan deployment staging teramati aktif.
 - Berikutnya di staging: masuk sebagai Admin, verifikasi halaman dan alur utama CBT, LMS, Komunikasi, Perpustakaan, Alumni, dan Laundry; catat hasil per modul serta error yang terlihat. Setelah itu lanjutkan audit peran/tenant dan fungsi modul yang belum mendapat bukti browser.
-- Gerbang Production tetap di tangan tim backend: rekonsiliasi DDL dan migrasi, restore rehearsal, lalu promosi terencana. Tidak ada klaim Production siap deploy atau komersial.
+
 
 ---
 
