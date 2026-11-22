@@ -22,7 +22,7 @@ const PERMIT_TYPES = [
   { value: "Kegiatan Eksternal", label: "Kegiatan Eksternal" },
   { value: "Izin Walisantri (Parental Leave)", label: "Izin Wali Santri" },
 ];
-const SUPABASE_BOARDING_PERMITS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED") === "true";
+const SUPABASE_BOARDING_PERMITS_IMPORT = legacyArchiveImportEnabled;
 
 function localDateInputValue() {
   const date = new Date();
