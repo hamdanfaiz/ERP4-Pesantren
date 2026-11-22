@@ -111,11 +111,17 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 166);
+assert.equal(sourceMigrationsWithSql.length, 167);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404010000_crm_broadcast_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404000000_tahfidz_unique_ayah_projection_indexes.sql'));
+const rolePermissionFallbackMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270405000000_role_permission_fallback.sql');
+assert(rolePermissionFallbackMigration, 'SQL module gates must preserve role-baseline access when no per-module override is configured.');
+assert.match(rolePermissionFallbackMigration.statements.join('\n'), /v_permissions \? 'boarding'[\s\S]*IS DISTINCT FROM 'true'::jsonb/);
+assert.match(rolePermissionFallbackMigration.statements.join('\n'), /actor\.role = 'super_admin'[\s\S]*actor\.module_permissions \? 'users'[\s\S]*ELSE actor\.role = 'admin'/);
+assert.match(rolePermissionFallbackMigration.statements.join('\n'), /REVOKE ALL ON FUNCTION public\.link_existing_guardian_account[\s\S]*FROM PUBLIC, anon, authenticated/i);
+assert.match(rolePermissionFallbackMigration.statements.join('\n'), /GRANT EXECUTE ON FUNCTION public\.link_existing_guardian_account[\s\S]*TO service_role/i);
 const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
 assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
 assert.match(quranCatalogMigration.statements.join('\n'), /CREATE TABLE IF NOT EXISTS public\.quran_surahs/i);
@@ -598,7 +604,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 119);
+assert.equal(productionBaseline.pending.length, 120);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],
