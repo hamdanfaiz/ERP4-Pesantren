@@ -14,7 +14,7 @@ type Preview = { snapshotFingerprint: string; counts: { source: number; ready: n
 const INPUT = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const PRIMARY = "inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50";
 const SECONDARY = "inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5";
-const SUPABASE_FACILITY_BOOKINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED") === "true";
+const SUPABASE_FACILITY_BOOKINGS_IMPORT = legacyArchiveImportEnabled;
 
 async function bookingRequest(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
