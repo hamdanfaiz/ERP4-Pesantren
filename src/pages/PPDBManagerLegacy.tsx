@@ -1,4 +1,5 @@
 import { tenantScopedQuery, tenantRecord } from '../firebaseUtils';
+import { toERPUserMessage } from '../utils/userMessages';
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
@@ -842,7 +843,7 @@ export function PPDBManager() {
       showToast("Pendaftaran " + newCandidate.name + " (" + registrationId + ") berhasil disimpan.", "success");
     } catch (err: any) {
       console.error(err);
-      showToast(err?.message || "Gagal menyimpan kandidat secara aman. Muat ulang lalu coba lagi.", "error");
+      showToast(toERPUserMessage(err, "Pendaftaran belum dapat disimpan. Muat ulang lalu coba lagi."), "error");
     }
   };
 

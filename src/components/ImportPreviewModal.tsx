@@ -344,7 +344,7 @@ export function ImportPreviewModal({
       await onImportSuccess(toImport, strategy);
       onClose();
     } catch (err: any) {
-      setErrorMessage(`Gagal menyimpan data impor: ${err.message || 'Kesalahan penyimpanan data'}`);
+      setErrorMessage(toERPUserMessage(err, 'Data impor belum dapat disimpan. Periksa data lalu coba kembali.'));
     } finally {
       setIsProcessing(false);
     }

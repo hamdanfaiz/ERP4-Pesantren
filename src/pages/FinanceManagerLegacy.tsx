@@ -14,6 +14,7 @@ import { collection, onSnapshot, query, where, getDocs, updateDoc, doc, setDoc, 
 import { getAccessToken, getAuthSession } from '../authSession';
 import { db } from '../firebase';
 import { ppdbIntegrationService } from '../services/ppdbIntegrationService';
+import { toERPUserMessage } from '../utils/userMessages';
 
 type Tab = 'billing' | 'expenses' | 'reports' | 'pocket_money';
 
@@ -178,7 +179,7 @@ export function FinanceManager() {
       showFinanceToast('Pembayaran ' + bill.id + ' tercatat atomik; kuitansi ' + receiptNo + ' dibuat.', 'success');
     } catch (error: any) {
       console.error('Konfirmasi pembayaran gagal:', error);
-      showFinanceToast(error?.message || 'Pembayaran gagal disimpan.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Pembayaran belum dapat disimpan. Silakan coba kembali.'), 'error');
     }
   };
 
@@ -194,7 +195,7 @@ export function FinanceManager() {
       setBillingCategoryFilter('ppdb');
     } catch (error: any) {
       console.error('Impor tagihan PPDB gagal:', error);
-      showFinanceToast(error?.message || 'Gagal menarik tagihan PPDB.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Tagihan PPDB belum dapat dimuat. Silakan coba kembali.'), 'error');
     } finally {
       setIsPullingPPDB(false);
     }
@@ -293,7 +294,7 @@ export function FinanceManager() {
       showFinanceToast(nextLocked ? 'Buku keuangan pesantren berhasil ditutup.' : 'Buku keuangan pesantren dibuka kembali.', nextLocked ? 'error' : 'success');
     } catch (error: any) {
       console.error('Perubahan status buku gagal:', error);
-      showFinanceToast(error?.message || 'Status buku gagal disimpan.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Status buku belum dapat disimpan. Silakan coba kembali.'), 'error');
     }
   };
 
@@ -371,7 +372,7 @@ export function FinanceManager() {
       setFormData({});
     } catch (error: any) {
       console.error('Penyimpanan finance gagal:', error);
-      showFinanceToast(error?.message || 'Data keuangan gagal disimpan.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Data keuangan belum dapat disimpan. Periksa kembali data lalu coba lagi.'), 'error');
     }
   };
 
@@ -411,7 +412,7 @@ export function FinanceManager() {
       showFinanceToast(created + ' tagihan baru diterbitkan; ' + (students.length - created) + ' duplikat dilewati.', 'success');
     } catch (error: any) {
       console.error('Bulk tagihan gagal:', error);
-      showFinanceToast(error?.message || 'Bulk tagihan gagal disimpan.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Tagihan belum dapat diterbitkan. Silakan coba kembali.'), 'error');
     } finally {
       setIsGeneratingBulk(false);
     }
@@ -435,7 +436,7 @@ export function FinanceManager() {
       showFinanceToast('Pengeluaran disetujui dan dicatat pada transaksi pesantren.', 'success');
     } catch (error: any) {
       console.error('Persetujuan pengeluaran gagal:', error);
-      showFinanceToast(error?.message || 'Pengeluaran gagal disetujui.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Pengeluaran belum dapat disetujui. Silakan coba kembali.'), 'error');
     }
   };
 
@@ -462,7 +463,7 @@ export function FinanceManager() {
     } catch (error: any) {
       proofWindow.close();
       console.error('Bukti transfer gagal dibuka:', error);
-      showFinanceToast(error?.message || 'Bukti transfer tidak dapat diakses oleh pesantren ini.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Bukti pembayaran belum dapat dibuka.'), 'error');
     }
   };
 
@@ -504,7 +505,7 @@ export function FinanceManager() {
       showFinanceToast('Bukti transfer diunggah dan pengajuan menunggu verifikasi bendahara.', 'success');
     } catch (error: any) {
       console.error('Pengajuan pembayaran gagal:', error);
-      showFinanceToast(error?.message || 'Bukti pembayaran gagal diunggah.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Bukti pembayaran belum dapat diunggah. Silakan coba kembali.'), 'error');
     }
   };
 
@@ -573,7 +574,7 @@ export function FinanceManager() {
       setRejectingItemType(null); setRejectingId(null); setRejectionInput('');
     } catch (error: any) {
       console.error('Penolakan finance gagal:', error);
-      showFinanceToast(error?.message || 'Penolakan gagal disimpan.', 'error');
+      showFinanceToast(toERPUserMessage(error, 'Penolakan belum dapat disimpan. Silakan coba kembali.'), 'error');
     }
   };
 

@@ -4,6 +4,7 @@ import { setAuthSession } from '../authSession';
 import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { UserRole } from '../rbac';
 import { normalizeTenantTimeZone } from '../lib/tenantTimeZone';
+import { toERPUserMessage } from '../utils/userMessages';
 
 export interface AuthUser {
   uid: string;
@@ -237,7 +238,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAuthSession(null);
       setUser(null);
       setRole('Public');
-      const message = error instanceof Error ? error.message : 'Login gagal. Silakan coba kembali.';
+      const message = toERPUserMessage(error, 'Login belum berhasil. Periksa koneksi dan data masuk Anda lalu coba kembali.');
       throw new Error(message);
     } finally {
       setIsLoading(false);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { toERPUserMessage } from '../utils/userMessages';
 import { getAccessToken } from '../authSession';
 import { 
   UserRole, 
@@ -66,11 +67,7 @@ interface OrganizationUnitOption {
 const USER_DIRECTORY_PAGE_SIZE = 50;
 
 function userFacingServiceMessage(value: unknown, fallback: string) {
-  const message = typeof value === 'string' ? value.trim() : '';
-  if (!message || /(supabase|firebase|firestore|tenant|roster|backend|runtime|staging|fingerprint|operator|internal server|sql state|stack trace|secret key|api key|failed to fetch|network error|fetch failed)/i.test(message)) {
-    return fallback;
-  }
-  return message;
+  return toERPUserMessage(value, fallback);
 }
 
 function actorCanGrantModule(
