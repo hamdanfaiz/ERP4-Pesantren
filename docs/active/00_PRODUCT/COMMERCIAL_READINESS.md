@@ -1,3 +1,26 @@
+## Checkpoint terbaru — 22 November 2026, 07.57 WIB
+
+### Source, perubahan, dan preview
+- `main` berada pada merge commit `4dbe584da7813ef055ee8823815c144bebf530ae`. PR #216–#218 sudah tergabung; pencarian terakhir menunjukkan tidak ada PR terbuka.
+- PR #218 menstandarkan pesan error yang ditampilkan ke pengguna. Pemeriksaan CI yang diwajibkan lulus **3/3 job**, termasuk validasi teks, typecheck, build frontend/server, dan smoke test image Docker untuk instalasi mandiri. Perubahan PR ini tidak mengubah skema atau data Supabase.
+- Hostinger VQE staging menunjukkan deployment `main` commit `4dbe584` berstatus **Completed / Current** pada 22 November 2026 sekitar 07.50 WIB.
+- Enam flag modul yang diaktifkan khusus pada VQE untuk UAT: CBT, LMS, Komunikasi, Perpustakaan, Alumni, dan Laundry. Flag tersebut bukan konfigurasi Production atau nilai bawaan semua instalasi.
+- Belum ada bukti UAT UI pasca-deploy untuk keenam modul. Dashboard Admin perlu diperiksa pada build staging terbaru sebelum modul dinyatakan lulus. UAT lintas role, tenant, dan alur simpan-baca seluruh modul juga belum tuntas.
+
+### Batas hasil teknis dan status migrasi
+- CI memeriksa graph import aplikasi/server aktif, dependensi produksi, dan Docker sehingga runtime/build aktif tidak memakai Firebase. Berkas legacy yang masih memuat Firebase tetap ada di repository, tetapi tidak dirujuk oleh route aktif dan tidak masuk bundle produksi. Jadi status yang akurat adalah **runtime aktif bebas Firebase**, bukan “tidak ada satu pun referensi Firebase di seluruh source”.
+- Suite CI pada basis database sintetis juga menjalankan replay migrasi, uji database/API, isolasi tenant, transaksi bersamaan, Storage, Tahfidz, dan backup/restore lokal. Itu bukan bukti pemulihan backup Production.
+- Snapshot metadata Production terakhir yang tercatat tetap memiliki 100 versi ledger, 3 nama migrasi kosong, dan 66 migration source yang belum tercatat. DDL aktual serta urutan promosi belum direkonsiliasi. **Jangan menjalankan `db push` massal ke PTSAS Production.** Tidak ada perubahan Production pada checkpoint ini.
+- Tim backend masih perlu membandingkan DDL PTSAS dengan source, menjelaskan tiap versi ledger yang berbeda, membuktikan backup dan restore Production, serta menguji urutan promosi sebelum deploy database.
+
+### Persentase dan langkah berikutnya
+- Kematangan source keseluruhan tetap **sekitar 75% (estimasi kasar)** dari checkpoint terdahulu; denominator fitur berbobot belum dibuat, jadi angka ini bukan persentase UAT atau kesiapan deploy.
+- Milestone PR #218: **100% selesai** — merged, CI lulus, dan deployment staging teramati aktif.
+- Berikutnya di staging: masuk sebagai Admin, verifikasi halaman dan alur utama CBT, LMS, Komunikasi, Perpustakaan, Alumni, dan Laundry; catat hasil per modul serta error yang terlihat. Setelah itu lanjutkan audit peran/tenant dan fungsi modul yang belum mendapat bukti browser.
+- Gerbang Production tetap di tangan tim backend: rekonsiliasi DDL dan migrasi, restore rehearsal, lalu promosi terencana. Tidak ada klaim Production siap deploy atau komersial.
+
+---
+
 ## Checkpoint setelah PR #214 — 22 November 2026, 04.50 WIB
 
 - `main` berada pada merge commit `e6062fee5f38752d0f275bebe3f65bf60a7784c5`; PR #214 sudah tergabung, pemeriksaan CI pada PR lulus **3/3 job**, dan pencarian GitHub menunjukkan **tidak ada PR terbuka**.
