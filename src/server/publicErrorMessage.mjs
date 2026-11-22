@@ -4,8 +4,9 @@ const GENERIC_PUBLIC_ERROR = "Permintaan belum dapat diproses. Silakan coba kemb
 const GENERIC_SERVER_ERROR = "Layanan ini sedang mengalami kendala. Silakan coba kembali nanti.";
 const PUBLIC_ERROR_FIELDS = new Set(["error", "message", "details", "hint", "reason"]);
 
-function toPublicErrorText(message, status) {
+function toPublicErrorText(message, status, code) {
   const value = String(message || "").trim();
+  if (status >= 500 && code === "FEATURE_UNAVAILABLE") return "Fitur ini belum tersedia saat ini.";
   if (status >= 500) return GENERIC_SERVER_ERROR;
   if (!value || INTERNAL_ERROR_TERMS.test(value) || INTERNAL_API_ERROR_DETAILS.test(value)) return GENERIC_PUBLIC_ERROR;
   return value
@@ -21,7 +22,7 @@ export function sanitizePublicErrorPayload(payload, status = 400) {
   const sanitized = { ...payload };
   for (const [key, value] of Object.entries(sanitized)) {
     if (PUBLIC_ERROR_FIELDS.has(key.toLowerCase()) && typeof value === "string") {
-      sanitized[key] = toPublicErrorText(value, status);
+      sanitized[key] = toPublicErrorText(value, status, sanitized.code);
     } else if (Array.isArray(value) || (value && typeof value === "object")) {
       sanitized[key] = sanitizePublicErrorPayload(value, status);
     }

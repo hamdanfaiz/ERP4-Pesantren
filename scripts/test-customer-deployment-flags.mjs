@@ -67,6 +67,16 @@ assert.match(publicError, /if \(status >= 500\) return GENERIC_SERVER_ERROR;[\s\
 assert.equal(sanitizePublicErrorPayload({ error: "SQLSTATE 23505: duplicate key value violates unique constraint" }, 500).error,
   "Layanan ini sedang mengalami kendala. Silakan coba kembali nanti.",
   "Server failures must not reveal SQLSTATE details");
+assert.equal(sanitizePublicErrorPayload({ code: "FEATURE_UNAVAILABLE", error: "Internal setup detail" }, 503).code,
+  "FEATURE_UNAVAILABLE",
+  "Known feature-unavailable codes must survive API error sanitization");
+assert.equal(sanitizePublicErrorPayload({ code: "FEATURE_UNAVAILABLE", error: "Internal setup detail" }, 503).error,
+  "Fitur ini belum tersedia saat ini.",
+  "Disabled-module responses must be actionable without exposing internal details");
+const runtimeFeatureGates = [...server.matchAll(/if \(!([A-Za-z0-9_]+RuntimeEnabled)\) return res\.status\(503\)\.json\(\{([^}]+)\}\);/g)];
+assert.ok(runtimeFeatureGates.length > 100, "Backend feature flags must have explicit unavailable responses");
+assert.ok(runtimeFeatureGates.every(([, , body]) => body.includes('code: "FEATURE_UNAVAILABLE"')),
+  "Every disabled runtime feature must use the standard customer-safe error code");
 
 assert.equal(
   sanitizePublicErrorPayload({ error: "Santri tidak ditemukan atau tidak unik pada tenant akun ini." }, 404).error,
