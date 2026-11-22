@@ -86,7 +86,7 @@ const COMMUNICATION_STATUS_LABEL: Record<string, string> = {
 };
 
 function communicationStatusLabel(status: string) {
-  const normalized = status.trim().toLowerCase().replace(/[\\s-]+/g, "_");
+  const normalized = status.trim().toLowerCase().replace(/[\s-]+/g, "_");
   return COMMUNICATION_STATUS_LABEL[normalized] || status;
 }
 
