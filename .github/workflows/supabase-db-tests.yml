@@ -158,6 +158,9 @@ jobs:
       - name: Verify tenant CBT question pagination and cursor validation
         run: npm run test:cbt-question-pagination
 
+      - name: Verify CBT question loading after tenant bootstrap
+        run: npm run test:cbt-initial-question-load
+
       - name: Verify tenant CBT student roster pagination and cursor validation
         run: npm run test:cbt-student-roster-pagination
 
