@@ -64,6 +64,31 @@ const TICKET_STATUS_LABEL: Record<string, string> = {
   resolved: "Selesai",
   closed: "Ditutup",
 };
+const COMMUNICATION_STATUS_LABEL: Record<string, string> = {
+  draft: "Draf",
+  scheduled: "Terjadwal",
+  published: "Diterbitkan",
+  active: "Aktif",
+  sent: "Terkirim",
+  delivered: "Terkirim",
+  read: "Dibaca",
+  archived: "Diarsipkan",
+  open: "Terbuka",
+  in_progress: "Diproses",
+  resolved: "Selesai",
+  closed: "Ditutup",
+  pending: "Menunggu",
+  approved: "Disetujui",
+  rejected: "Ditolak",
+  returned: "Dikembalikan",
+  cancelled: "Dibatalkan",
+  canceled: "Dibatalkan",
+};
+
+function communicationStatusLabel(status: string) {
+  const normalized = status.trim().toLowerCase().replace(/[\\s-]+/g, "_");
+  return COMMUNICATION_STATUS_LABEL[normalized] || status;
+}
 
 async function requestCommunication(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -334,7 +359,7 @@ export function SupabaseCommunicationHub() {
         <div>
           <div className="mb-2 inline-flex rounded-lg bg-slate-100 p-2.5 dark:bg-slate-800"><Megaphone className="h-5 w-5 text-slate-700 dark:text-slate-200" /></div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{activeTabLabel}</h1>
-          <p className="mt-1 text-sm text-slate-500">Informasi pesantren dikelola melalui modul Komunikasi. Alur memakai status (bukan hapus keras).</p>
+          <p className="mt-1 text-sm text-slate-500">Sampaikan pengumuman, kelola pesan, dan tindak lanjuti permintaan bantuan dalam satu tempat.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {tab === "announcements" && SUPABASE_COMMUNICATION_IMPORT && canManage && <button onClick={() => void migrateLegacyAnnouncements(false)} disabled={migrationBusy} className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">{migrationBusy ? "Memproses…" : "Pratinjau impor pengumuman"}</button>}
@@ -356,7 +381,7 @@ export function SupabaseCommunicationHub() {
       </header>
 
       <ERPTabs tabs={COMMUNICATION_TABS} value={tab} onChange={(id) => { setTab(id as CommunicationTab); setComposeOpen(false); setMigrationPreview(null); setError(""); setNotice(""); }} ariaLabel="Bagian Pusat Komunikasi" />
-      {tab === "announcements" && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Pengumuman dan konfirmasi baca tersimpan untuk pesantren ini.</div>}
+      {tab === "announcements" && <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">Pantau pengumuman dan konfirmasi baca penerima.</div>}
       {error && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -367,7 +392,7 @@ export function SupabaseCommunicationHub() {
           : announcements.length ? <div className="divide-y divide-slate-200 dark:divide-slate-800">{announcements.map((announcement) => {
               const isRead = announcement.readByCurrentUser;
               const expanded = expandedId === announcement.id;
-              return <article key={announcement.id} className={`p-4 sm:p-5 ${announcement.isUrgent ? "border-l-4 border-l-rose-500" : ""}`}><button onClick={() => setExpandedId(expanded ? "" : announcement.id)} className="flex w-full items-start justify-between gap-4 text-left"><span className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 rounded-lg p-2 ${announcement.isUrgent ? "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300"}`}><Megaphone className="h-4 w-4" /></span><span className="min-w-0"><span className="block truncate font-medium text-slate-900 dark:text-white">{announcement.title}</span><span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />{announcement.date}<span>·</span>{announcement.target}<span>·</span>{announcement.readCount}/{announcement.totalTarget} dibaca</span></span></span><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{isRead ? "Sudah dibaca" : announcement.status}</span></button>{expanded && <div className="ml-11 mt-4 border-t border-slate-100 pt-4 dark:border-slate-800"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{announcement.content}</p>{role === "Walisantri" && !isRead && <button onClick={() => void acknowledge(announcement)} disabled={busy} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Tandai sudah dibaca</button>}</div>}</article>;
+              return <article key={announcement.id} className={`p-4 sm:p-5 ${announcement.isUrgent ? "border-l-4 border-l-rose-500" : ""}`}><button onClick={() => setExpandedId(expanded ? "" : announcement.id)} className="flex w-full items-start justify-between gap-4 text-left"><span className="flex min-w-0 items-start gap-3"><span className={`mt-0.5 rounded-lg p-2 ${announcement.isUrgent ? "bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-300"}`}><Megaphone className="h-4 w-4" /></span><span className="min-w-0"><span className="block truncate font-medium text-slate-900 dark:text-white">{announcement.title}</span><span className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500"><CalendarDays className="h-3.5 w-3.5" />{announcement.date}<span>·</span>{announcement.target}<span>·</span>{announcement.readCount}/{announcement.totalTarget} dibaca</span></span></span><span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{isRead ? "Sudah dibaca" : communicationStatusLabel(announcement.status)}</span></button>{expanded && <div className="ml-11 mt-4 border-t border-slate-100 pt-4 dark:border-slate-800"><p className="whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{announcement.content}</p>{role === "Walisantri" && !isRead && <button onClick={() => void acknowledge(announcement)} disabled={busy} className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> Tandai sudah dibaca</button>}</div>}</article>;
             })}</div>
           : <div className="p-12 text-center"><Megaphone className="mx-auto h-8 w-8 text-slate-300" /><h2 className="mt-3 font-medium text-slate-800 dark:text-slate-200">Belum ada pengumuman</h2><p className="mt-1 text-sm text-slate-500">Pengumuman yang ditujukan kepada pesantren ini akan tampil di sini.</p></div>}
       </section>}
@@ -392,7 +417,7 @@ export function SupabaseCommunicationHub() {
           {opsLoading ? <div className="p-4"><ERPLoadingSkeleton variant="list" label="Memuat pesan…" rows={4} /></div>
             : messages.length ? <div className="divide-y divide-slate-200 dark:divide-slate-800">{messages.map((message) => {
               const incoming = message.toUserId === user?.uid;
-              return <article key={message.id} className="p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white"><MessageSquare className="h-4 w-4 text-indigo-600" />{incoming ? message.fromName : `Kepada ${message.toName}`}</div><p className="mt-1 text-xs text-slate-500">{new Date(message.createdAt).toLocaleString("id-ID")} · {message.status}</p></div></div><p className="mt-3 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{message.body}</p><div className="mt-3 flex flex-wrap gap-2">{incoming && message.status === "sent" && <button type="button" disabled={busy} onClick={() => void transitionMessage(message, "read")} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white">Tandai dibaca</button>}{message.status !== "archived" && <button type="button" disabled={busy} onClick={() => void transitionMessage(message, "archived")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold dark:border-slate-700">Arsipkan</button>}</div></article>;
+              return <article key={message.id} className="p-4 sm:p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2 font-medium text-slate-900 dark:text-white"><MessageSquare className="h-4 w-4 text-indigo-600" />{incoming ? message.fromName : `Kepada ${message.toName}`}</div><p className="mt-1 text-xs text-slate-500">{new Date(message.createdAt).toLocaleString("id-ID")} · {communicationStatusLabel(message.status)}</p></div></div><p className="mt-3 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300">{message.body}</p><div className="mt-3 flex flex-wrap gap-2">{incoming && message.status === "sent" && <button type="button" disabled={busy} onClick={() => void transitionMessage(message, "read")} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white">Tandai dibaca</button>}{message.status !== "archived" && <button type="button" disabled={busy} onClick={() => void transitionMessage(message, "archived")} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold dark:border-slate-700">Arsipkan</button>}</div></article>;
             })}</div>
             : <div className="p-10 text-center text-sm text-slate-500">Belum ada pesan langsung.</div>}
         </div>
@@ -407,7 +432,7 @@ export function SupabaseCommunicationHub() {
       {tab === "permits" && <section className="space-y-4">
         <ERPFeatureStatus title="Perizinan" status="Dikelola pada modul Asrama" tone="available" description="Alur setuju/tolak/kembali izin santri tetap pada tab Perizinan modul Asrama. Ringkasan di bawah bersifat baca untuk Admin Komunikasi." />
         {opsLoading ? <ERPLoadingSkeleton variant="list" label="Memuat ringkasan izin…" rows={4} />
-          : permits.length ? <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"><div className="divide-y divide-slate-200 dark:divide-slate-800">{permits.slice(0, 20).map((permit) => <article key={permit.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium text-slate-900 dark:text-white">{permit.santriName}</div><p className="mt-1 text-xs text-slate-500">{permit.type} · NIS {permit.nis || "—"} · {permit.room || "—"}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{permit.status}</span></div><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{permit.reason}</p></article>)}</div></div>
+          : permits.length ? <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"><div className="divide-y divide-slate-200 dark:divide-slate-800">{permits.slice(0, 20).map((permit) => <article key={permit.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="font-medium text-slate-900 dark:text-white">{permit.santriName}</div><p className="mt-1 text-xs text-slate-500">{permit.type} · NIS {permit.nis || "—"} · {permit.room || "—"}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">{communicationStatusLabel(permit.status)}</span></div><p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{permit.reason}</p></article>)}</div></div>
             : <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-slate-700">Belum ada permohonan izin untuk ditampilkan.</div>}
       </section>}
 
