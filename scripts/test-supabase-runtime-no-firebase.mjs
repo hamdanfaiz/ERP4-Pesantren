@@ -370,6 +370,11 @@ assert.equal(
   'Server failures must not expose database error details.',
 );
 assert.equal(
+  sanitizePublicErrorPayload({ code: '23505', error: 'duplicate key value violates unique constraint "students_tenant_nis_key"', details: 'Key (tenant_id, nis)=(private-tenant, private-value) already exists.' }, 409).details,
+  GENERIC_PUBLIC_ERROR,
+  'Database conflict details must not expose schema names or row values in client errors.',
+);
+assert.equal(
   sanitizePublicErrorPayload({ error: 'Data tidak ditemukan pada tenant ini.' }).error,
   'Data tidak ditemukan pada pesantren ini.',
   'Tenant terminology in user-facing errors must use pesantren language.',

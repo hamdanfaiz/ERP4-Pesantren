@@ -67,6 +67,23 @@ assert.match(publicError, /if \(status >= 500\) return GENERIC_SERVER_ERROR;[\s\
 assert.equal(sanitizePublicErrorPayload({ error: "SQLSTATE 23505: duplicate key value violates unique constraint" }, 500).error,
   "Layanan ini sedang mengalami kendala. Silakan coba kembali nanti.",
   "Server failures must not reveal SQLSTATE details");
+const uniqueConflict = sanitizePublicErrorPayload({
+  code: "23505",
+  error: "duplicate key value violates unique constraint \"students_tenant_nis_key\"",
+  details: "Key (tenant_id, nis)=(tenant-secret, 2026-001) already exists.",
+  hint: "Check constraint students_tenant_nis_key",
+}, 409);
+assert.equal(uniqueConflict.error, "Permintaan belum dapat diproses. Silakan coba kembali atau hubungi administrator pesantren.",
+  "Database conflicts must use safe public wording instead of exposing constraint names");
+assert.equal(uniqueConflict.code, "REQUEST_FAILED",
+  "Raw PostgreSQL error codes must not leak through public API responses");
+assert.equal(uniqueConflict.details, "Permintaan belum dapat diproses. Silakan coba kembali atau hubungi administrator pesantren.",
+  "Database conflict details must not expose tenant identifiers or record values");
+assert.equal(uniqueConflict.hint, "Permintaan belum dapat diproses. Silakan coba kembali atau hubungi administrator pesantren.",
+  "Database conflict hints must not expose internal schema details");
+assert.equal(sanitizePublicErrorPayload({ error: "violates foreign key constraint \"students_room_id_fkey\"" }, 409).error,
+  "Permintaan belum dapat diproses. Silakan coba kembali atau hubungi administrator pesantren.",
+  "Foreign-key errors must be hidden from public API responses");
 assert.equal(sanitizePublicErrorPayload({ code: "FEATURE_UNAVAILABLE", error: "Internal setup detail" }, 503).code,
   "FEATURE_UNAVAILABLE",
   "Known feature-unavailable codes must survive API error sanitization");
