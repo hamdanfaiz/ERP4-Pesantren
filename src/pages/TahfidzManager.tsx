@@ -707,7 +707,7 @@ export function TahfidzManager() {
       setRecordsNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
       if (incoming[incoming.length - 1]?.date) setRecordsOldestDate(incoming[incoming.length - 1].date);
     } catch (error: any) {
-      setTahfidzError(error?.message || "Riwayat setoran berikutnya belum dapat dimuat.");
+      setTahfidzError(toERPUserMessage(error, "Riwayat setoran berikutnya belum dapat dimuat."));
     } finally {
       setRecordsLoadingMore(false);
     }
@@ -784,7 +784,7 @@ export function TahfidzManager() {
       setIsTahfidzExportOpen(false);
     } catch (error: any) {
       if (controller.signal.aborted || requestSequence !== tahfidzExportRequestSequence.current || error?.name === "AbortError") return;
-      setTahfidzExportError(error?.message || "Laporan Tahfidz belum dapat diunduh.");
+      setTahfidzExportError(toERPUserMessage(error, "Laporan Tahfidz belum dapat diunduh."));
     } finally {
       if (requestSequence === tahfidzExportRequestSequence.current) {
         setIsExportingTahfidzReport(false);
@@ -817,7 +817,7 @@ export function TahfidzManager() {
       setRosterHasMore(page.hasMore === true);
       setRosterNextCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
-      setTahfidzError(error?.message || "Halaman daftar santri berikutnya belum dapat dimuat.");
+      setTahfidzError(toERPUserMessage(error, "Halaman daftar santri berikutnya belum dapat dimuat."));
     } finally {
       setRosterLoadingMore(false);
     }
@@ -853,7 +853,7 @@ export function TahfidzManager() {
     } catch (error: any) {
       if (requestSequence === achievementRequestSequence.current) {
         setAchievementErrorScope(requestScopeKey);
-        setAchievementError(error?.message || "Pencapaian Tahfidz belum dapat dimuat.");
+        setAchievementError(toERPUserMessage(error, "Pencapaian Tahfidz belum dapat dimuat."));
       }
     } finally {
       if (requestSequence === achievementRequestSequence.current) setAchievementLoading(false);
@@ -874,7 +874,7 @@ export function TahfidzManager() {
       setLeaderboardScope(currentLeaderboardScopeKey);
     } catch (error: any) {
       if (requestSequence === leaderboardRequestSequence.current) {
-        setLeaderboardError(error?.message || "Peringkat Tahfidz belum dapat dimuat.");
+        setLeaderboardError(toERPUserMessage(error, "Peringkat Tahfidz belum dapat dimuat."));
       }
     } finally {
       if (requestSequence === leaderboardRequestSequence.current) setLeaderboardLoading(false);
@@ -918,7 +918,7 @@ export function TahfidzManager() {
       setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
     } catch (error: any) {
       if (requestSequence === rosterSearchRequestSequence.current && requestedSearch === searchQuery.trim()) {
-        setTahfidzError(error?.message || "Hasil pencarian santri berikutnya belum dapat dimuat.");
+        setTahfidzError(toERPUserMessage(error, "Hasil pencarian santri berikutnya belum dapat dimuat."));
       }
     } finally {
       if (requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false);
@@ -951,7 +951,7 @@ export function TahfidzManager() {
           setRosterSearchCursor(typeof page.nextCursor === "string" ? page.nextCursor : "");
         })
         .catch((error: any) => {
-          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(error?.message || "Hasil pencarian santri belum dapat dimuat.");
+          if (active && requestSequence === rosterSearchRequestSequence.current) setTahfidzError(toERPUserMessage(error, "Hasil pencarian santri belum dapat dimuat."));
         })
         .finally(() => { if (active && requestSequence === rosterSearchRequestSequence.current) setRosterSearchLoading(false); });
     }, 250);
@@ -993,7 +993,7 @@ export function TahfidzManager() {
         setRecordsHasMore(false);
         setRecordsNextCursor("");
         setRecordsOldestDate("");
-        setTahfidzError(error?.message || "Data Tahfidz belum dapat dimuat.");
+        setTahfidzError(toERPUserMessage(error, "Data Tahfidz belum dapat dimuat."));
       })
       .finally(() => { if (active) setTahfidzLoading(false); });
     return () => { active = false; };
@@ -1061,7 +1061,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Target tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang data sebelum melanjutkan."); }
     } catch (error: any) {
-      const message = error?.message || "Target Tahfidz belum dapat disimpan.";
+      const message = toERPUserMessage(error, "Target Tahfidz belum dapat disimpan.");
       setTargetFormError(message);
       setTahfidzError(message);
     } finally {
@@ -1107,7 +1107,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Halaqah tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang data sebelum melanjutkan."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Halaqah belum dapat disimpan.");
+      setTahfidzError(toERPUserMessage(error, "Halaqah belum dapat disimpan."));
     } finally {
       setIsSavingHalaqah(false);
     }
@@ -1134,7 +1134,7 @@ export function TahfidzManager() {
       try { await refreshSupabaseTahfidz(); }
       catch { setTahfidzError("Penempatan tersimpan, tetapi daftar terbaru belum dapat dimuat. Muat ulang data sebelum melanjutkan."); }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Penempatan halaqah belum dapat disimpan.");
+      setTahfidzError(toERPUserMessage(error, "Penempatan halaqah belum dapat disimpan."));
     } finally {
       setIsSavingMembership(false);
     }
@@ -1160,7 +1160,7 @@ export function TahfidzManager() {
         catch { setTahfidzError("Impor selesai, tetapi data terbaru belum dapat dimuat."); }
       }
     } catch (error: any) {
-      setTahfidzError(error?.message || "Pratinjau impor Tahfidz belum dapat diproses.");
+      setTahfidzError(toERPUserMessage(error, "Pratinjau impor Tahfidz belum dapat diproses."));
     } finally {
       setIsPreviewingTahfidzImport(false);
       setIsApplyingTahfidzImport(false);
@@ -1258,7 +1258,7 @@ export function TahfidzManager() {
           ? { ...item, lastSetoran: `${formData.surah}: ${ayahRange}` }
           : item));
       } catch (error: any) {
-        setTahfidzError(error?.message || "Setoran belum dapat disimpan.");
+        setTahfidzError(toERPUserMessage(error, "Setoran belum dapat disimpan."));
         return;
       } finally {
         setIsSavingRecord(false);
@@ -4040,7 +4040,7 @@ export function TahfidzManager() {
       {SUPABASE_TAHFIDZ_RUNTIME && (tahfidzLoading || tahfidzError) && (
         <div className={cn("flex flex-col gap-2 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between", tahfidzError ? "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/20 dark:bg-rose-950/20 dark:text-rose-200" : "border-slate-200 bg-slate-50 text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300")}>
           <span>{tahfidzError || "Memuat data Tahfidz…"}</span>
-          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(error?.message || "Data belum dapat dimuat.")).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
+          {tahfidzError && <button onClick={() => { setTahfidzLoading(true); setTahfidzError(""); void refreshSupabaseTahfidz().catch((error: any) => setTahfidzError(toERPUserMessage(error, "Data belum dapat dimuat."))).finally(() => setTahfidzLoading(false)); }} className="font-semibold underline underline-offset-2">Coba lagi</button>}
         </div>
       )}
       {SUPABASE_TAHFIDZ_RUNTIME && rosterHasMore && <div className="flex flex-col gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/20 dark:bg-blue-950/20 dark:text-blue-200 sm:flex-row sm:items-center sm:justify-between">

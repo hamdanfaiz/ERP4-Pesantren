@@ -33,6 +33,7 @@ const guardedModuleFiles = [
   "src/pages/SupabaseCommunicationHub.tsx",
   "src/pages/SupabaseGeneralAffairsAssets.tsx",
   "src/pages/SettingsManager.tsx",
+  "src/pages/TahfidzManager.tsx",
 ];
 const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|\.message|instanceof\s+Error)/;
 const rawServiceErrorToast = /showToast\([^)]*\b[A-Za-z_$][\w$]*(?:\?\.message|\.message)/;
