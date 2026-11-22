@@ -111,6 +111,14 @@ assert.deepEqual(composeClientKeys, declaredRuntimeKeys,
 assert.deepEqual(envExampleClientKeys, declaredRuntimeKeys,
   ".env.example must document exactly the browser runtime settings declared in the public allowlist");
 assert.ok(declaredRuntimeKeys.every((key) => !/(SECRET|SERVICE_ROLE|PII_|DB_PASSWORD)/.test(key)), "The public runtime allowlist must not contain secrets");
+assert.doesNotMatch(compose, /(?:SUPABASE|VITE_SUPABASE)_[A-Z0-9_]+_IMPORT_ENABLED:/,
+  "Customer Compose must not expose unused legacy archive-import switches");
+assert.doesNotMatch(envExample, /^(?:SUPABASE|VITE_SUPABASE)_[A-Z0-9_]+_IMPORT_ENABLED=/m,
+  ".env.example must not document unused legacy archive-import switches");
+assert.doesNotMatch(runtimeKeys, /VITE_[A-Z0-9_]+_IMPORT_ENABLED/,
+  "Legacy archive-import switches must not be sent to the browser");
+assert.match(read("src/runtimeBackend.ts"), /legacyArchiveImportEnabled\s*=\s*false/,
+  "Legacy archive-import UI must remain fail-closed after removing its unused configuration");
 
 for (const name of declaredRuntimeKeys) {
   if (name === "VITE_SUPABASE_URL") {

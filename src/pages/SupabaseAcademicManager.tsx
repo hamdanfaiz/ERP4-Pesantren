@@ -28,7 +28,7 @@ type CurriculumReference = { name: string; schedules: number };
 
 const EMPTY: Snapshot = { schedules: [], journals: [], assessments: [], recordPages: { schedule: { hasMore: false, nextCursor: null }, journal: { hasMore: false, nextCursor: null }, assessment: { hasMore: false, nextCursor: null } }, students: [], studentPage: { hasMore: false, nextCursor: null }, teachers: [], subjects: [], curricula: [], assessmentTypes: [], facilities: [], units: [], unitsEnabled: false };
 const EMPTY_UNMAPPED_CLASSES: UnmappedAcademicClassSnapshot = { classes: [], classCount: 0, limit: 100, offset: 0 };
-const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_ACADEMIC_IMPORT_ENABLED") === "true";
+const ACADEMIC_IMPORT_ENABLED = legacyArchiveImportEnabled;
 type AcademicImportPreview = {
   snapshotFingerprint: string;
   counts: { schedules: number; journals: number; assessments: number; source: number; ready: number; alreadyImported: number };

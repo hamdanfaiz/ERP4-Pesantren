@@ -203,8 +203,8 @@ for (const retiredLabel of ['Room Booking', 'All Activity', 'Multi-Facet Filter'
 }
 assert.match(masterDataSource, /return labels\[value\.toLowerCase\(\)\] \|\| value \|\| "—"/,
   'Master Data status values must be displayed in Indonesian without changing their stored values.');
-assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled\s*&&\s*publicRuntimeConfigValue\(["']VITE_SUPABASE_MASTER_DATA_IMPORT_ENABLED["']\)\s*===\s*["']true["']/,
-  'Master Data archive import must remain independently gated from Supabase-only runtime.');
+assert.match(masterDataSource, /const SUPABASE_MASTER_DATA_IMPORT\s*=\s*legacyArchiveImportEnabled/,
+  'Master Data archive import must remain disabled independently from the supported tenant CSV import.');
 const centralStructureSource = fs.readFileSync(path.join(root, 'src', 'services', 'centralStructureService.ts'), 'utf8');
 assert.doesNotMatch(centralStructureSource, /supabaseRuntimeEnabled\(/,
   'Tenant structure API polling must follow explicit runtime gates, not the Supabase-only data-source mode.');
@@ -464,15 +464,15 @@ for (const relativePath of archiveImportScreens) {
   assert.match(source, /legacyArchiveImportEnabled/, `${relativePath} must respect the global no-copy policy.`);
 }
 const importGateScreens = [
-  { path: 'src/pages/SettingsManager.tsx', constant: 'SUPABASE_SYSTEM_SETTINGS_IMPORT', flag: 'VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED' },
-  { path: 'src/pages/TahfidzManager.tsx', constant: 'SUPABASE_TAHFIDZ_IMPORT', flag: 'VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED' },
-  { path: 'src/components/SupabaseFacilityBooking.tsx', constant: 'SUPABASE_FACILITY_BOOKINGS_IMPORT', flag: 'VITE_SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED' },
-  { path: 'src/pages/CommunicationHubLegacy.tsx', constant: 'SUPABASE_COMMUNICATION_IMPORT', flag: 'VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED' },
+  { path: 'src/pages/SettingsManager.tsx', constant: 'SUPABASE_SYSTEM_SETTINGS_IMPORT' },
+  { path: 'src/pages/TahfidzManager.tsx', constant: 'SUPABASE_TAHFIDZ_IMPORT' },
+  { path: 'src/components/SupabaseFacilityBooking.tsx', constant: 'SUPABASE_FACILITY_BOOKINGS_IMPORT' },
+  { path: 'src/pages/CommunicationHubLegacy.tsx', constant: 'SUPABASE_COMMUNICATION_IMPORT' },
 ];
-for (const { path: relativePath, constant, flag } of importGateScreens) {
+for (const { path: relativePath, constant } of importGateScreens) {
   const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
-  const gate = new RegExp("const " + constant + "\\s*=\\s*legacyArchiveImportEnabled\\s*&&\\s*publicRuntimeConfigValue\\([\"']" + flag + "[\"']\\)\\s*===\\s*[\"']true[\"']");
-  assert.match(source, gate, relativePath + ' must require the global no-copy policy and its local import flag.');
+  const gate = new RegExp("const " + constant + "\\s*=\\s*legacyArchiveImportEnabled");
+  assert.match(source, gate, relativePath + ' must require the global no-copy policy without an operator-facing archive-import flag.');
 }
 
 const settingsImportSource = fs.readFileSync(path.join(root, 'src/pages/SettingsManager.tsx'), 'utf8');

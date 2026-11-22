@@ -14,7 +14,7 @@ import {
   type BoardingDisciplineSnapshot,
 } from "../services/boardingDisciplineApi";
 
-const IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED") === "true";
+const IMPORT_ENABLED = legacyArchiveImportEnabled;
 const CATEGORY_OPTIONS = ["Ringan", "Sedang", "Berat"];
 const today = () => new Date().toISOString().slice(0, 10);
 

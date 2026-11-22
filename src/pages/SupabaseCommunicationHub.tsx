@@ -57,7 +57,7 @@ type Template = { id: string; name: string; content: string; status: string };
 type DirectoryUser = { userId: string; name: string; role: string };
 type PermitRow = { id: string; santriName: string; nis?: string; room?: string; type: string; reason: string; status: string; startDate?: string; endDate?: string };
 
-const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === "true";
+const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled;
 const TICKET_STATUS_LABEL: Record<string, string> = {
   open: "Terbuka",
   in_progress: "Diproses",

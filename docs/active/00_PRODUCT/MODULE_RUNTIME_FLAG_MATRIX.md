@@ -1,4 +1,4 @@
-# Matriks Runtime Modul dan Visibilitas — 21 November 2026
+# Matriks Runtime Modul dan Visibilitas — 22 November 2026
 
 ## Tujuan
 
@@ -14,44 +14,12 @@ Pada source yang diperiksa, terdapat **38 gerbang runtime sisi server**. Nilai c
 - Flag impor arsip adalah jalur terpisah. Memulai instalasi baru tidak memerlukan impor data Firestore. Jangan menyalakan flag import untuk sekadar mengisi data awal.
 - Sidebar dapat tetap menampilkan menu sementara API ditutup. Status menu yang terlihat bukan bukti bahwa alur baca/tulis sudah berfungsi.
 
-## Status flag impor arsip pada source saat ini
+## Impor data arsip
 
-Jangan menganggap variabel impor di bawah sebagai sakelar operasional. `.env.example` menampilkan semuanya bernilai `false`, dan `docker-compose.yml` meneruskannya ke server, tetapi pencarian source pada branch `main` tidak menemukan pembacaan nama-nama tersebut di `server.ts`. Karena itu, mengubah nilai `SUPABASE_*_IMPORT_ENABLED` saja tidak mengaktifkan impor.
+Impor arsip Firestore bukan alur provisioning yang didukung. Deklarasi sakelar arsip yang tidak dipakai telah dihapus dari `.env.example`, Docker Compose, dan allowlist konfigurasi browser agar operator tidak mengira mengaktifkannya akan menyalin data. Route arsip yang dipertahankan untuk kompatibilitas di `server.ts` mengembalikan HTTP 410 dengan kode `LEGACY_ARCHIVE_IMPORT_REMOVED`; kontrol impor lama di antarmuka tetap ditutup oleh `legacyArchiveImportEnabled = false`.
 
-Nama variabel server yang masih tercantum di `.env.example`:
+Impor CSV manual Data Induk adalah alur berbeda dan tetap didukung: Admin memakai template CSV melalui layar transfer data dan API tenant Supabase. Buat record awal melalui formulir ERP atau gunakan impor CSV tersebut. Jangan menyalakan atau menggunakan impor arsip Firestore untuk mengisi tenant baru.
 
-```text
-SUPABASE_ACADEMIC_IMPORT_ENABLED
-SUPABASE_BOARDING_ATTENDANCE_IMPORT_ENABLED
-SUPABASE_BOARDING_DISCIPLINE_IMPORT_ENABLED
-SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED
-SUPABASE_BOARDING_PERMITS_IMPORT_ENABLED
-SUPABASE_CBT_IMPORT_ENABLED
-SUPABASE_COMMUNICATION_IMPORT_ENABLED
-SUPABASE_COOPERATIVE_FINANCIAL_IMPORT_APPLY_ENABLED
-SUPABASE_COOPERATIVE_IMPORT_ENABLED
-SUPABASE_FACILITY_BOOKINGS_IMPORT_ENABLED
-SUPABASE_GA_ASSETS_IMPORT_ENABLED
-SUPABASE_HEALTHCARE_IMPORT_ENABLED
-SUPABASE_HRIS_IMPORT_ENABLED
-SUPABASE_LIBRARY_CIRCULATIONS_IMPORT_ENABLED
-SUPABASE_LIBRARY_IMPORT_ENABLED
-SUPABASE_LMS_IMPORT_ENABLED
-SUPABASE_MARKETPLACE_IMPORT_ENABLED
-SUPABASE_MASTER_DATA_IMPORT_ENABLED
-SUPABASE_PPDB_IMPORT_ENABLED
-SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED
-SUPABASE_TAHFIDZ_IMPORT_ENABLED
-```
-
-Batas fungsi impor yang benar pada source saat ini:
-
-- `src/runtimeBackend.ts` menetapkan `legacyArchiveImportEnabled = false`. Pengaturan `VITE_*_IMPORT_ENABLED` hanya konfigurasi yang dapat dilihat browser; nilai itu bukan izin API dan tidak dapat membuka impor arsip selama gerbang bersama tersebut tetap `false`.
-- Route arsip lama yang masih dipertahankan untuk kompatibilitas di `server.ts` mengembalikan HTTP 410 dengan kode `LEGACY_ARCHIVE_IMPORT_REMOVED`.
-- Impor CSV manual Data Induk adalah alur berbeda: dilakukan Admin melalui layar transfer data dan API Supabase tenant; itu bukan importer arsip Firestore serta tidak diaktifkan oleh daftar variabel di atas.
-- Biarkan semua variabel impor arsip tetap `false`. Jangan menyalakannya untuk membuat data awal atau data UAT. Buat data baru melalui formulir ERP atau gunakan alur impor CSV manual yang memang didukung.
-
-Sebelum salah satu variabel `SUPABASE_*_IMPORT_ENABLED` dipakai lagi, backend harus menghubungkannya ke guard server per endpoint, memastikan role/tenant dan preview/apply tervalidasi, lalu menambahkan bukti pengujian. Sampai implementasi itu ada, variabel tersebut hanya deklarasi konfigurasi dan sebaiknya dibersihkan melalui perubahan source tersendiri setelah semua referensinya ditinjau.
 ## Matriks gerbang server
 
 Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.env.example` nilainya `false`.
@@ -59,7 +27,7 @@ Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.en
 | Modul/alur | API/server | Flag UI yang terkait | Ketergantungan dan batas yang tercatat di source |
 | --- | --- | --- | --- |
 | Dasbor | `SUPABASE_DASHBOARD_RUNTIME_ENABLED` | — | Membaca ringkasan tenant dari backend. |
-| Akademik Formal | `SUPABASE_ACADEMIC_RUNTIME_ENABLED` | — | Import historis terpisah dan tetap nonaktif secara default. |
+| Akademik Formal | `SUPABASE_ACADEMIC_RUNTIME_ENABLED` | — | Impor arsip lama tidak tersedia; data operasional dibuat langsung di tenant. |
 | Data Induk | `SUPABASE_MASTER_DATA_RUNTIME_ENABLED` | `VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED` | Perlu migrasi prasyarat, profil tenant, kunci identitas terenkripsi, dan tinjauan Auth/RLS. Data awal dapat dibuat lewat formulir. |
 | Struktur/Asrama | `SUPABASE_BOARDING_RUNTIME_ENABLED` | `VITE_SUPABASE_BOARDING_RUNTIME_ENABLED` | Tenant dan profil harus tersedia sebelum alur dipakai. |
 | Asrama — Perizinan | `SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED` | `VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED` | Perlu migrasi, relasi profil, tenant, serta pemeriksaan role/tenant. |

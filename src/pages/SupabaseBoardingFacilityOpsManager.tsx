@@ -15,7 +15,7 @@ import {
   type FacilityOpsSnapshot,
 } from "../services/boardingFacilityOpsApi";
 
-const FACILITY_OPS_IMPORT_ENABLED = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FACILITY_OPS_IMPORT_ENABLED") === "true";
+const FACILITY_OPS_IMPORT_ENABLED = legacyArchiveImportEnabled;
 
 const today = () => {
   const now = new Date();

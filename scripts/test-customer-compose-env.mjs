@@ -47,7 +47,6 @@ const serverSecrets = new Set([
   "SUPABASE_DB_POOLER_URL",
   "PII_ENCRYPTION_KEY",
   "PII_FINGERPRINT_KEY",
-  "SUPABASE_LEGACY_FINGERPRINT_KEY",
   "WA_GATEWAY_API_KEY",
 ]);
 for (const line of example.split(/\r?\n/)) {
