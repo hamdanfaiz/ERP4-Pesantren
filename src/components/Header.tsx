@@ -15,6 +15,7 @@ import { Tenant } from "../types";
 import { cn } from "../lib/utils";
 import { useAuth } from "../contexts/AuthContext";
 import { getAccessToken } from "../authSession";
+import { toERPUserMessage } from "../utils/userMessages";
 
 const HeaderSearchInsight = React.lazy(() => import("./HeaderSearchInsight").then((module) => ({ default: module.HeaderSearchInsight })));
 
@@ -129,7 +130,7 @@ export function Header({ currentTenant, branding }: HeaderProps) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         setSearchResult({
-          answer: typeof data.error === "string" ? data.error : "Pencarian AI belum tersedia.",
+          answer: toERPUserMessage(data.error, "Pencarian AI belum tersedia."),
           sources: [],
           isError: true,
         });

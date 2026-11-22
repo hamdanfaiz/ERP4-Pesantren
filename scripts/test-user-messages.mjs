@@ -7,6 +7,7 @@ import ts from "typescript";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = path.join(root, "src", "utils", "userMessages.ts");
 const source = fs.readFileSync(sourcePath, "utf8");
+const headerSource = fs.readFileSync(path.join(root, "src", "components", "Header.tsx"), "utf8");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 },
   fileName: sourcePath,
@@ -35,5 +36,8 @@ const cases = [
 for (const [error, expected] of cases) {
   assert.equal(toERPUserMessage(error, fallback), expected);
 }
+
+assert.match(headerSource, /toERPUserMessage\(data\.error,\s*"Pencarian AI belum tersedia\."\)/,
+  "The header search must sanitize server errors before showing them to users");
 
 console.log(`User-facing error message safety passed: ${cases.length} scenarios.`);
