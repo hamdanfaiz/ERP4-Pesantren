@@ -74,7 +74,7 @@ import {
 const SUPABASE_TAHFIDZ_RUNTIME = supabaseRuntimeEnabled(publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_RUNTIME_ENABLED"));
 const SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED = SUPABASE_TAHFIDZ_RUNTIME
   && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED") === "true";
-const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_TAHFIDZ_IMPORT_ENABLED") === 'true';
+const SUPABASE_TAHFIDZ_IMPORT = legacyArchiveImportEnabled;
 
 type TahfidzLeaderboard = {
   rankingMode: "lifetime_hafalan" | "monthly_ziyadah";
