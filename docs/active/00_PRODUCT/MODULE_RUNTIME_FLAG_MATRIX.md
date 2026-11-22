@@ -20,7 +20,6 @@ Impor arsip Firestore bukan alur provisioning yang didukung. Deklarasi sakelar a
 
 Impor CSV manual Data Induk adalah alur berbeda dan tetap didukung: Admin memakai template CSV melalui layar transfer data dan API tenant Supabase. Buat record awal melalui formulir ERP atau gunakan impor CSV tersebut. Jangan menyalakan atau menggunakan impor arsip Firestore untuk mengisi tenant baru.
 
-
 ## Matriks gerbang server
 
 Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.env.example` nilainya `false`.
