@@ -138,6 +138,7 @@ export function SupabaseCBTManager() {
   const [examListRevision, setExamListRevision] = useState(0);
   const [calendarPageRevision, setCalendarPageRevision] = useState(0);
   const [serverDashboardSummary, setServerDashboardSummary] = useState<DashboardSummary | null>(null);
+  const [summaryError, setSummaryError] = useState("");
   const [tab, setTab] = useState<Tab>("questions");
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<string | null>(null);
   const [monitorSearch, setMonitorSearch] = useState("");
@@ -213,9 +214,11 @@ export function SupabaseCBTManager() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       void requestCbt("/api/cbt/admin/summary").then((result) => {
-        const candidate = result?.summary;
-        if (candidate && typeof candidate === "object") setServerDashboardSummary(candidate as DashboardSummary);
-      }).catch(() => undefined);
+        const candidate = result?.summary ?? result;
+        const validSummary = candidate && typeof candidate === "object";
+        setServerDashboardSummary(validSummary ? candidate as DashboardSummary : null);
+        setSummaryError(validSummary ? "" : "Ringkasan CBT belum dapat dimuat. Silakan muat ulang.");
+      }).catch(() => setSummaryError("Ringkasan CBT belum dapat dimuat. Silakan muat ulang."));
     }, 60_000);
     return () => window.clearInterval(interval);
   }, []);
@@ -223,6 +226,7 @@ export function SupabaseCBTManager() {
   const refresh = useCallback(async (): Promise<boolean> => {
     setLoading(true); setError("");
     setServerDashboardSummary(null);
+    setSummaryError("");
     let summaryLoaded = false;
     try {
       const [snapshotRequest, summaryRequest] = await Promise.allSettled([
@@ -230,10 +234,13 @@ export function SupabaseCBTManager() {
         requestCbt("/api/cbt/admin/summary"),
       ]);
       if (summaryRequest.status === "fulfilled") {
-        const candidate = summaryRequest.value?.summary;
+        const candidate = summaryRequest.value?.summary ?? summaryRequest.value;
         const validSummary = candidate && typeof candidate === "object";
         setServerDashboardSummary(validSummary ? candidate as DashboardSummary : null);
         summaryLoaded = Boolean(validSummary);
+        if (!validSummary) setSummaryError("Ringkasan CBT belum dapat dimuat. Silakan muat ulang.");
+      } else {
+        setSummaryError("Ringkasan CBT belum dapat dimuat. Silakan muat ulang.");
       }
       if (snapshotRequest.status === "rejected") throw snapshotRequest.reason;
       const result = snapshotRequest.value;
@@ -858,13 +865,14 @@ export function SupabaseCBTManager() {
       <button type="button" onClick={() => { setQuestionListRevision((revision) => revision + 1); void refresh(); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Muat ulang</button>
     </header>
 
-    <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100"><strong>Peralihan CBT bertahap.</strong> </div>
     {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
     {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200"><Check className="h-4 w-4" />{notice}</div>}
 
     <div className="grid gap-3 sm:grid-cols-3">
       {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? "—", icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
+
+    {summaryError && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">{summaryError}</div>}
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
     <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
@@ -1036,7 +1044,7 @@ export function SupabaseCBTManager() {
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2><input aria-label="Cari soal" className={FIELD + " mt-0 sm:max-w-xs"} placeholder="Cari soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-        {loading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal. Gunakan formulir Tambah soal untuk mulai menyusun bank soal pada pesantren ini.</div>}
+        {loading || questionPageLoading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : questionPageError ? <div role="alert" className="flex flex-col items-center gap-3 p-10 text-center text-sm text-rose-700 dark:text-rose-200"><span>{questionPageError}</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal untuk ditampilkan.</div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
