@@ -296,6 +296,11 @@ export function SupabaseCBTManager() {
         builderQuestionPageFilter.current = "";
         setQuestionPage(EMPTY_QUESTION_PAGE);
         setBuilderQuestionPage(EMPTY_QUESTION_PAGE);
+        setQuestionPageLoading(false);
+        setQuestionPageError("");
+        setBuilderQuestionPageLoading(false);
+        setBuilderQuestionPageError("");
+        setQuestionListRevision((revision) => revision + 1);
         setImportPreview(null);
         setSettingsImportPreview(null);
         setForm({
@@ -877,7 +882,6 @@ export function SupabaseCBTManager() {
     <div className="grid gap-3 sm:grid-cols-3">
       {[{ label: "Bank soal", value: serverDashboardSummary?.activeQuestions ?? "—", icon: BookOpen }, { label: "Ujian", value: serverDashboardSummary?.totalExams ?? snapshot.exams.length, icon: CalendarClock }, { label: "Peserta ditugaskan", value: serverDashboardSummary?.totalAssignments ?? "—", icon: Users }].map((stat) => <article key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900"><div className="flex items-center justify-between text-sm text-slate-500"><span>{stat.label}</span><stat.icon className="h-4 w-4 text-indigo-700" /></div><p className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p></article>)}
     </div>
-
     {summaryError && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">{summaryError}</div>}
 
     <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
