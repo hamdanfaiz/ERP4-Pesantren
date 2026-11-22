@@ -1,3 +1,18 @@
+## Checkpoint pasca-UAT CBT — 22 November 2026
+
+### Hasil PR #227 dan staging
+- Perbaikan daftar soal CBT setelah tenant aktif sudah digabung ke main pada commit 9f16c51540db5f74765efe2c75a93a67d94758f0. Admin UAT mengonfirmasi pada preview PR bahwa daftar soal tampil otomatis tanpa tombol muat ulang.
+- CI PR #227 lulus 3/3 job. Pemeriksaan lokal lulus: regresi awal CBT, pagination CBT (20 assertion), Alumni (21 assertion), konfigurasi deployment, runtime Supabase-only (169 modul/26 route), pesan pengguna, lint, dan build.
+- Pemeriksa graph aset lulus pada preview PR (104 aset JavaScript) dan domain Production (107 aset JavaScript). Ini hanya memvalidasi status dan jenis konten aset, bukan identitas commit yang berjalan.
+
+### Batas Production dan pekerjaan berikutnya
+- Identitas build Production belum dapat dikonfirmasi: halaman erp4-pesantren.tlusur.com merujuk entry asset index-RZ8AWqJa.js; permintaan terhadap nama chunk CBT dari build lokal kandidat mengembalikan HTML fallback, bukan JavaScript. Tim hosting perlu memastikan deployment yang aktif berasal dari main commit 9f16c51 sebelum menyebut perubahan sudah live.
+- Enam flag VQE yang diaktifkan untuk uji tetap CBT, LMS, Komunikasi, Perpustakaan, Alumni, dan Laundry. Donasi Alumni masih menampilkan kegagalan umum; penyebab belum diketahui. Tracer Study dan Komunitas Alumni memiliki cakupan yang terbatas, dan Perpustakaan Digital memerlukan flag tersendiri yang belum diaktifkan.
+- Masih perlu UAT lintas role/tenant dan simpan-baca modul lainnya. Jangan menyimpulkan seluruh produk siap komersial dari kelulusan PR #227.
+- Tidak ada migrasi atau perubahan data Supabase Production pada PR #227. Rekonsiliasi DDL, ledger, dan latihan pemulihan Production tetap gate terpisah.
+
+---
+
 ## Checkpoint UAT VQE staging — 22 November 2026
 
 ### Hasil yang sudah terlihat
