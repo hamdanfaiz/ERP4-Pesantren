@@ -73,7 +73,7 @@ assert.equal(sanitizePublicErrorPayload({ code: "FEATURE_UNAVAILABLE", error: "I
 assert.equal(sanitizePublicErrorPayload({ code: "FEATURE_UNAVAILABLE", error: "Internal setup detail" }, 503).error,
   "Fitur ini belum tersedia saat ini.",
   "Disabled-module responses must be actionable without exposing internal details");
-const runtimeFeatureGates = [...server.matchAll(/if \\(!([A-Za-z0-9_]+RuntimeEnabled)\\) return res\\.status\\(503\\)\\.json\\(\\{([^}]+)\\}\\);/g)];
+const runtimeFeatureGates = [...server.matchAll(/if \(!([A-Za-z0-9_]+RuntimeEnabled)\) return res\.status\(503\)\.json\(\{([^}]+)\}\);/g)];
 assert.ok(runtimeFeatureGates.length > 100, "Backend feature flags must have explicit unavailable responses");
 assert.ok(runtimeFeatureGates.every(([, , body]) => body.includes('code: "FEATURE_UNAVAILABLE"')),
   "Every disabled runtime feature must use the standard customer-safe error code");
