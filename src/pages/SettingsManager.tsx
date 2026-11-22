@@ -42,7 +42,7 @@ import { legacyArchiveImportEnabled } from '../runtimeBackend';
 import { ERPFeatureStatus, ERPNotice } from '../components/ERPDesignSystem';
 
 const SUPABASE_SYSTEM_SETTINGS = SYSTEM_SETTINGS_RUNTIME_ENABLED;
-const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_SYSTEM_SETTINGS_IMPORT_ENABLED") === 'true';
+const SUPABASE_SYSTEM_SETTINGS_IMPORT = legacyArchiveImportEnabled;
 
 export function SettingsManager() {
   const { role, user, refreshProfile } = useAuth();
