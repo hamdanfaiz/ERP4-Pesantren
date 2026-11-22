@@ -1,6 +1,119 @@
 # PTSAS Production — audit kesenjangan migrasi dan runbook promosi
 
-Tanggal pemeriksaan: 20 November 2026
+## Refresh baca-saja — 22 November 2026
+
+Bagian ini memperbarui snapshot 20–21 November di bawah. Sumber kode resmi yang diperiksa: `main` commit `acc8256b82e8db4d962e451b7d785b49d48552a3`. Pemeriksaan memakai metadata ledger, daftar tabel, katalog grant/policy/fungsi, dan Supabase Advisors. Tidak ada migrasi, konfigurasi, Auth setting, atau data Production yang diubah. Daftar tabel mengembalikan metadata jumlah baris; isi baris aplikasi tidak dibaca.
+
+### Ledger dan schema
+
+| Pemeriksaan | VQE staging | PTSAS Production |
+| --- | ---: | ---: |
+| File migrasi pada source `main` | 167 | 167 |
+| Versi tercatat di ledger | 167 | 100 |
+| Versi source yang belum tercatat | 0 | 67 |
+| Versi ledger tanpa nama pada hasil MCP | 0 | 3 |
+| Tabel schema `public` | 182 | 162 |
+| Tabel dengan RLS + FORCE RLS | 182/182 | 162/162 |
+
+Versi terbaru di ledger VQE adalah `20270405000000`; di PTSAS `20270316000000`. Tidak ada versi Production-only yang ditemukan, tetapi 67 versi source belum tercatat di ledger Production. Tiga versi PTSAS yang hasil MCP-nya tidak menyertakan nama adalah `20261205000000`, `20261206000000`, dan `20270118000000`. Repo memiliki file bernama `data_api_default_privilege_hardening`, `ppdb_legacy_candidate_import`, dan `crm_contact_management` untuk timestamp tersebut; cocokkan DDL aktual dan riwayat sebelum menyimpulkan ekuivalensi.
+
+Tidak ada tabel PTSAS-only pada daftar publik. Dua puluh tabel berikut tersedia di VQE tetapi belum ada pada PTSAS: `cooperative_financial_import_batches`, `cooperative_financial_import_records`, `crm_broadcast_recipients`, `crm_broadcast_requests`, `donation_mutation_requests`, `finance_legacy_unit_assignment_requests`, `guardian_candidate_accounts`, `hris_employee_import_batches`, `library_book_import_batches`, `library_circulation_import_batches`, `lms_learning_record_requests`, `lms_submission_grade_events`, `lms_submission_requests`, `marketplace_mutation_requests`, `ppdb_document_access_events`, `ppdb_document_upload_events`, `ppdb_document_upload_requests`, `quran_surahs`, `tahfidz_student_ayah_progress`, `tahfidz_target_bulk_write_requests`.
+
+### Akses dan Advisor Production
+
+- Semua 162 tabel Production mengaktifkan RLS dan FORCE RLS. Hak langsung untuk `anon` dan `PUBLIC` tidak ditemukan. `authenticated` hanya memiliki `SELECT` pada lima tabel—`candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`—dengan lima policy `SELECT` tenant/profil terkait. Advisor menandai 157 tabel RLS tanpa policy sebagai INFO; ini konsisten dengan fail-closed. Jangan menambahkan policy generik untuk menghilangkan angka Advisor.
+- Advisor memberi WARN pada empat helper `SECURITY DEFINER` yang masih di schema `public` dan dapat dieksekusi `authenticated`: `current_app_role`, `current_tenant_id`, `has_module_access`, dan `is_tenant_admin`. Definisi yang dibaca membatasi hasil ke `auth.uid()` dan profil/tenant aktif; belum dilakukan pengujian endpoint REST/RPC. Source migration `20270210000000_internalize_tenant_rls_helpers` memindahkannya ke schema `private` sambil mempertahankan referensi policy dan belum tercatat di ledger Production.
+- Advisor memberi WARN untuk search path fungsi trigger `erp4_ppdb_update_updated_at_column()` yang belum dipatok; source migration `20270209000000_harden_ppdb_trigger_search_path` menguncinya ke `pg_catalog` dan belum tercatat di Production.
+- Leaked Password Protection Supabase Auth dinonaktifkan pada kedua project (WARN). Ini pengaturan Auth, bukan migrasi; belum diubah.
+- Advisor Performance: PTSAS melaporkan 269 FK tanpa indeks pendukung (INFO), 2 policy dengan auth initplan (WARN), 89 index belum terpakai (INFO), dan 1 duplicate index (WARN). VQE melaporkan 262 FK tanpa indeks pendukung, 1 auth initplan, 91 index belum terpakai, dan tanpa duplicate-index warning. Health Advisor tidak mengembalikan temuan pada kedua project.
+- Jangan menghapus index hanya karena status “belum terpakai” pada snapshot ber-volume rendah. Tinjau urutan kolom FK dan pola query/beban nyata sebelum merencanakan index; source memiliki beberapa migrasi index yang belum tercatat di Production.
+
+### Gerbang kerja backend
+
+1. Rekonsiliasi DDL Production aktual terhadap source; ledger dan jumlah tabel saja tidak cukup.
+2. Jelaskan tiga entri ledger tanpa nama, cocokkan isi objek, dan susun urutan/dependensi 67 migrasi yang belum tercatat. Jangan jalankan `db push` massal.
+3. Uji urutan lengkap pada salinan/restore yang dapat dibuang, termasuk pemeriksaan preflight data, kebijakan, fungsi, trigger, constraint, index, Storage, dan API.
+4. Buktikan backup Production dapat dipulihkan pada target terisolasi; simpan bukti waktu, target, hasil verifikasi, dan prosedur rollback.
+5. Setelah rekonsiliasi dan rehearsal disetujui, rencanakan promosi bertahap; jalankan preflight serta postcheck per batch dan validasi ulang Advisor.
+6. Aktifkan Leaked Password Protection melalui pengaturan Auth secara terpisah dan uji login/undangan/pemulihan sebelum akun pelanggan nyata digunakan.
+
+Pembacaan ini tidak membuktikan kesetaraan DDL, pemulihan backup, keamanan seluruh route/RPC, atau kesiapan migrasi Production. PTSAS tidak diubah. Lanjutkan dengan bagian snapshot historis berikut hanya sebagai konteks tanggal masing-masing.
+
+### Versi source yang belum tercatat pada PTSAS — snapshot 22 Nov
+
+| Versi source | Nama file |
+| --- | --- |
+| `20261207000000` | `library_legacy_catalog_import` |
+| `20261208000000` | `hris_legacy_employees_import` |
+| `20261210000000` | `cooperative_supplier_import_status` |
+| `20261211000000` | `library_circulation_legacy_import` |
+| `20261213000000` | `marketplace_mutation_payload_guard` |
+| `20261214000000` | `donation_mutation_payload_guard` |
+| `20261216000000` | `tahfidz_session_result_integrity` |
+| `20261217000000` | `tahfidz_target_tenant_business_date` |
+| `20261218000000` | `cbt_server_authoritative_deadline` |
+| `20261220000000` | `inventory_adjustment_payload_guard` |
+| `20261222000000` | `ga_inventory_event_payload_guard` |
+| `20261223000000` | `cbt_request_payload_guard` |
+| `20261224000000` | `lms_request_payload_guard` |
+| `20261225000000` | `lms_submission_grade_integrity` |
+| `20261226000000` | `lms_learning_record_integrity` |
+| `20261227000000` | `lms_progress_integrity` |
+| `20261228000000` | `boarding_attendance_active_students` |
+| `20261229000000` | `boarding_attendance_retry_after_status_change` |
+| `20261230000000` | `cooperative_financial_legacy_import` |
+| `20270101000000` | `profiles_user_directory_indexes` |
+| `20270104000000` | `guardian_boarding_access` |
+| `20270109000000` | `boarding_room_history_baseline` |
+| `20270111000000` | `ppdb_document_access_audit` |
+| `20270113000000` | `admin_ppdb_document_upload` |
+| `20270119000000` | `master_data_student_search_indexes` |
+| `20270120000000` | `communication_import_canonical_audience` |
+| `20270121000000` | `tenant_admin_bootstrap` |
+| `20270122000000` | `lms_learning_record_tenant_fk` |
+| `20270123000000` | `public_ppdb_idempotency` |
+| `20270127000000` | `fix_cbt_answer_object_limit` |
+| `20270131000000` | `finance_legacy_unit_assignment` |
+| `20270205000000` | `guardian_self_registration` |
+| `20270207000000` | `public_schema_migration_ownership` |
+| `20270208000000` | `guardian_pre_onboarding_candidate_finance` |
+| `20270209000000` | `harden_ppdb_trigger_search_path` |
+| `20270210000000` | `internalize_tenant_rls_helpers` |
+| `20270211000000` | `optimize_profile_rls_initplans` |
+| `20270212000000` | `optimize_core_tenant_query_indexes` |
+| `20270215000000` | `harden_reference_relationship_contract` |
+| `20270217000000` | `index_tenant_choice_foreign_keys` |
+| `20270220000000` | `student_nis_source_idempotency` |
+| `20270221000000` | `enforce_auto_business_identifiers` |
+| `20270224000000` | `ga_business_identifier_update_guard` |
+| `20270225000000` | `restore_idempotency_for_generated_identifiers` |
+| `20270226000000` | `ppdb_onboarding_uses_tenant_nis_grade_code` |
+| `20270227000000` | `remove_redundant_document_number_index` |
+| `20270303000000` | `master_data_student_import_relationships` |
+| `20270304000000` | `student_room_assignment_reference_locks` |
+| `20270307000000` | `tenant_settings_conflict_http_409` |
+| `20270320000000` | `tahfidz_quran_surah_catalog` |
+| `20270321000000` | `cbt_tenant_settings_write_api` |
+| `20270322000000` | `cbt_admin_dashboard_summary` |
+| `20270323000000` | `cbt_admin_question_keyset_pages` |
+| `20270324000000` | `cbt_admin_student_roster_pages` |
+| `20270325000000` | `cbt_admin_assignment_pages` |
+| `20270326000000` | `cbt_admin_exam_pages` |
+| `20270327000000` | `tahfidz_persisted_leaderboard` |
+| `20270328000000` | `tahfidz_bulk_daily_target_write_api` |
+| `20270329000000` | `tahfidz_target_decimal_precision` |
+| `20270330000000` | `add_core_composite_fk_indexes` |
+| `20270331000000` | `tahfidz_active_days_leaderboard` |
+| `20270401000000` | `tahfidz_monthly_leaderboard` |
+| `20270402000000` | `tahfidz_bulk_target_precision_guard` |
+| `20270403000000` | `tahfidz_unique_memorization_leaderboard` |
+| `20270404000000` | `tahfidz_unique_ayah_projection_indexes` |
+| `20270404010000` | `crm_broadcast_idempotency` |
+| `20270405000000` | `role_permission_fallback` |
+
+---
+
+Snapshot historis: 20 November 2026; pembaruan terbaru ada di atas.
 
 ## Ringkasan eksekutif
 

@@ -7,7 +7,7 @@ Setelah fitur diterapkan dan digabung, pindahkan dokumentasinya ke folder `compl
 ## Kesiapan produk
 - [**Agent Start Here**](00_PRODUCT/AGENT_START_HERE.md) — wajib dibaca semua agent sebelum mengubah kode, skema, flag, atau data.
 - [Kesiapan Komersial dan Handoff Backend](00_PRODUCT/COMMERCIAL_READINESS.md) — status, bukti, risiko migrasi, dan tahapan handoff; periksa tanggal snapshot sebelum menggunakannya.
-- [Runbook promosi PTSAS Production — 20 Nov 2026](06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) — audit 63 versi yang tertinggal, DDL diff, bukti restore, rehearsal, dan gerbang penerapan.
+- [Runbook promosi PTSAS Production — snapshot 20 Nov + refresh baca-saja 22 Nov 2026](06_DATABASE/PTSAS_PRODUCTION_MIGRATION_ROLLOUT_AUDIT_2026-11-20.md) — audit 63 versi yang tertinggal, DDL diff, bukti restore, rehearsal, dan gerbang penerapan.
 - [Checkpoint pengembangan — 12 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-12_RESUME.md) — posisi PR #91, penghambat, dan langkah saat melanjutkan.
 - [Checkpoint Relasi & Ekosistem + OpenWA — 13 Nov 2026](00_PRODUCT/CHECKPOINT_2026-11-13_RELASI_EKOSISTEM_OPENWA.md) — perubahan Alumni/CRM/Donasi/Marketplace/Analitik, integrasi OpenWA, dan backlog lanjutan.
 - [Checkpoint jeda pengembangan — 10 Nov 2026 (historis)](00_PRODUCT/CHECKPOINT_2026-11-10_PAUSE.md) — snapshot historis sebelum UAT Tahfidz terbaru.
