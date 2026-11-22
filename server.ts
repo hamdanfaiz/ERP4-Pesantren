@@ -1009,7 +1009,7 @@ async function startServer() {
 
   app.get("/api/alumni", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!alumniRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1020,7 +1020,7 @@ async function startServer() {
 
   app.post("/api/alumni/graduations", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!alumniRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1032,7 +1032,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates/search", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1057,7 +1057,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1068,7 +1068,7 @@ async function startServer() {
 
   app.post("/api/ppdb/candidates", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1087,7 +1087,7 @@ async function startServer() {
 
   app.patch("/api/ppdb/candidates/:candidateId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!ppdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!ppdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1201,7 +1201,7 @@ async function startServer() {
 
   app.get("/api/academic/portal", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1236,7 +1236,7 @@ async function startServer() {
 
   app.get("/api/academic/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1250,7 +1250,7 @@ async function startServer() {
 
   app.get("/api/academic/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1269,7 +1269,7 @@ async function startServer() {
 
   app.get("/api/academic/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1287,7 +1287,7 @@ async function startServer() {
   });
   app.get("/api/academic/classes", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1305,7 +1305,7 @@ async function startServer() {
   });
   app.get("/api/academic/schedule-conflicts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1351,7 +1351,7 @@ async function startServer() {
 
   app.get("/api/academic/report-cards", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1362,7 +1362,7 @@ async function startServer() {
 
   app.post("/api/academic/report-cards", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1374,7 +1374,7 @@ async function startServer() {
 
   app.post("/api/academic/:kind", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!academicRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!academicRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1396,7 +1396,7 @@ async function startServer() {
 
   app.get("/api/cbt/admin", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1407,7 +1407,7 @@ async function startServer() {
 
   app.get("/api/cbt/admin/summary", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1418,7 +1418,7 @@ async function startServer() {
 
   app.get("/api/cbt/admin/questions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1429,7 +1429,7 @@ async function startServer() {
 
   app.get("/api/cbt/admin/exams", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1440,7 +1440,7 @@ async function startServer() {
 
   app.post("/api/cbt/admin/students/page", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1451,7 +1451,7 @@ async function startServer() {
 
   app.post("/api/cbt/admin/assignments/page", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1462,7 +1462,7 @@ async function startServer() {
 
   app.put("/api/cbt/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1489,7 +1489,7 @@ async function startServer() {
 
   app.post("/api/cbt/questions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1501,7 +1501,7 @@ async function startServer() {
 
   app.post("/api/cbt/exams", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1513,7 +1513,7 @@ async function startServer() {
 
   app.get("/api/cbt/student", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1524,7 +1524,7 @@ async function startServer() {
 
   app.post("/api/cbt/exams/:examId/start", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1535,7 +1535,7 @@ async function startServer() {
 
   app.put("/api/cbt/attempts/:attemptId/answers", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1546,7 +1546,7 @@ async function startServer() {
 
   app.post("/api/cbt/attempts/:attemptId/submit", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cbtRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cbtRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1557,7 +1557,7 @@ async function startServer() {
 
   app.get("/api/healthcare/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1568,7 +1568,7 @@ async function startServer() {
 
   app.post("/api/healthcare/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1579,7 +1579,7 @@ async function startServer() {
 
   app.post("/api/healthcare/visits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1590,7 +1590,7 @@ async function startServer() {
 
   app.post("/api/healthcare/medicines", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1601,7 +1601,7 @@ async function startServer() {
 
   app.post("/api/healthcare/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!healthcareRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!healthcareRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1619,7 +1619,7 @@ async function startServer() {
 
   app.get("/api/ga/assets-snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1630,7 +1630,7 @@ async function startServer() {
 
   app.post("/api/ga/assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1641,7 +1641,7 @@ async function startServer() {
 
   app.post("/api/ga/inventory", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1652,7 +1652,7 @@ async function startServer() {
 
   app.post("/api/ga/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!generalAffairsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1670,7 +1670,7 @@ async function startServer() {
 
   app.get("/api/cooperative/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1698,7 +1698,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/products", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1708,7 +1708,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1718,7 +1718,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/suppliers", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1728,7 +1728,7 @@ async function startServer() {
   });
   app.patch("/api/cooperative/wallets/:walletId/policy", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1738,7 +1738,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/wallets/:walletId/top-ups", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1748,7 +1748,7 @@ async function startServer() {
   });
   app.post("/api/cooperative/sales", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!cooperativeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!cooperativeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1759,7 +1759,7 @@ async function startServer() {
 
   app.get("/api/marketplace/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1769,7 +1769,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/products", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1779,7 +1779,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/stock-adjustments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1789,7 +1789,7 @@ async function startServer() {
   });
   app.post("/api/marketplace/orders", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1799,7 +1799,7 @@ async function startServer() {
   });
   app.patch("/api/marketplace/orders/:orderId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!marketplaceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!marketplaceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1816,7 +1816,7 @@ async function startServer() {
 
   app.get("/api/facility-bookings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1826,7 +1826,7 @@ async function startServer() {
   });
   app.post("/api/facility-bookings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!facilityBookingsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1843,7 +1843,7 @@ async function startServer() {
 
   app.get("/api/donation/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1853,7 +1853,7 @@ async function startServer() {
   });
   app.post("/api/donation/campaigns", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1863,7 +1863,7 @@ async function startServer() {
   });
   app.post("/api/donation/donors", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1873,7 +1873,7 @@ async function startServer() {
   });
   app.post("/api/donation/waqf-assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1883,7 +1883,7 @@ async function startServer() {
   });
   app.post("/api/donation/transactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1893,7 +1893,7 @@ async function startServer() {
   });
   app.patch("/api/donation/transactions/:donationId/void", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!donationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!donationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1904,7 +1904,7 @@ async function startServer() {
 
   app.get("/api/lms/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1922,7 +1922,7 @@ async function startServer() {
 
   app.post("/api/lms/catalog/:action", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1934,7 +1934,7 @@ async function startServer() {
 
   app.post("/api/lms/progress", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1945,7 +1945,7 @@ async function startServer() {
 
   app.post("/api/lms/learning-records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1957,7 +1957,7 @@ async function startServer() {
 
   app.post("/api/lms/assignments/:assignmentId/submissions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1968,7 +1968,7 @@ async function startServer() {
 
   app.patch("/api/lms/submissions/:submissionId/grade", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!lmsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!lmsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2055,7 +2055,7 @@ async function startServer() {
 
   app.get("/api/dashboard/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!dashboardRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!dashboardRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2146,7 +2146,7 @@ async function startServer() {
 
   app.get("/api/library/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2157,7 +2157,7 @@ async function startServer() {
 
   app.post("/api/library/books", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2169,7 +2169,7 @@ async function startServer() {
 
   app.post("/api/library/checkout", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2181,7 +2181,7 @@ async function startServer() {
 
   app.post("/api/library/returns", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2193,7 +2193,7 @@ async function startServer() {
 
   app.get("/api/documents", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2204,7 +2204,7 @@ async function startServer() {
 
   app.get("/api/crm/contacts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2215,7 +2215,7 @@ async function startServer() {
 
   app.get("/api/crm/contacts/:contactId/interactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2226,7 +2226,7 @@ async function startServer() {
 
   app.post("/api/crm/contacts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2238,7 +2238,7 @@ async function startServer() {
 
   app.put("/api/crm/contacts/:contactId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2252,7 +2252,7 @@ async function startServer() {
 
   app.post("/api/crm/interactions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2264,7 +2264,7 @@ async function startServer() {
 
   app.get("/api/crm/broadcast/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2276,7 +2276,7 @@ async function startServer() {
 
   app.post("/api/crm/broadcasts", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!crmRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!crmRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2291,7 +2291,7 @@ async function startServer() {
 
   app.post("/api/documents", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2303,7 +2303,7 @@ async function startServer() {
 
   app.patch("/api/documents/:documentId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2318,7 +2318,7 @@ async function startServer() {
 
   app.post("/api/documents/:documentId/attachments/upload-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2331,7 +2331,7 @@ async function startServer() {
 
   app.post("/api/documents/attachments/finalize", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2345,7 +2345,7 @@ async function startServer() {
 
   app.get("/api/documents/attachments/:attachmentId/download-url", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!documentRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!documentRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2356,7 +2356,7 @@ async function startServer() {
 
   app.get("/api/library/assets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!libraryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!libraryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!libraryDigitalAssetsEnabled) return res.json({ enabled: false, assets: [] });
     try {
       const uid = String((req as any).user?.uid || "");
@@ -2421,7 +2421,7 @@ async function startServer() {
 
   app.get("/api/laundry/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2432,7 +2432,7 @@ async function startServer() {
 
   app.post("/api/laundry/orders", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2444,7 +2444,7 @@ async function startServer() {
 
   app.post("/api/laundry/orders/:orderId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2456,7 +2456,7 @@ async function startServer() {
 
   app.post("/api/laundry/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!laundryRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!laundryRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2468,7 +2468,7 @@ async function startServer() {
 
   app.get("/api/finance/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2587,7 +2587,7 @@ async function startServer() {
 
   app.post("/api/finance/bills", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2599,7 +2599,7 @@ async function startServer() {
 
   app.post("/api/finance/expenses", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2611,7 +2611,7 @@ async function startServer() {
 
   app.post("/api/finance/expenses/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2624,7 +2624,7 @@ async function startServer() {
 
   app.post("/api/finance/bills/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2642,7 +2642,7 @@ async function startServer() {
 
   app.post("/api/finance/lock", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2655,7 +2655,7 @@ async function startServer() {
 
   app.get("/api/master-data/audit", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2672,7 +2672,7 @@ async function startServer() {
 
   app.get("/api/master-data/structures", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2709,7 +2709,7 @@ async function startServer() {
   };
   app.get("/api/master-data/references", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2728,7 +2728,7 @@ async function startServer() {
   });
   app.put("/api/master-data/references/:domain/:referenceId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2739,7 +2739,7 @@ async function startServer() {
   });
   app.post("/api/master-data/references/:domain", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2750,7 +2750,7 @@ async function startServer() {
   });
   app.get("/api/master-data/naming-series", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2761,7 +2761,7 @@ async function startServer() {
   });
   app.put("/api/master-data/naming-series/:seriesKey", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2778,7 +2778,7 @@ async function startServer() {
 
   app.post("/api/master-data/structures/import/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2790,7 +2790,7 @@ async function startServer() {
 
   app.post("/api/master-data/structures/import/apply", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2808,7 +2808,7 @@ async function startServer() {
   });
   app.put("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2820,7 +2820,7 @@ async function startServer() {
   });
   app.post("/api/master-data/structures/:category", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2833,7 +2833,7 @@ async function startServer() {
 
   app.delete("/api/master-data/structures/:category/:recordId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2845,7 +2845,7 @@ async function startServer() {
 
   app.get("/api/master-data/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2871,7 +2871,7 @@ async function startServer() {
   app.get("/api/master-data/students/export", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Pragma", "no-cache");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2884,7 +2884,7 @@ async function startServer() {
 
   app.post("/api/master-data/students/import/preview", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2896,7 +2896,7 @@ async function startServer() {
 
   app.post("/api/master-data/students/import/apply", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2908,7 +2908,7 @@ async function startServer() {
 
   app.get("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2920,7 +2920,7 @@ async function startServer() {
 
   app.put("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2932,7 +2932,7 @@ async function startServer() {
   });
   app.post("/api/master-data/students", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2945,7 +2945,7 @@ async function startServer() {
 
   app.delete("/api/master-data/students/:studentId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!masterDataRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!masterDataRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2963,7 +2963,7 @@ async function startServer() {
   });
   app.get("/api/boarding/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2976,7 +2976,7 @@ async function startServer() {
 
   app.put("/api/boarding/students/:studentId/room", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -2989,7 +2989,7 @@ async function startServer() {
 
   app.get("/api/master-data/students/:studentId/room-history", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3002,7 +3002,7 @@ async function startServer() {
 
   app.get("/api/boarding/permits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3013,7 +3013,7 @@ async function startServer() {
 
   app.post("/api/boarding/permits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3025,7 +3025,7 @@ async function startServer() {
 
   app.post("/api/boarding/permits/:permitId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingPermitsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3044,7 +3044,7 @@ async function startServer() {
 
   app.get("/api/boarding/discipline", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3055,7 +3055,7 @@ async function startServer() {
 
   app.post("/api/boarding/discipline", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3067,7 +3067,7 @@ async function startServer() {
 
   app.post("/api/boarding/discipline/:incidentId/resolve", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingDisciplineRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3085,7 +3085,7 @@ async function startServer() {
 
   app.get("/api/boarding/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3096,7 +3096,7 @@ async function startServer() {
 
   app.post("/api/boarding/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingAttendanceRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3114,7 +3114,7 @@ async function startServer() {
 
   app.get("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3126,7 +3126,7 @@ async function startServer() {
 
   app.post("/api/boarding/staff-assignments/unit-mapping", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3139,7 +3139,7 @@ async function startServer() {
 
   app.post("/api/boarding/staff-assignments", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingAssignmentsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3152,7 +3152,7 @@ async function startServer() {
 
   app.get("/api/boarding/facility-ops", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3163,7 +3163,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/audits", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3175,7 +3175,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/tickets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3188,7 +3188,7 @@ async function startServer() {
 
   app.post("/api/boarding/facility-ops/tickets/:ticketId/resolve", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!boardingFacilityOpsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3206,7 +3206,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3217,7 +3217,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/references/surahs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3231,7 +3231,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/roster", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3248,7 +3248,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/achievements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3264,7 +3264,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/leaderboard", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: "Fitur Tahfidz belum tersedia." });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3284,7 +3284,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3307,7 +3307,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/sessions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3323,7 +3323,7 @@ async function startServer() {
 
   app.get("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3334,7 +3334,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/peer-reviews", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3346,7 +3346,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/peer-reviews/:reviewId/moderation", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3358,7 +3358,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/sessions", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3371,7 +3371,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/records", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3384,7 +3384,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/targets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3396,7 +3396,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/targets/bulk", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!tahfidzBulkTargetsEnabled) return res.status(503).json({ error: "Pengaturan target massal belum tersedia." });
     try {
       const uid = String((req as any).user?.uid || "");
@@ -3412,7 +3412,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/halaqahs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3425,7 +3425,7 @@ async function startServer() {
 
   app.post("/api/tahfidz/memberships", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!tahfidzRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!tahfidzRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3445,7 +3445,7 @@ async function startServer() {
 
   app.get("/api/communication/announcements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3459,7 +3459,7 @@ async function startServer() {
 
   app.post("/api/communication/announcements", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3473,7 +3473,7 @@ async function startServer() {
 
   app.post("/api/communication/announcements/:announcementId/acknowledge", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3494,7 +3494,7 @@ async function startServer() {
 
   app.get("/api/communication/ops", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3507,7 +3507,7 @@ async function startServer() {
 
   app.post("/api/communication/tickets", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3521,7 +3521,7 @@ async function startServer() {
 
   app.post("/api/communication/tickets/:ticketId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3535,7 +3535,7 @@ async function startServer() {
 
   app.post("/api/communication/messages", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3549,7 +3549,7 @@ async function startServer() {
 
   app.post("/api/communication/messages/:messageId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3563,7 +3563,7 @@ async function startServer() {
 
   app.post("/api/communication/templates", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!communicationRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!communicationRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3605,7 +3605,7 @@ async function startServer() {
 
   app.get("/api/system/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3625,7 +3625,7 @@ async function startServer() {
 
   app.put("/api/system/settings", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!systemSettingsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3671,7 +3671,7 @@ async function startServer() {
   const searchFeedbackRuntimeEnabled = String(process.env.SUPABASE_SEARCH_FEEDBACK_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   app.post("/api/search/feedback", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!searchFeedbackRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!searchFeedbackRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3701,7 +3701,7 @@ async function startServer() {
   // Public PPDB is served only by this trusted server. Tenant identity is fixed in server configuration.
   app.get("/api/public/guardian-registration/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const config = await getSupabasePublicGuardianRegistrationConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
       return res.json({ tenantName: config.tenantName, registrationRedirectUrl: config.registrationRedirectUrl });
@@ -3734,7 +3734,7 @@ async function startServer() {
 
   app.get("/api/public/ppdb/config", async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!publicPpdbEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const config = await getSupabasePublicPpdbConfig(String(process.env.PUBLIC_PPDB_TENANT_ID || ""));
@@ -3753,7 +3753,7 @@ async function startServer() {
   app.post("/api/public/ppdb/registrations", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     const clientKey = String(req.ip || req.socket.remoteAddress || "unknown");
-    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!supabasePublicPpdbRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!publicPpdbEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
     if (!consumePublicPpdbRateLimit(clientKey)) {
       res.setHeader("Retry-After", "900");
@@ -3774,7 +3774,7 @@ async function startServer() {
   // Payment proof bytes and billing metadata are handled only by this authenticated backend.
   app.post("/api/finance/payment-proofs", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     const uid = String((req as any).user?.uid || "");
     if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
     if (String(process.env.SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED || "").trim().toLowerCase() !== "true") {
@@ -3823,7 +3823,7 @@ async function startServer() {
 
   app.get("/api/finance/payment-proofs/:billingId", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
-    if (!financeRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!financeRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
         const uid = String((req as any).user?.uid || "");
         if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3857,7 +3857,7 @@ async function startServer() {
   // HRIS core runtime: employee directory and attendance are tenant scoped.
   app.get("/api/hris/snapshot", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3868,7 +3868,7 @@ async function startServer() {
 
   app.post("/api/hris/employees", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3886,7 +3886,7 @@ async function startServer() {
 
   app.post("/api/hris/attendance", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3897,7 +3897,7 @@ async function startServer() {
 
   app.post("/api/hris/leave-requests", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -3908,7 +3908,7 @@ async function startServer() {
 
   app.post("/api/hris/leave-requests/:leaveRequestId/review", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hrisRuntimeEnabled) return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!hrisRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
