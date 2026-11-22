@@ -11,15 +11,14 @@ Pada source yang diperiksa, terdapat **38 gerbang runtime sisi server**. Nilai c
 - `SUPABASE_*_RUNTIME_ENABLED` dan flag server serupa mengizinkan atau menolak operasi API. Flag ini hanya disetel pada environment server.
 - `VITE_*` yang tercantum pada `src/publicRuntimeConfigKeys.ts` dapat dikirim ke browser melalui `/runtime-config.json`. Flag tersebut hanya mengendalikan bagian UI tertentu; flag browser **tidak** memberi izin, membuka API, atau menggantikan pemeriksaan role/tenant.
 - Nilai `SUPABASE_SECRET_KEY`, kunci enkripsi PII, password database, dan credential server lain tidak boleh berawalan `VITE_`, masuk ke browser, atau di-commit.
-- Flag impor arsip adalah jalur terpisah. Memulai instalasi baru tidak memerlukan impor data Firestore. Jangan menyalakan flag import untuk sekadar mengisi data awal.
 - Sidebar dapat tetap menampilkan menu sementara API ditutup. Status menu yang terlihat bukan bukti bahwa alur baca/tulis sudah berfungsi.
 
 ## Impor data arsip
 
 Impor arsip Firestore bukan alur provisioning yang didukung. Deklarasi sakelar arsip yang tidak dipakai telah dihapus dari `.env.example`, Docker Compose, dan allowlist konfigurasi browser agar operator tidak mengira mengaktifkannya akan menyalin data. Route arsip yang dipertahankan untuk kompatibilitas di `server.ts` mengembalikan HTTP 410 dengan kode `LEGACY_ARCHIVE_IMPORT_REMOVED`; kontrol impor lama di antarmuka tetap ditutup oleh `legacyArchiveImportEnabled = false`.
 
-Impor CSV manual Data Induk adalah alur berbeda dan tetap didukung: Admin memakai template CSV melalui layar transfer data dan API tenant Supabase. Buat record awal melalui formulir ERP atau gunakan impor CSV tersebut. Jangan menyalakan atau menggunakan impor arsip Firestore untuk mengisi tenant baru.
 
+Impor CSV manual Data Induk adalah alur berbeda dan tetap didukung: Admin memakai template CSV melalui layar transfer data dan API tenant Supabase. Buat record awal melalui formulir ERP atau gunakan impor CSV tersebut. Jangan menyalakan atau menggunakan impor arsip Firestore untuk mengisi tenant baru.
 ## Matriks gerbang server
 
 Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.env.example` nilainya `false`.
@@ -84,4 +83,3 @@ Jangan menyalakan semua gerbang sekaligus untuk mengembalikan menu. Itu dapat me
 Guard `npm run test:customer-deployment-flags` memeriksa allowlist konfigurasi browser, `.env.example`, Docker Compose, error publik yang aman, dan beberapa gerbang UI. Guard tersebut bukan bukti bahwa environment Production sudah memuat semua variabel, bahwa API/database setiap modul lulus UAT, atau bahwa Production siap menerima migrasi.
 
 Lihat juga [Visibilitas Menu dan Kesiapan Modul](MODULE_VISIBILITY_AND_RUNTIME_FLAGS.md) untuk cakupan menu/role dan batas fitur, serta [checkpoint integrasi](CHECKPOINT_2026-11-15_CURRENT_MAIN_INTEGRATION.md) untuk status sumber dan gerbang yang belum selesai.
-
