@@ -164,11 +164,13 @@ export function SupabaseAlumniManager() {
 function AlumniDonationsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [rows, setRows] = useState<Array<{ id: string; donorName: string; amount: number; status: string; receiptNumber: string; receivedAt: string }>>([]);
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
+    setRows([]);
     requestAlumni("/api/donation/snapshot")
       .then((result) => {
         if (!active) return;
@@ -185,11 +187,11 @@ function AlumniDonationsPanel() {
       .catch((cause: any) => { if (active) setError(toERPUserMessage(cause, "Data donasi belum dapat dimuat.")); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
   return <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div><h2 className="font-semibold text-slate-900 dark:text-white">Penerimaan Donasi & Wakaf</h2><p className="mt-1 text-sm text-slate-500">Terhubung ke modul Donasi & Wakaf. Pencatatan baru dan void dilakukan di menu Donasi & Wakaf.</p></div>
-    {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</div>}
     {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+      : error ? <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><span>{error}</span><button type="button" onClick={() => setReloadKey((value) => value + 1)} className="rounded-md border border-rose-300 px-3 py-1.5 font-medium hover:bg-rose-100 dark:border-rose-800 dark:hover:bg-rose-900/50">Coba lagi</button></div>
       : rows.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada transaksi donasi pada pesantren ini.</p>
       : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Kwitansi</th><th className="px-4 py-3">Donatur</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="px-4 py-3 font-mono text-xs">{row.receiptNumber}</td><td className="px-4 py-3">{row.donorName}</td><td className="px-4 py-3">{row.status}</td><td className="px-4 py-3 text-right tabular-nums">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.amount)}</td></tr>)}</tbody></table></div>}
   </section>;
