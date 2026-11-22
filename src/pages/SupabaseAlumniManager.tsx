@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Briefcase, GraduationCap, HeartHandshake, Search, Users, UserPlus, X, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { getAccessToken } from "../authSession";
-import { createAlumniClientRequestId, getStableAlumniRequestIdentity, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
+import { createAlumniClientRequestId, getStableAlumniRequestIdentity, submitAlumniGraduation, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
 import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
@@ -38,6 +38,7 @@ export function SupabaseAlumniManager() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [studentId, setStudentId] = useState("");
   const [graduatedAt, setGraduatedAt] = useState(() => tenantDate(new Date(), timeZone));
@@ -80,6 +81,7 @@ export function SupabaseAlumniManager() {
     const year = Number(graduatedAt.slice(0, 4));
     setSaving(true);
     setError("");
+    setNotice("");
     try {
       const identity = getStableAlumniRequestIdentity(
         requestIdentity.current,
@@ -87,14 +89,19 @@ export function SupabaseAlumniManager() {
         createAlumniClientRequestId,
       );
       requestIdentity.current = identity;
-      await requestAlumni("/api/alumni/graduations", {
-        method: "POST",
-        body: JSON.stringify({ studentId, graduationYear: year, graduatedAt, clientRequestId: identity.requestId }),
-      });
+      const outcome = await submitAlumniGraduation(
+        () => requestAlumni("/api/alumni/graduations", {
+          method: "POST",
+          body: JSON.stringify({ studentId, graduationYear: year, graduatedAt, clientRequestId: identity.requestId }),
+        }),
+        refresh,
+      );
       requestIdentity.current = null;
       setModalOpen(false);
       setStudentId("");
-      await refresh();
+      if (!outcome.refreshed) {
+        setNotice("Kelulusan tersimpan. Daftar belum diperbarui; muat ulang data untuk melihat hasil terbaru.");
+      }
     } catch (saveError: any) {
       setError(toERPUserMessage(saveError, "Kelulusan belum dapat disimpan."));
     } finally { setSaving(false); }
@@ -115,6 +122,7 @@ export function SupabaseAlumniManager() {
       </header>
 
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
+      {notice && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">{notice}</div>}
 
       <ERPTabs tabs={ALUMNI_TABS} value={tab} onChange={(id) => setTab(id as AlumniTab)} ariaLabel="Bagian Alumni" />
 
@@ -137,7 +145,7 @@ export function SupabaseAlumniManager() {
           : <div className="p-12 text-center"><GraduationCap className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-800 dark:text-slate-200">{query ? "Alumni tidak ditemukan" : "Belum ada data alumni"}</p><p className="mt-1 text-sm text-slate-500">{query ? "Ubah kata kunci pencarian." : "Pilih santri yang telah lulus untuk mencatat profil Alumni pertama."}</p></div>}
       </section>
 
-      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Perubahan status Santri dan pencatatan Alumni diproses atomik.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri tanpa profil Alumni</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""} · {student.status}</option>)}</select><span className="mt-1.5 block text-xs font-normal text-slate-500">Status lama Alumni tetap dapat dipilih jika profil kelulusannya belum tercatat.</span></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Pilih tanggal berdasarkan dokumen kelulusan. Tahun angkatan diambil dari tanggal tersebut; data status lama tidak digunakan untuk menebak tanggal.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
+      {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Status santri dan data kelulusan akan tersimpan bersamaan.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri tanpa profil Alumni</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""} · {student.status}</option>)}</select><span className="mt-1.5 block text-xs font-normal text-slate-500">Status lama Alumni tetap dapat dipilih jika profil kelulusannya belum tercatat.</span></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Pilih tanggal berdasarkan dokumen kelulusan. Tahun angkatan diambil dari tanggal tersebut; data status lama tidak digunakan untuk menebak tanggal.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
       </> : tab === "tracer" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
         <div><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan angkatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari profil kelulusan pesantren. Survei pekerjaan/pendidikan lanjutan belum punya formulir tersimpan.</p></div>
         {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
@@ -186,3 +194,4 @@ function AlumniDonationsPanel() {
       : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Kwitansi</th><th className="px-4 py-3">Donatur</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Nominal</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{rows.map((row) => <tr key={row.id}><td className="px-4 py-3 font-mono text-xs">{row.receiptNumber}</td><td className="px-4 py-3">{row.donorName}</td><td className="px-4 py-3">{row.status}</td><td className="px-4 py-3 text-right tabular-nums">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(row.amount)}</td></tr>)}</tbody></table></div>}
   </section>;
 }
+

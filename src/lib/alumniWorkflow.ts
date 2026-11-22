@@ -34,3 +34,18 @@ export function getStableAlumniRequestIdentity(
   if (!requestId) throw new Error("ID permintaan kelulusan tidak dapat dibuat.");
   return { payloadKey, requestId };
 }
+
+/** Keep a committed graduation distinct from a follow-up list refresh failure. */
+export async function submitAlumniGraduation(
+  save: () => Promise<unknown>,
+  refresh: () => Promise<unknown>,
+): Promise<{ saved: true; refreshed: boolean }> {
+  await save();
+  try {
+    await refresh();
+    return { saved: true, refreshed: true };
+  } catch {
+    return { saved: true, refreshed: false };
+  }
+}
+
