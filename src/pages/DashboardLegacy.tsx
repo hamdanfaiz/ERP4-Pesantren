@@ -43,6 +43,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { handleFirestoreError, OperationType } from "../firebaseUtils";
+import { toERPUserMessage } from "../utils/userMessages";
 import { useAuth } from "../contexts/AuthContext";
 import { isModuleAccessible, UserRole } from "../rbac";
 
@@ -318,7 +319,7 @@ export function DashboardOverview() {
         (error) => {
           setTransactions([]);
           setTransactionsLoading(false);
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorMsg = toERPUserMessage(error, "Data transaksi belum dapat dimuat. Periksa koneksi lalu coba kembali.");
           setTransactionsError(errorMsg);
           setSourceErrors((prev) => ({ ...prev, cashflow: errorMsg }));
           handleFirestoreError(error, OperationType.LIST, "financeTransactions");

@@ -118,7 +118,7 @@ export function CommunicationHub() {
         if (active) setSupabaseAnnouncements(Array.isArray(payload.announcements) ? payload.announcements : []);
       })
       .catch((error: any) => {
-        if (active) setSupabaseAnnouncementsError(error?.message || 'Pengumuman belum dapat dimuat.');
+        if (active) setSupabaseAnnouncementsError(toERPUserMessage(error, 'Pengumuman belum dapat dimuat. Silakan coba kembali.'));
       })
       .finally(() => {
         if (active) setSupabaseAnnouncementsLoading(false);
@@ -142,7 +142,7 @@ export function CommunicationHub() {
       });
       setAnnouncementMigrationReport(payload);
     } catch (error: any) {
-      setAnnouncementMigrationError(error?.message || 'Pratinjau/impor pengumuman belum dapat diproses.');
+      setAnnouncementMigrationError(toERPUserMessage(error, 'Pratinjau atau impor pengumuman belum dapat diproses.'));
     } finally {
       setIsAnnouncementMigrationBusy(false);
     }
@@ -168,7 +168,7 @@ export function CommunicationHub() {
           });
           if (payload.announcement) setSupabaseAnnouncements((previous) => [payload.announcement, ...previous]);
         } catch (error: any) {
-          setSupabaseAnnouncementsError(error?.message || 'Pengumuman belum dapat disimpan.');
+          setSupabaseAnnouncementsError(toERPUserMessage(error, 'Pengumuman belum dapat disimpan. Silakan coba kembali.'));
           setIsSavingAnnouncement(false);
           return;
         }
@@ -264,7 +264,7 @@ export function CommunicationHub() {
             : announcement));
         }
       } catch (error: any) {
-        setSupabaseAnnouncementsError(error?.message || 'Konfirmasi baca belum dapat disimpan.');
+        setSupabaseAnnouncementsError(toERPUserMessage(error, 'Konfirmasi baca belum dapat disimpan. Silakan coba kembali.'));
       }
       return;
     }

@@ -34,15 +34,24 @@ const guardedModuleFiles = [
   "src/pages/SupabaseGeneralAffairsAssets.tsx",
   "src/pages/SettingsManager.tsx",
   "src/pages/TahfidzManager.tsx",
+  "src/pages/FinanceManagerLegacy.tsx",
+  "src/pages/CommunicationHubLegacy.tsx",
+  "src/pages/DashboardLegacy.tsx",
+  "src/pages/PPDBManagerLegacy.tsx",
+  "src/pages/UserManagementView.tsx",
+  "src/contexts/AuthContext.tsx",
+  "src/components/ImportPreviewModal.tsx",
 ];
 const rawServiceErrorSetter = /set[A-Za-z0-9_]+\(\s*[A-Za-z_$][\w$]*\s*(?:\?\.message|\.message|instanceof\s+Error)/;
-const rawServiceErrorToast = /showToast\([^)]*\b[A-Za-z_$][\w$]*(?:\?\.message|\.message)/;
+const rawServiceErrorToast = /show[A-Za-z0-9_]*Toast\([^)]*\b[A-Za-z_$][\w$]*(?:\?\.message|\.message)/;
+const rawServiceErrorTemplate = /\$\{\s*(?:error|err|caught|exception)\??\.message\s*(?:\|\|[^}]*)?\}/i;
 for (const relativePath of guardedModuleFiles) {
   const source = fs.readFileSync(path.join(root, relativePath), "utf8");
   assert.match(source, /import\s+\{\s*toERPUserMessage\s*\}\s+from\s+["\'][^"\']*userMessages["\']/, `${relativePath} imports the shared customer-safe error mapper`);
   assert.match(source, /toERPUserMessage\(/, `${relativePath} maps service errors to customer-safe copy`);
   assert.doesNotMatch(source, rawServiceErrorSetter, `${relativePath} does not expose raw service error text`);
   assert.doesNotMatch(source, rawServiceErrorToast, `${relativePath} does not expose raw service error text in a toast`);
+  assert.doesNotMatch(source, rawServiceErrorTemplate, `${relativePath} does not interpolate raw service errors into UI copy`);
 }
 
 
@@ -51,13 +60,18 @@ assert.equal(toERPUserMessage(new TypeError("Failed to fetch"), fallback), "Kone
 assert.equal(toERPUserMessage("Invalid login credentials", fallback), "Email atau kata sandi tidak sesuai. Periksa kembali lalu coba lagi.");
 assert.equal(toERPUserMessage(new Error("Session expired"), fallback), "Sesi Anda telah berakhir. Silakan masuk kembali.");
 assert.equal(toERPUserMessage(new Error("403 permission denied"), fallback), "Anda tidak memiliki akses untuk melakukan tindakan ini.");
+assert.equal(toERPUserMessage(new Error("Missing or insufficient permissions."), fallback), "Anda tidak memiliki akses untuk melakukan tindakan ini.");
 assert.equal(toERPUserMessage(new Error("Data changed since preview. 409"), fallback), "Data berubah sejak terakhir diperiksa. Muat ulang pratinjau sebelum melanjutkan.");
 assert.equal(toERPUserMessage(new Error("Supabase RPC cbt_admin failed with PGRST202"), fallback), fallback, "provider diagnostics stay out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error('new row violates row-level security policy for table "students"'), fallback), fallback, "database policy details stay out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("Hasil roster belum dapat dimuat."), fallback), fallback, "roster terminology stays out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("https://service.example.invalid/api/private"), fallback), fallback, "service URLs stay out of customer-facing messages");
+assert.equal(toERPUserMessage(new Error("duplicate key value violates unique constraint finance_billings_pkey"), fallback), fallback, "database constraint details stay out of customer-facing messages");
+assert.equal(toERPUserMessage(new Error("https://vqemuyzveuirlkvdggjd.supabase.co/rest/v1/finance"), fallback), fallback, "project endpoints stay out of customer-facing messages");
+assert.equal(toERPUserMessage(new Error("Cannot read properties of undefined (reading 'map')"), fallback), fallback, "client runtime diagnostics stay out of customer-facing messages");
+assert.equal(toERPUserMessage(new Error("calculateBalance is not a function"), fallback), fallback, "client runtime diagnostics stay out of customer-facing messages");
 assert.equal(toERPUserMessage(new Error("Silakan pilih tanggal ujian."), fallback), "Silakan pilih tanggal ujian.", "safe Indonesian validation copy remains actionable");
 assert.equal(toERPUserMessage({ message: "Stack trace: server failed" }, fallback), fallback, "unknown provider objects use a safe fallback");
 assert.equal(toERPUserMessage(null, fallback), fallback, "empty errors use a safe fallback");
 
-console.log("Customer-facing error copy: 11 assertions passed");
+console.log("Customer-facing error copy: 16 assertions passed");
