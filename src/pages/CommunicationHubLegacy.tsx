@@ -14,7 +14,7 @@ import { getAccessToken } from '../authSession';
 import { legacyArchiveImportEnabled } from '../runtimeBackend';
 
 const SUPABASE_COMMUNICATION_ANNOUNCEMENTS = publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_ANNOUNCEMENTS") === 'true';
-const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled && publicRuntimeConfigValue("VITE_SUPABASE_COMMUNICATION_IMPORT_ENABLED") === 'true';
+const SUPABASE_COMMUNICATION_IMPORT = legacyArchiveImportEnabled;
 
 async function requestSupabaseAnnouncementApi(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
