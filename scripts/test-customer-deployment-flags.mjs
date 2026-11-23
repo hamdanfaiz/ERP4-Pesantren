@@ -36,6 +36,12 @@ const serverFlags = [...new Set(collectMatches(serverSource, /process\.env\.(SUP
 const compose = read("docker-compose.yml");
 const dockerfile = read("Dockerfile");
 const envExample = read(".env.example");
+const envExampleAssignmentKeys = collectMatches(envExample, /^([A-Za-z_][A-Za-z0-9_]*)=/gm);
+assert.equal(
+  envExampleAssignmentKeys.length,
+  new Set(envExampleAssignmentKeys).size,
+  ".env.example must not declare the same environment variable more than once",
+);
 const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
 const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
