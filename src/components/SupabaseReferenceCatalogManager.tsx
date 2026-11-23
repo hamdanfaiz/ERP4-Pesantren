@@ -38,7 +38,7 @@ function normalizedCode(value: string) {
   return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80);
 }
 
-export function SupabaseReferenceCatalogManager({ domains }: { domains?: SupabaseReferenceDomain[] }) {
+export function SupabaseReferenceCatalogManager({ domains, onSaved }: { domains?: SupabaseReferenceDomain[]; onSaved?: () => void }) {
   const { user } = useAuth();
   const isAdmin = ["Admin", "SuperAdmin"].includes(String(user?.role || ""));
   const availableDomains = useMemo(
@@ -95,6 +95,7 @@ export function SupabaseReferenceCatalogManager({ domains }: { domains?: Supabas
       setRows((current) => editing ? current.map((row) => row.id === saved.id ? saved : row) : [...current, saved].sort((a, b) => a.name.localeCompare(b.name, "id")));
       setEditing(null); setForm({ code: "", name: "", description: "", status: "active", nisGradeCode: "" }); setFormOpen(false);
       setNotice(editing ? "Referensi diperbarui." : "Referensi ditambahkan.");
+      onSaved?.();
     } catch (cause: any) { setError(toERPUserMessage(cause, "Referensi belum dapat disimpan.")); }
     finally { setSaving(false); }
   };
@@ -130,7 +131,7 @@ export function SupabaseReferenceCatalogManager({ domains }: { domains?: Supabas
   </section>;
 }
 
-export function SupabaseModuleReferenceSettings({ domains }: { domains: SupabaseReferenceDomain[] }) {
+export function SupabaseModuleReferenceSettings({ domains, onSaved }: { domains: SupabaseReferenceDomain[]; onSaved?: () => void }) {
   const { user } = useAuth();
   if (!["Admin", "SuperAdmin"].includes(String(user?.role || ""))) return null;
 
@@ -141,7 +142,7 @@ export function SupabaseModuleReferenceSettings({ domains }: { domains: Supabase
       <span className="hidden text-xs font-medium text-slate-500 group-open:inline">Tutup</span>
     </summary>
     <div className="border-t border-slate-200 p-3 dark:border-white/10">
-      <SupabaseReferenceCatalogManager domains={domains} />
+      <SupabaseReferenceCatalogManager domains={domains} onSaved={onSaved} />
     </div>
   </details>;
 }
