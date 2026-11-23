@@ -587,3 +587,42 @@ Hasil ini belum membuktikan backup Production dapat dipulihkan, seluruh policy/r
 1. Selesaikan UAT staging per modul dan catat bukti baca/tulis, izin role, isolasi tenant, validasi, serta alur gagal.
 2. Tim database meninjau 67 migrasi yang tertinggal, tiga nama ledger kosong, perbedaan katalog, DDL aktual, dan bukti backup/restore. Jangan menjalankan `db push` atau migration repair massal ke PTSAS.
 3. Setelah semua gerbang Production disetujui pemilik database, rencanakan cutover terpisah dari aktivasi flag aplikasi. Production tetap tidak berubah pada pemeriksaan ini.
+
+
+## Kesiapan data sintetis UAT di VQE — 23 November 2026
+
+Pemeriksaan `list_tables` baca-saja mencakup metadata schema `public`; **tidak membaca isi record dan tidak menulis data**. Hasil menyebut 182 tabel. Kolom jumlah baris dari katalog adalah perkiraan, bukan hitungan transaksi yang pasti. Ringkasan berikut menghitung tabel berawalan modul dengan estimasi positif dibanding jumlah tabel dalam kelompok awalan tersebut.
+
+| Modul | Tabel dengan estimasi positif / tabel pada kelompok |
+| --- | ---: |
+| PPDB | 6 / 9 |
+| Data Induk | 4 / 6 |
+| Tahfidz | 11 / 13 |
+| Asrama | 12 / 18 |
+| Akademik | 2 / 8 |
+| CBT | 4 / 7 |
+| LMS | 5 / 14 |
+| Keuangan | 0 / 9 |
+| UKS | 0 / 6 |
+| Koperasi | 1 / 11 |
+| Perpustakaan | 5 / 7 |
+| Marketplace | 0 / 7 |
+| Donasi dan Wakaf | 0 / 5 |
+| SDM | 0 / 7 |
+| Pemesanan Fasilitas | 0 / 3 |
+| Dokumen Digital | 4 / 4 |
+| Alumni | 2 / 2 |
+| CRM | 0 / 6 |
+| Laundry | 3 / 4 |
+| Komunikasi | 1 / 8 |
+
+Ini hanya indikasi kesiapan data; estimasi nol tidak membuktikan modul rusak, dan estimasi positif tidak membuktikan record dapat dibuka lewat aplikasi. UAT tetap bergantung pada runtime flag, sesi role yang sesuai, serta jalur API dan tenant yang aktif.
+
+### Rencana pengisian fixture
+
+- Setelah runtime flag VQE diperiksa di hosting, pilih satu modul dan aktifkan hanya gerbang yang diperlukan menurut [matriks flag modul](MODULE_RUNTIME_FLAG_MATRIX.md).
+- Buat fixture sintetis melalui form atau API aplikasi yang didukung agar validasi domain, penomoran, audit, dan foreign key berjalan sebagaimana penggunaan normal. Hindari insert langsung ke tabel dengan hak istimewa.
+- Pastikan setiap fixture berada pada tenant uji dan tidak memakai identitas nyata. Uji alur baca-simpan-baca serta penolakan akses role/tenant yang tidak berhak.
+- Jangan mengaktifkan modul hanya karena ada tabelnya. Jika gerbang staging belum terverifikasi, tunda fixture modul itu; Production tidak menerima fixture UAT.
+
+Tidak ada data sintetis baru yang dibuat pada pemeriksaan ini.
