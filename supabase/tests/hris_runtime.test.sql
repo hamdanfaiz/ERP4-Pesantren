@@ -75,7 +75,7 @@ SELECT is(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000101',
-    'EMP-001', 'Pegawai Uji', 'Pengelola Perpustakaan', 'Perpustakaan',
+    NULL, 'Pegawai Uji', 'Pengelola Perpustakaan', 'Perpustakaan',
     'pegawai-001@test.invalid', '+6281234567890', DATE '2024-01-15', 'active',
     'd5000000-0000-4000-8000-000000000191'
   )->>'replayed',
@@ -87,7 +87,7 @@ SELECT is(
    FROM public.hris_employees
    WHERE tenant_id = 'd5000000-0000-4000-8000-000000000001'
      AND id = 'd5000000-0000-4000-8000-000000000101'),
-  'EMP-001|Pegawai Uji|active',
+  'PEG-2024-00001|Pegawai Uji|active',
   'employee details are persisted in the tenant'
 );
 SELECT is(
@@ -102,7 +102,7 @@ SELECT is(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000101',
-    'EMP-001', 'Pegawai Uji', 'Pengelola Perpustakaan', 'Perpustakaan',
+    NULL, 'Pegawai Uji', 'Pengelola Perpustakaan', 'Perpustakaan',
     'pegawai-001@test.invalid', '+6281234567890', DATE '2024-01-15', 'active',
     'd5000000-0000-4000-8000-000000000191'
   )->>'replayed',
@@ -114,7 +114,7 @@ SELECT throws_ok(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000101',
-    'EMP-001', 'Nama Berubah', 'Pengelola Perpustakaan', 'Perpustakaan',
+    NULL, 'Nama Berubah', 'Pengelola Perpustakaan', 'Perpustakaan',
     'pegawai-001@test.invalid', '+6281234567890', DATE '2024-01-15', 'active',
     'd5000000-0000-4000-8000-000000000191'
   )$$,
@@ -123,24 +123,24 @@ SELECT throws_ok(
   'an idempotency key cannot replay a changed employee payload'
 );
 SELECT throws_ok(
-  $$SELECT public.upsert_hris_employee(
+  $SELECT public.upsert_hris_employee(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000102',
-    'EMP-001', 'Pegawai Duplikat', 'Staf', 'Umum',
+    'EMP-MANUAL', 'Pegawai Dengan Nomor Manual', 'Staf', 'Umum',
     'pegawai-002@test.invalid', NULL, DATE '2024-02-01', 'active',
     'd5000000-0000-4000-8000-000000000192'
-  )$$,
-  '23505',
-  'duplicate key value violates unique constraint "hris_employees_tenant_id_employee_number_key"',
-  'employee number is unique inside a tenant'
+  )$,
+  '22023',
+  'Nomor pegawai baru dibuat otomatis oleh Naming Series',
+  'new employee numbers must be allocated by Naming Series'
 );
 SELECT throws_ok(
   $$SELECT public.upsert_hris_employee(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000102',
-    'EMP-002', 'Pegawai Duplikat Email', 'Staf', 'Umum',
+    NULL, 'Pegawai Duplikat Email', 'Staf', 'Umum',
     'pegawai-001@test.invalid', NULL, DATE '2024-02-01', 'active',
     'd5000000-0000-4000-8000-000000000192'
   )$$,
@@ -153,7 +153,7 @@ SELECT is(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000101',
-    'EMP-001', 'Pegawai Uji Diperbarui', 'Pengelola Perpustakaan', 'Layanan',
+    NULL, 'Pegawai Uji Diperbarui', 'Pengelola Perpustakaan', 'Layanan',
     'pegawai-001@test.invalid', '+6281234567890', DATE '2024-01-15', 'active',
     'd5000000-0000-4000-8000-000000000193'
   )->>'replayed',
@@ -204,7 +204,7 @@ SELECT throws_ok(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000105',
-    'EMP-BAD', 'Pegawai Tidak Valid', 'Staf', 'Umum',
+    NULL, 'Pegawai Tidak Valid', 'Staf', 'Umum',
     NULL, NULL, NULL, 'unknown', 'd5000000-0000-4000-8000-000000000196'
   )$$,
   '22023',
