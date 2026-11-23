@@ -626,3 +626,12 @@ Ini hanya indikasi kesiapan data; estimasi nol tidak membuktikan modul rusak, da
 - Jangan mengaktifkan modul hanya karena ada tabelnya. Jika gerbang staging belum terverifikasi, tunda fixture modul itu; Production tidak menerima fixture UAT.
 
 Tidak ada data sintetis baru yang dibuat pada pemeriksaan ini.
+
+## Checkpoint pasca-merge PR #238 — 23 November 2026
+
+- PR #238 (https://github.com/hamdanfaiz/ERP4-Pesantren/pull/238) sudah merged ke `main` pada `9b9ad49b82671553458d14efbfa5d5ad95910c5b`. CI pasca-merge lulus **4/4**: Supabase Preview, build frontend/Firebase bundle guard, migrasi/API Auth/pgTAP, dan instalasi NPM lingkungan pelanggan.
+- Pemeriksaan ledger baca-saja sekarang mencocokkan **167/167** file migrasi source dengan VQE; versi terbaru `20270405000000`. PTSAS Production mencatat **100** versi sampai `20270316000000`; **67** versi source belum tercatat dan ada tiga nama kosong (`20261205000000`, `20261206000000`, `20270118000000`). Tidak ada versi Production di luar source/VQE.
+- CI mengulang migrasi pada Supabase lokal terisolasi dan meluluskan tes migrasi historis, API/Auth dan isolasi tenant, transaksi ID/kamar, Tahfidz dan leaderboard, Keuangan, Storage privat, Dokumen Digital, serta backup/restore lokal. Ini bukan bukti UAT browser semua modul atau pemulihan backup Production.
+- Nilai Environment Variables hPanel staging tetap **belum terverifikasi**. Helper computer-use sebelumnya gagal dimulai dengan `failed to write kernel assets: The system cannot find the path specified. (os error 3)`; tidak ada variabel hosting yang diubah. Source menyediakan 11 gate server yang disebut operator; PPDB administrasi juga memerlukan `VITE_SUPABASE_PPDB_RUNTIME_ENABLED`. Lanjutkan verifikasi/aktivasi satu kelompok pada satu waktu setelah prasyarat dan UAT modulnya lulus.
+- PTSAS Production tidak diubah. Langkah tersisa: periksa nilai flag di hPanel staging, jalankan UAT baca-simpan-baca per modul dengan fixture sintetis melalui aplikasi, lalu tim database menyelesaikan rekonsiliasi DDL, urutan promosi, dan bukti restore Production sebelum cutover.
+
