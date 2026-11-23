@@ -107,3 +107,43 @@ Pada PTSAS, tidak ditemukan versi ledger yang tidak ada di source dan tidak dite
 4. Gunakan backup Production dan buktikan restore ke target aman sebelum menjalankan migration apa pun di Production.
 5. VQE memiliki ledger yang cocok, tetapi tetap jalankan UAT staging untuk modul CRM/OpenWA sebelum menganggap jalur kirim siap dipakai.
 
+
+
+---
+
+## Pemeriksaan ulang baca-saja — 24 November 2026, 02.00 WIB
+
+**Source:** `main`, commit `40f398b0877a9f2fc85ecd62760cb17242d99f1d`  
+**Batas:** hanya metadata migrasi, katalog, grants/policy RLS, dan advisor. Tidak membaca baris aplikasi atau mengubah skema, data, Auth, Storage, konfigurasi, maupun ledger.
+
+| Environment | File source | Ledger | Pasangan versi/nama cocok | Source belum tercatat | Nama kosong / versi ekstra |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| VQE staging | 167 | 167 | 167/167 | 0 | 0 |
+| PTSAS Production | 167 | 100 | 97/100 | 67 | 3 nama kosong / 0 ekstra |
+
+Di PTSAS tidak ada versi ledger yang tidak dikenal source dan tidak ada nama berbeda yang terisi. Tiga nama kosong yang tercatat di snapshot 22 November tetap ada. **Delta baru sejak snapshot sebelumnya:** `20270405000000_role_permission_fallback` juga belum tercatat di Production. Daftar 66 versi lain tetap seperti daftar pada bagian sebelumnya.
+
+### Hasil katalog VQE
+
+- **182/182** tabel dasar schema `public` mengaktifkan dan memaksa RLS.
+- **176** tabel tidak memiliki policy; tidak satu pun dari 176 tabel itu memberi akses tabel kepada role `anon` atau `authenticated`.
+- `anon` tidak memiliki hak tabel pada tabel dasar `public`.
+- `authenticated` hanya mendapat hak **SELECT** pada 5 tabel: `candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`. Masing-masing memiliki policy terbatas; tidak ada hak INSERT, UPDATE, atau DELETE langsung untuk role itu.
+- Ini memeriksa akses langsung tabel melalui role Postgres. Ini tidak menggantikan uji autentikasi, otorisasi API server, Storage, atau isolasi lintas-tenant pada semua alur.
+
+### Supabase Advisors VQE
+
+- Keamanan: 176 temuan INFO “RLS Enabled No Policy” dan 1 WARN “Leaked Password Protection Disabled”.
+- Performa: 262 FK tanpa indeks penutup (INFO), 91 indeks belum terpakai (INFO), dan 1 WARN “Auth RLS Initialization Plan”.
+- Health: tidak ada temuan.
+- Policy `tahfidz_student_ayah_progress_owner_all` yang diperiksa di katalog menggunakan scalar subquery untuk mengambil konteks tenant pada `USING` dan `WITH CHECK`, sesuai bentuk migration source. Tidak dibuat perubahan SQL untuk menghilangkan warning itu; definisi policy aktual atau rencana query perlu ditinjau lebih lanjut sebelum menambah migration.
+- Jangan menghapus indeks yang belum terpakai atau membuat semua indeks FK secara massal tanpa workload representatif.
+
+### CI dan batas Production
+
+GitHub Actions pasca-merge pada commit yang tercantum di atas lulus **3/3 job**: frontend/typecheck/runtime guards, instalasi NPM pelanggan, dan migrasi/API/pgTAP. Job database memakai baseline Production historis **pada database lokal terisolasi**, termasuk replay migrasi, pengujian, serta backup/restore lokal. Ini bukan backup/restore PTSAS dan bukan bukti DDL Production cocok.
+
+Karena itu, perbedaan ledger **bukan perintah untuk menjalankan `db push`**. Backend owner tetap perlu mencocokkan DDL aktual, fungsi, trigger, policy, grants, dan checksum; membuat rehearsal terisolasi berdasarkan Production; serta membuktikan pemulihan backup sebelum menyusun promosi migration satu per satu.
+
+- [Rincian CI pasca-merge](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45241128528)
+- PTSAS Production tidak menerima perubahan pada pemeriksaan ini.
