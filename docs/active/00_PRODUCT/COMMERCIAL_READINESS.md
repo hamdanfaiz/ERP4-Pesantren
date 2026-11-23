@@ -1,3 +1,23 @@
+## Supabase Advisor dan tindak lanjut keamanan — 23 November 2026
+
+Pemeriksaan Advisor bersifat baca-saja dan tidak mengubah skema, Auth, atau data.
+
+### Peringatan keamanan
+
+- **PTSAS Production:** Advisor melaporkan satu fungsi dengan `search_path` yang dapat berubah (`public.erp4_ppdb_update_updated_at_column`) dan empat helper `SECURITY DEFINER` yang masih bisa dijalankan pengguna terautentikasi di schema `public` (`current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, dan `is_tenant_admin()`). Source memiliki migrasi `20270209000000_harden_ppdb_trigger_search_path` dan `20270210000000_internalize_tenant_rls_helpers`; kedua versi tercatat di VQE dan tidak tercatat di ledger PTSAS.
+- Perubahan source tersebut tampak ditujukan tepat pada dua jenis temuan di atas. Namun, perbedaan ledger bukan bukti bahwa DDL Production sama persis dengan source atau belum berubah secara manual. Pemilik database perlu membandingkan definisi aktual, lalu menilai dan menjadwalkan promosi dua migrasi itu melalui prosedur yang telah direview; jangan menjalankan seluruh migration gap sekaligus.
+- **Kedua project, PTSAS dan VQE:** Advisor melaporkan perlindungan kata sandi bocor nonaktif. Ini pengaturan Auth project, bukan migrasi SQL. Tinjau dan aktifkan lebih dulu di staging setelah memastikan dampaknya pada alur pendaftaran dan penggantian kata sandi; setelah itu rencanakan pengaturan Production.
+- Info `RLS enabled without policy` ditemukan pada 157 tabel PTSAS dan 176 tabel VQE. RLS tanpa policy biasanya menolak akses langsung untuk role biasa, sehingga temuan INFO ini sendiri bukan bukti data terbuka. Tetap pastikan jalur server yang menggunakan role istimewa memeriksa identitas, tenant, dan izin modul.
+
+### Peringatan kinerja
+
+- PTSAS: 269 foreign key tanpa indeks, dua peringatan rencana inisialisasi fungsi Auth pada policy RLS, dan satu pasangan indeks duplikat pada `document_records`. VQE: 262 foreign key tanpa indeks, satu peringatan rencana inisialisasi Auth, dan tidak ada temuan indeks duplikat.
+- Advisor juga melaporkan indeks yang belum digunakan (PTSAS 89, VQE 91). Jangan menghapus indeks hanya dari statistik ini; tinjau query workload, batas waktu pengamatan, constraint, dan pola beban dahulu.
+
+### Batas dan langkah berikut
+
+Hasil Advisor tidak membuktikan kebijakan RLS, grant, route backend, Storage, atau definisi DDL secara menyeluruh. Tidak ada query baris operasional yang dijalankan dalam pemeriksaan Advisor ini. Rekonsiliasi DDL Production, review urutan migrasi, dan latihan backup/restore tetap menjadi gate terpisah bagi pemilik database.
+
 ## Checkpoint verifikasi modul staging — 23 November 2026
 
 ### Source dan deployment
