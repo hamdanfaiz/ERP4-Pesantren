@@ -143,14 +143,14 @@ SELECT throws_ok(
   'an idempotency key cannot replay a changed employee payload'
 );
 SELECT throws_ok(
-  $SELECT public.upsert_hris_employee(
+  $$SELECT public.upsert_hris_employee(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000102',
     'EMP-MANUAL', 'Pegawai Dengan Nomor Manual', 'Staf', 'Umum',
     'pegawai-002@test.invalid', NULL, DATE '2024-02-01', 'active',
     'd5000000-0000-4000-8000-000000000192'
-  )$,
+  )$$,
   '22023',
   'Nomor pegawai baru dibuat otomatis oleh Naming Series',
   'new employee numbers must be allocated by Naming Series'
@@ -160,7 +160,7 @@ SELECT throws_ok(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000102',
-    NULL, 'Pegawai Duplikat Email', 'Staf', 'Umum',
+    NULL, 'Pegawai Duplikat Email', 'Pengelola Perpustakaan', 'Perpustakaan',
     'pegawai-001@test.invalid', NULL, DATE '2024-02-01', 'active',
     'd5000000-0000-4000-8000-000000000192'
   )$$,
