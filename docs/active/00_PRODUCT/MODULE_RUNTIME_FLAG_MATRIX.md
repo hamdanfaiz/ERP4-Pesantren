@@ -86,8 +86,8 @@ Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Un
 
 1. Pilih website staging `lightgreen-jay-425688.hostingersite.com` pada hPanel, lalu buka pengaturan aplikasi → **Environment variables**. Pastikan website ini memakai proyek VQE staging `vqemuyzveuirlkvdggjd`; jangan menerapkan langkah ini pada domain Production.
 2. Tambahkan hanya flag modul yang prasyaratnya telah lulus. Gunakan nilai `true` huruf kecil. Untuk flag pasangan `VITE_*`, atur hanya bila UI perlu menampilkan alur terkait. Jangan menaruh secret server dengan awalan `VITE_`.
-3. Terapkan perubahan dan restart/redeploy aplikasi staging agar proses membaca konfigurasi baru. Jangan menampilkan atau mengirim dump environment.
-4. Uji satu modul dengan data sintetis: baca, simpan, baca ulang, validasi relasi, role, dan penolakan tenant lain. Catat commit deployment dan hasilnya. Jika gagal, kembalikan flag modul itu menjadi `false`, lalu restart/redeploy.
+3. Klik **Apply changes**, lalu restart aplikasi Node.js dari Dashboard website staging. Dalam ERP ini, `SUPABASE_*` dibaca saat server mulai dan flag `VITE_*` yang diizinkan disajikan saat runtime melalui `/runtime-config.json` oleh `server.ts`; perubahan flag tidak memerlukan build/deploy ulang selama commit aplikasi yang sedang berjalan sudah menyediakan endpoint tersebut. Deploy ulang hanya jika source/build berubah atau deployment aktif belum memuat implementasi runtime-config ini. Jangan menampilkan atau mengirim dump environment.
+4. Uji satu modul dengan data sintetis: baca, simpan, baca ulang, validasi relasi, role, dan penolakan tenant lain. Catat commit deployment dan hasilnya. Jika gagal, kembalikan flag modul itu menjadi `false`, lalu restart aplikasi staging.
 
 ### Urutan gerbang yang diperiksa
 
