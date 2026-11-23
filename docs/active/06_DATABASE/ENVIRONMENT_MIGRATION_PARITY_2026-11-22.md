@@ -147,3 +147,47 @@ Karena itu, perbedaan ledger **bukan perintah untuk menjalankan `db push`**. Bac
 
 - [Rincian CI pasca-merge](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45241128528)
 - PTSAS Production tidak menerima perubahan pada pemeriksaan ini.
+
+
+---
+
+## Pemeriksaan ulang baca-saja PTSAS — 24 November 2026, 02.25 WIB
+
+**Source:** `main`, commit `026acff15617d6b30ebad2224ebaf3f6a1b16888`. Pemeriksaan memakai konektor baca-saja, query katalog PostgreSQL, dan Supabase Advisors. Tidak membaca baris aplikasi dan tidak mengubah Production.
+
+### Ledger dan akses tabel
+
+- Source berisi **167** migration; ledger PTSAS berisi **100** entri: **97** nama cocok, **3** nama kosong, **67** source migration belum tercatat, tanpa versi ekstra atau nama terisi yang berbeda.
+- Schema `public` memiliki **162** tabel dasar; 162 mengaktifkan dan memaksa RLS.
+- Role `anon` tidak memiliki hak `SELECT` tabel. Role `authenticated` memiliki `SELECT` pada 5 tabel dan tidak memiliki hak langsung `INSERT`, `UPDATE`, atau `DELETE` pada tabel dasar tersebut.
+- Angka privilege ini tidak membuktikan bahwa kebijakan setiap tabel, route server, Auth, atau Storage sudah benar.
+
+### Fungsi dan policy yang perlu ditinjau
+
+| Objek PTSAS | Kondisi katalog baca-saja | Migration source yang relevan dan belum tercatat |
+| --- | --- | --- |
+| `erp4_ppdb_update_updated_at_column()` | `SECURITY INVOKER`, `search_path` tidak dipatok (`proconfig` kosong); role `authenticated` tidak mendapat hak eksekusi langsung. | `20270209000000_harden_ppdb_trigger_search_path` mematok `search_path = pg_catalog`. |
+| `current_app_role()`, `current_tenant_id()`, `has_module_access(text)`, `is_tenant_admin()` | Keempatnya berada di `public`, `SECURITY DEFINER`, memakai `search_path = pg_catalog, public`, dan role `authenticated` dapat mengeksekusinya. Advisor mengidentifikasinya sebagai RPC `/rest/v1/rpc` yang dapat dipanggil role tersebut. | `20270210000000_internalize_tenant_rls_helpers` memindahkannya ke schema `private` yang tidak dimaksudkan untuk Data API, lalu mengatur grant untuk pemakaian policy. Pastikan daftar schema Data API tetap mengecualikan `private`. |
+| Policy `user_profiles_select_own` dan `profiles_select_self_or_tenant_admin` | Ekspresi memakai `auth.uid()` dan helper tanpa scalar subquery. Policy `profiles` merujuk helper schema `public`. | `20270211000000_optimize_profile_rls_initplans` mengubah evaluasi context menjadi scalar subquery dan memakai helper `private` setelah migration sebelumnya. |
+
+### Temuan Advisors saat snapshot
+
+| Jenis | Temuan |
+| --- | --- |
+| Keamanan | 157 INFO `RLS Enabled No Policy`; 1 WARN fungsi dengan `search_path` mutable; 4 WARN fungsi `SECURITY DEFINER` dapat dieksekusi `authenticated`; 1 WARN perlindungan kata sandi bocor belum aktif. |
+| Performa | 269 FK tanpa indeks penutup; 2 WARN RLS InitPlan; 89 indeks belum dipakai; 1 WARN indeks duplikat pada `document_records`. |
+| Kesehatan | Tidak ada temuan. |
+
+Migration yang relevan untuk temuan indeks duplikat adalah `20270227000000_remove_redundant_document_number_index`. `20270330000000_add_core_composite_fk_indexes` membuat sejumlah indeks FK untuk tabel inti, bukan seluruh 269 temuan; source migration sendiri memperingatkan bahwa `CREATE INDEX` standar dapat menahan penulisan dan meminta peninjauan ukuran tabel serta jadwal sebelum Production.
+
+Perlindungan kata sandi bocor merupakan pengaturan Auth project, bukan migration SQL. Tim perlu memeriksa dan mengatur opsi tersebut melalui konfigurasi Auth yang berlaku untuk project.
+
+### Batas dan urutan tindak lanjut
+
+1. Jangan menjalankan `db push` atau migration repair ke PTSAS hanya berdasarkan ledger dan Advisor. DDL aktual, trigger, policy, grants, schema API exposure, dan efek migrasi belum direkonsiliasi satu per satu.
+2. Backend owner cocokkan objek katalog yang dilaporkan di atas dengan source migration serta DDL Production; prioritaskan peninjauan fungsi helper yang masih terekspos di `public`.
+3. Rehearsal-kan migration di target terisolasi dan tinjau lock/time impact untuk migration indeks sebelum menetapkan urutan promosi.
+4. Buktikan backup dan pemulihan PTSAS ke target aman sebelum menerapkan perubahan Production.
+5. CI post-merge terbaru pada commit `026acff15617d6b30ebad2224ebaf3f6a1b16888` lulus **3/3 job** pada run [45246002213](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45246002213). Job database menjalankan replay, test, serta backup/restore pada Supabase lokal terisolasi, bukan pada PTSAS.
+
+**Tidak ada perubahan pada skema, data, Auth, Storage, konfigurasi, atau ledger Production dalam pemeriksaan ini.**
