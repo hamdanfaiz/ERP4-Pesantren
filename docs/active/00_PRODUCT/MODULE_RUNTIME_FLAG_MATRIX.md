@@ -78,6 +78,40 @@ Flag yang mengatur fitur inti dapat bergantung pada lebih dari satu nilai. Conto
 
 Jangan menyalakan semua gerbang sekaligus untuk mengembalikan menu. Itu dapat membuka endpoint yang migrasi, data tenant, izin, atau policy-nya belum siap. Jika menu terlihat tetapi layanan belum tersedia, catat nama modul dan status responsnya; perubahan flag harus menjadi keputusan konfigurasi release setelah prasyaratnya lulus.
 
+## Catatan deployment Hostinger staging — 23 November 2026
+
+Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace tidak terlihat pada Environment variables Hostinger staging. Source memuat flag tersebut di `.env.example` dan `server.ts`; jika nilainya tidak disetel atau bukan teks `true`, gerbang API tetap tertutup. Ini bukan alasan untuk membuka semua gerbang sekaligus.
+
+### Lokasi dan prosedur konfigurasi
+
+1. Pilih website staging `lightgreen-jay-425688.hostingersite.com` pada hPanel, lalu buka pengaturan aplikasi → **Environment variables**. Pastikan website ini memakai proyek VQE staging `vqemuyzveuirlkvdggjd`; jangan menerapkan langkah ini pada domain Production.
+2. Tambahkan hanya flag modul yang prasyaratnya telah lulus. Isi nilai persis `true` huruf kecil. Untuk flag pasangan `VITE_*`, atur hanya bila UI perlu menampilkan alur terkait. Jangan menaruh secret server dengan awalan `VITE_`.
+3. Terapkan perubahan dan restart/redeploy aplikasi staging agar proses membaca konfigurasi baru. Jangan menampilkan atau mengirim dump environment.
+4. Uji satu modul dengan data sintetis: baca, simpan, baca ulang, validasi relasi, role, dan penolakan tenant lain. Catat commit deployment dan hasilnya. Jika gagal, kembalikan flag modul itu menjadi `false`, lalu restart/redeploy.
+
+### Urutan gerbang yang diperiksa
+
+| Modul | Flag API/server | Prasyarat sebelum nilai `true` |
+| --- | --- | --- |
+| PPDB administrasi | `SUPABASE_PPDB_RUNTIME_ENABLED` | Migrasi dan profil tenant tersedia; alur dokumen privat ditinjau. Bila UI memerlukan runtime, setel `VITE_SUPABASE_PPDB_RUNTIME_ENABLED` juga. |
+| Keuangan | `SUPABASE_FINANCE_RUNTIME_ENABLED` | Alur transaksi, ledger tenant, role, dan pembacaan ulang selesai diuji. |
+| Anggaran | `SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED` | Keuangan aktif dan izin akses anggaran ditinjau. |
+| UKS | `SUPABASE_HEALTHCARE_RUNTIME_ENABLED` | Akses data kesehatan dan pembatasan role/tenant ditinjau. |
+| Koperasi | `SUPABASE_COOPERATIVE_RUNTIME_ENABLED` | Ledger serta transaksi tenant sudah lulus uji. |
+| Multi-Unit | `SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED` | Relasi unit organisasi dan izin unit sudah tersedia dan diuji. |
+| Sumber Daya Manusia | `SUPABASE_HRIS_RUNTIME_ENABLED` | Profil pegawai, kehadiran, cuti, dan batas role sudah diperiksa. |
+| Pemesanan Fasilitas | `SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED` | Konflik jadwal dan penyimpanan transaksi sudah diuji. |
+| Aset GA | `SUPABASE_GA_ASSETS_RUNTIME_ENABLED` | Mutasi stok tenant dan izin sudah diverifikasi. |
+| Donasi/Wakaf | `SUPABASE_DONATION_RUNTIME_ENABLED` | Kampanye dan pencatatan tenant sudah diverifikasi; data dummy tidak dianggap histori keuangan. |
+| Marketplace | `SUPABASE_MARKETPLACE_RUNTIME_ENABLED` | Reservasi stok dan transaksi serentak sudah diuji. |
+
+### Gerbang tambahan yang tidak boleh ikut terbuka otomatis
+
+- Bukti pembayaran memiliki flag tersendiri `SUPABASE_FINANCE_PROOF_STORAGE_RUNTIME_ENABLED`; buka hanya setelah bucket privat, akses berkas tenant, dan unggah/baca ulang lulus.
+- Dokumen PPDB dan onboarding memiliki flag terpisah: `SUPABASE_PPDB_DOCUMENTS_RUNTIME_ENABLED` dan `SUPABASE_PPDB_ONBOARDING_RUNTIME_ENABLED`. Tagihan kandidat memerlukan `SUPABASE_PPDB_FINANCE_BILLS_ENABLED` bersama PPDB dan Keuangan.
+- Pendaftaran PPDB publik adalah perubahan berbeda. Jangan aktifkan `SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED`, `PUBLIC_PPDB_ENABLED`, atau `PUBLIC_PPDB_TENANT_ID` hanya untuk membuka layar administrasi PPDB.
+- Variabel `SUPABASE_URL`, publishable key, secret key, dan dua kunci PII harus tetap mengarah ke VQE yang tepat. Secret key, password database, serta kunci PII hanya di environment server; jangan menyalin nilainya ke tiket, chat, atau browser.
+
 ## Pemeriksaan konsistensi source
 
 Guard `npm run test:customer-deployment-flags` memeriksa allowlist konfigurasi browser, `.env.example`, Docker Compose, error publik yang aman, dan beberapa gerbang UI. Guard tersebut bukan bukti bahwa environment Production sudah memuat semua variabel, bahwa API/database setiap modul lulus UAT, atau bahwa Production siap menerima migrasi.
