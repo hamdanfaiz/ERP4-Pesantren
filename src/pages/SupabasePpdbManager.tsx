@@ -447,7 +447,15 @@ export function SupabasePpdbManager() {
         </div>
       </header>
 
-      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Kelola pendaftar, tahapan seleksi, nilai ujian, penilaian Al-Qur’an dan Tahfidz, serta pendaftaran santri. {PPDB_DOCUMENTS_ENABLED ? "Berkas pendaftar disimpan secara privat dan hanya dapat diakses oleh pengguna yang berwenang." : "Pengelolaan berkas pendaftar belum tersedia."} Tagihan pendaftar dapat diterbitkan setelah layanan Keuangan tersedia.</div>
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">
+        Kelola pendaftar, tahapan seleksi, nilai ujian, penilaian Al-Qur’an dan Tahfidz, serta pendaftaran santri.{" "}
+        {PPDB_DOCUMENTS_ENABLED
+          ? "Berkas pendaftar disimpan secara privat dan hanya dapat diakses oleh pengguna yang berwenang."
+          : "Pengelolaan berkas pendaftar belum tersedia."}{" "}
+        {PPDB_FINANCE_BILLS_ENABLED
+          ? "Tagihan pendaftar dapat diterbitkan pada detail calon santri oleh pengguna yang berwenang."
+          : "Penerbitan tagihan pendaftar belum tersedia."}
+      </div>
       {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
@@ -686,3 +694,4 @@ function CandidateDocumentManager({
     {notice && <p role="status" className="text-xs text-emerald-700 dark:text-emerald-300">{notice} Jika status belum berubah, muat ulang detail pendaftar.</p>}
   </section>;
 }
+
