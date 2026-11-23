@@ -56,8 +56,11 @@ VALUES (
   'active', 'd5000000-0000-4000-8000-000000000011', 'd5000000-0000-4000-8000-000000000011'
 );
 
-SELECT ok(to_regprocedure('public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)') IS NOT NULL,
-  'employee upsert RPC exists with the expected signature');
+SELECT ok(
+  to_regprocedure('public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)') IS NOT NULL
+  AND to_regprocedure('public.upsert_hris_employee_with_unit(uuid,uuid,uuid,text,text,text,uuid,text,text,date,text,uuid)') IS NOT NULL,
+  'employee upsert and tenant-unit RPCs exist with the expected signatures'
+);
 SELECT ok(to_regprocedure('public.record_hris_attendance(uuid,uuid,uuid,date,text,timestamptz,timestamptz,uuid)') IS NOT NULL,
   'attendance RPC exists with the expected signature');
 SELECT ok(to_regprocedure('public.request_hris_leave(uuid,uuid,uuid,text,date,date,text,uuid)') IS NOT NULL,
@@ -68,12 +71,16 @@ SELECT ok(
   has_function_privilege('service_role', 'public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)', 'EXECUTE')
   AND has_function_privilege('service_role', 'public.record_hris_attendance(uuid,uuid,uuid,date,text,timestamptz,timestamptz,uuid)', 'EXECUTE')
   AND has_function_privilege('service_role', 'public.request_hris_leave(uuid,uuid,uuid,text,date,date,text,uuid)', 'EXECUTE')
-  AND has_function_privilege('service_role', 'public.review_hris_leave(uuid,uuid,uuid,text,text,uuid)', 'EXECUTE'),
+  AND has_function_privilege('service_role', 'public.review_hris_leave(uuid,uuid,uuid,text,text,uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.upsert_hris_employee_with_unit(uuid,uuid,uuid,text,text,text,uuid,text,text,date,text,uuid)', 'EXECUTE'),
   'trusted server role can execute all HRIS write RPCs');
 SELECT ok(NOT has_function_privilege('anon', 'public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)', 'EXECUTE'),
   'anonymous role cannot execute the employee RPC');
-SELECT ok(NOT has_function_privilege('authenticated', 'public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)', 'EXECUTE'),
-  'browser-authenticated role cannot execute the employee RPC directly');
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('authenticated', 'public.upsert_hris_employee_with_unit(uuid,uuid,uuid,text,text,text,uuid,text,text,date,text,uuid)', 'EXECUTE'),
+  'browser-authenticated role cannot execute HRIS employee RPCs directly'
+);
 SELECT ok(NOT has_table_privilege('authenticated', 'public.hris_employees', 'SELECT'),
   'browser-authenticated role cannot read the HRIS employee table directly');
 
@@ -139,7 +146,7 @@ SELECT throws_ok(
     'd5000000-0000-4000-8000-000000000191'
   )$$,
   '23505',
-  'Pegawai berubah setelah permintaan awal; muat ulang sebelum mencoba lagi',
+  'Pegawai berubah sejak permintaan awal; muat ulang sebelum mencoba lagi',
   'an idempotency key cannot replay a changed employee payload'
 );
 SELECT throws_ok(
@@ -169,11 +176,12 @@ SELECT throws_ok(
   'employee email is unique inside a tenant'
 );
 SELECT is(
-  public.upsert_hris_employee(
+  public.upsert_hris_employee_with_unit(
     'd5000000-0000-4000-8000-000000000001',
     'd5000000-0000-4000-8000-000000000011',
     'd5000000-0000-4000-8000-000000000101',
-    NULL, 'Pegawai Uji Diperbarui', 'Pengelola Perpustakaan', 'Layanan',
+    NULL, 'Pegawai Uji Diperbarui', 'Pengelola Perpustakaan',
+    'd5000000-0000-4000-8000-000000000032',
     'pegawai-001@test.invalid', '+6281234567890', DATE '2024-01-15', 'active',
     'd5000000-0000-4000-8000-000000000193'
   )->>'replayed',
