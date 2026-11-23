@@ -71,4 +71,10 @@ assert.deepEqual(findings, [], [
   "Technical implementation terms were found in customer-facing UI copy:",
   ...findings.slice(0, 40),
 ].join("\n"));
+
+const ppdbSource = fs.readFileSync(path.join(root, "src/pages/SupabasePpdbManager.tsx"), "utf8");
+assert.doesNotMatch(ppdbSource, /Tagihan pendaftar dapat diterbitkan setelah layanan Keuangan tersedia/);
+assert.match(ppdbSource, /PPDB_FINANCE_BILLS_ENABLED[\s\S]*Tagihan pendaftar dapat diterbitkan pada detail calon santri/);
+assert.match(ppdbSource, /PPDB_FINANCE_BILLS_ENABLED[\s\S]*Penerbitan tagihan pendaftar belum tersedia/);
 console.log("Customer-facing UI copy check passed.");
+
