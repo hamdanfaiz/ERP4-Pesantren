@@ -36,6 +36,26 @@ VALUES
   ('d5000000-0000-4000-8000-000000000021', 'd5000000-0000-4000-8000-000000000002',
    'hris-runtime-other-admin@test.invalid', 'Admin Tenant Lain', 'admin', 'active', '{"hris":true}');
 
+INSERT INTO public.organization_units (
+  id, tenant_id, code, name, unit_type, status, created_by_user_id, updated_by_user_id
+)
+VALUES
+  ('d5000000-0000-4000-8000-000000000031', 'd5000000-0000-4000-8000-000000000001',
+   'PERPUSTAKAAN', 'Perpustakaan', 'lainnya', 'active',
+   'd5000000-0000-4000-8000-000000000011', 'd5000000-0000-4000-8000-000000000011'),
+  ('d5000000-0000-4000-8000-000000000032', 'd5000000-0000-4000-8000-000000000001',
+   'LAYANAN', 'Layanan', 'lainnya', 'active',
+   'd5000000-0000-4000-8000-000000000011', 'd5000000-0000-4000-8000-000000000011');
+
+INSERT INTO public.tenant_reference_items (
+  tenant_id, domain, code, name, description, status, created_by_user_id, updated_by_user_id
+)
+VALUES (
+  'd5000000-0000-4000-8000-000000000001', 'hris_job_title', 'PENGELOLA_PERPUSTAKAAN',
+  'Pengelola Perpustakaan', 'Jabatan sintetis untuk pengujian alur pegawai HRIS.',
+  'active', 'd5000000-0000-4000-8000-000000000011', 'd5000000-0000-4000-8000-000000000011'
+);
+
 SELECT ok(to_regprocedure('public.upsert_hris_employee(uuid,uuid,uuid,text,text,text,text,text,text,date,text,uuid)') IS NOT NULL,
   'employee upsert RPC exists with the expected signature');
 SELECT ok(to_regprocedure('public.record_hris_attendance(uuid,uuid,uuid,date,text,timestamptz,timestamptz,uuid)') IS NOT NULL,
