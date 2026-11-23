@@ -80,12 +80,12 @@ Jangan menyalakan semua gerbang sekaligus untuk mengembalikan menu. Itu dapat me
 
 ## Catatan deployment Hostinger staging — 23 November 2026
 
-Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace tidak terlihat pada Environment variables Hostinger staging. Source memuat flag tersebut di `.env.example` dan `server.ts`; jika nilainya tidak disetel atau bukan teks `true`, gerbang API tetap tertutup. Ini bukan alasan untuk membuka semua gerbang sekaligus.
+Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace tidak terlihat pada Environment variables Hostinger staging. Source memuat flag tersebut di `.env.example` dan `server.ts`; jika nilainya kosong atau setelah spasi dipangkas dan huruf dinormalisasi tidak bernilai `true`, gerbang API tetap tertutup. Ini bukan alasan untuk membuka semua gerbang sekaligus.
 
 ### Lokasi dan prosedur konfigurasi
 
 1. Pilih website staging `lightgreen-jay-425688.hostingersite.com` pada hPanel, lalu buka pengaturan aplikasi → **Environment variables**. Pastikan website ini memakai proyek VQE staging `vqemuyzveuirlkvdggjd`; jangan menerapkan langkah ini pada domain Production.
-2. Tambahkan hanya flag modul yang prasyaratnya telah lulus. Isi nilai persis `true` huruf kecil. Untuk flag pasangan `VITE_*`, atur hanya bila UI perlu menampilkan alur terkait. Jangan menaruh secret server dengan awalan `VITE_`.
+2. Tambahkan hanya flag modul yang prasyaratnya telah lulus. Gunakan nilai `true` huruf kecil. Untuk flag pasangan `VITE_*`, atur hanya bila UI perlu menampilkan alur terkait. Jangan menaruh secret server dengan awalan `VITE_`.
 3. Terapkan perubahan dan restart/redeploy aplikasi staging agar proses membaca konfigurasi baru. Jangan menampilkan atau mengirim dump environment.
 4. Uji satu modul dengan data sintetis: baca, simpan, baca ulang, validasi relasi, role, dan penolakan tenant lain. Catat commit deployment dan hasilnya. Jika gagal, kembalikan flag modul itu menjadi `false`, lalu restart/redeploy.
 
