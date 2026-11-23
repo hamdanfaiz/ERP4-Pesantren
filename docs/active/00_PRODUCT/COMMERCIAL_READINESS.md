@@ -578,7 +578,8 @@ Hasil ini belum membuktikan backup Production dapat dipulihkan, seluruh policy/r
 
 - Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace tidak terlihat pada Environment Variables hPanel. Pada `.env.example`, nilai contoh flag tersebut `false`.
 - Karena sesi computer-use gagal dimulai, keberadaan dan nilainya di hPanel belum dapat diverifikasi. Tidak ada flag yang diubah. Nilai default `false` menjaga API modul tetap tertutup; tampilan “Fitur ini belum tersedia saat ini” konsisten dengan gate yang belum aktif.
-- Sebelas nama server yang dilaporkan hilang bukan daftar lengkap gerbang fitur. Beberapa modul memerlukan flag UI `VITE_*` yang berpasangan atau lebih dari satu flag (misalnya alur PPDB publik, onboarding, dan dokumen). Gunakan [matriks flag modul](MODULE_RUNTIME_FLAG_MATRIX.md) sebagai daftar sumber; jangan menyalin satu daftar flag lalu mengaktifkan semuanya.
+- Sebelas nama server yang dilaporkan hilang bukan daftar lengkap gerbang fitur. Untuk PPDB administrasi, pasangkan `SUPABASE_PPDB_RUNTIME_ENABLED` dengan `VITE_SUPABASE_PPDB_RUNTIME_ENABLED`. Pendaftaran PPDB publik adalah alur terpisah dengan `SUPABASE_PUBLIC_PPDB_RUNTIME_ENABLED`, `PUBLIC_PPDB_ENABLED`, dan `PUBLIC_PPDB_TENANT_ID`; jangan mengaktifkannya sebagai efek samping.
+- Beberapa modul lain juga memerlukan pasangan flag UI atau lebih dari satu gerbang (misalnya onboarding dan dokumen). Gunakan [matriks flag modul](MODULE_RUNTIME_FLAG_MATRIX.md) sebagai daftar sumber; jangan menyalin satu daftar flag lalu mengaktifkan semuanya.
 - Flag harus diaktifkan **satu kelompok pada satu waktu** di staging setelah prasyarat migrasi, tenant/profil, role, RLS, Storage (bila dipakai), dan UAT kelompok itu siap. Jangan mengaktifkan seluruh flag sekaligus atau menyalinnya ke Production.
 
 ### Tindakan lanjutan
