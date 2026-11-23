@@ -1,3 +1,17 @@
+## Checkpoint verifikasi modul staging — 23 November 2026
+
+### Source dan deployment
+- PR #234 memperbaiki keterangan tagihan PPDB agar mengikuti flag fitur dan sudah di-merge ke `main` pada commit `01785fccacbddc41e160d6db1f22f1218921500f`. CI lulus untuk frontend/build, instalasi NPM pelanggan, serta suite database/API pada Supabase lokal terisolasi.
+- hPanel situs staging `lightgreen-jay-425688.hostingersite.com` menunjukkan branch `main`, commit `01785fcc`, status **Completed / Current**. Tidak ada konfigurasi atau data Production yang diubah.
+- Sebelas flag runtime server di staging yang sebelumnya dicari — PPDB, Keuangan, Anggaran, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace — telah ditemukan di hPanel dan masing-masing terverifikasi bernilai `true`. Tabel dapat difilter berdasarkan nama variabel.
+- Sesi Admin UAT staging membuka layar PPDB, Keuangan & Tagihan, UKS, Koperasi, Multi-Unit, Keuangan & Anggaran, HCM, Sarana & Prasarana, Relasi Wali & Donatur, Donasi & Wakaf, dan Marketplace. Kesepuluh modul yang diuji tidak menampilkan pesan “Fitur ini belum tersedia saat ini”. Sesudah halaman preview dimuat ulang, banner PPDB menampilkan keterangan baru yang sesuai flag.
+
+### Batas bukti dan langkah lanjut
+- Pemeriksaan ini membuktikan menu/layar termuat pada build staging yang teramati; tidak ada formulir disimpan dan tidak ada transaksi dibuat. Uji baca-simpan-baca, validasi relasi, role/tenant, dan skenario lintas modul masih perlu dijalankan dengan data sintetis staging.
+- Sebelum menyatakan produk siap deploy, tim backend tetap perlu menyelesaikan gate Production yang sudah tercatat di runbook: rekonsiliasi DDL dan ledger migrasi, peninjauan urutan migrasi, serta bukti pemulihan backup. Tidak ada migrasi Production yang dijalankan pada checkpoint ini.
+
+---
+
 ## Checkpoint pasca-UAT CBT — 22 November 2026
 
 ### Hasil PR #227 dan staging
