@@ -532,3 +532,36 @@ Addendum ini mencatat bukti setelah perubahan paritas menu dan CSV pada PR #39. 
 - Daftar izin Admin yang secara eksplisit ditolak dibuka pada Sidebar agar menu tersembunyi dapat diketahui. Aturan RBAC tidak dilonggarkan.
 - Pemeriksaan paritas sekarang memeriksa bahwa setiap rute modul memiliki tujuan navigasi Sidebar, termasuk Analitik. `npm run lint`, build, `npm run test:supabase-runtime-no-firebase`, `npm run test:rbac-permissions`, dan `npm run test:master-data-transfer-csv` lulus. Build masih memberi peringatan ukuran chunk besar dan komentar dependensi yang diabaikan Rollup.
 - Ini memulihkan visibilitas dan jalur navigasi; bukan klaim bahwa seluruh kemampuan legacy sudah memiliki kesetaraan backend. UAT browser VQE dan tinjauan backend masih diperlukan. PR #39 tetap Draft sampai gerbang tersebut selesai; Production PTSAS tidak disentuh.
+
+
+## Addendum rekonsiliasi staging dan Production — 23 November 2026
+
+Bagian ini menggantikan angka ledger, katalog, dan status PR terdahulu jika berbeda. Pemeriksaan Supabase dilakukan baca-saja; tidak ada isi record aplikasi yang dibaca dan tidak ada perubahan database.
+
+### Status source dan ledger
+
+- Source of truth adalah branch `main`, commit `59bca548995862922527140b93695181752fde04`. Pemeriksaan GitHub menemukan **0 PR terbuka**.
+- Repo berisi **167 file migrasi SQL** dan VQE staging mencatat **167 versi**. Nomor versi source dan ledger VQE cocok seluruhnya.
+- PTSAS Production mencatat **100 versi**, terbaru `20270316000000` (`communication_ops_runtime`). Ada **67 versi** yang sudah ada di source/VQE tetapi belum tercatat di Production; tidak ditemukan versi Production yang tidak ada di VQE/source.
+- Tiga baris ledger Production tidak mengembalikan nama: `20261205000000`, `20261206000000`, dan `20270118000000`. VQE mencatat nama untuk ketiga versi tersebut.
+- Selisih ledger adalah bukti Production tertinggal dari source/staging, bukan izin untuk menerapkan migrasi. Tidak ada migration, repair, atau perubahan data Production yang dijalankan.
+
+### Perbandingan katalog schema `public`
+
+- VQE: **182 tabel**; PTSAS: **162 tabel**. Semua tabel yang terdaftar pada kedua project mengaktifkan RLS.
+- **162 tabel** ada di kedua project; **20 tabel** hanya ada di VQE; tidak ada tabel yang hanya ada di PTSAS.
+- Pada 162 tabel bersama, **20 tabel** berbeda pada metadata kolom atau foreign key. Pemeriksaan ini tidak membandingkan seluruh definisi DDL, policy RLS, grant, indeks, trigger, fungsi, Storage, atau perilaku aplikasi.
+
+Hasil ini belum membuktikan backup Production dapat dipulihkan, seluruh policy/route aman, atau cutover layak dilakukan. Tim database perlu meninjau DDL aktual dan menjalankan rehearsal pemulihan sebelum cutover Production.
+
+### Flag runtime Hostinger staging
+
+- Operator melaporkan 11 flag server untuk PPDB, Keuangan, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi, dan Marketplace tidak terlihat pada Environment Variables hPanel. Pada `.env.example`, nilai contoh flag tersebut `false`.
+- Karena sesi computer-use gagal dimulai, keberadaan dan nilainya di hPanel belum dapat diverifikasi. Tidak ada flag yang diubah. Nilai default `false` menjaga API modul tetap tertutup; tampilan “Fitur ini belum tersedia saat ini” konsisten dengan gate yang belum aktif.
+- Flag harus diaktifkan **satu kelompok pada satu waktu** di staging setelah prasyarat migrasi, tenant/profil, role, RLS, Storage (bila dipakai), dan UAT kelompok itu siap. Jangan mengaktifkan seluruh flag sekaligus atau menyalinnya ke Production.
+
+### Tindakan lanjutan
+
+1. Selesaikan UAT staging per modul dan catat bukti baca/tulis, izin role, isolasi tenant, validasi, serta alur gagal.
+2. Tim database meninjau 67 migrasi yang tertinggal, tiga nama ledger kosong, perbedaan katalog, DDL aktual, dan bukti backup/restore. Jangan menjalankan `db push` atau migration repair massal ke PTSAS.
+3. Setelah semua gerbang Production disetujui pemilik database, rencanakan cutover terpisah dari aktivasi flag aplikasi. Production tetap tidak berubah pada pemeriksaan ini.
