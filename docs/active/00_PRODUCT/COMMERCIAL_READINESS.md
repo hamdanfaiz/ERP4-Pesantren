@@ -14,6 +14,17 @@ Pemeriksaan Advisor bersifat baca-saja dan tidak mengubah skema, Auth, atau data
 - PTSAS: 269 foreign key tanpa indeks, dua peringatan rencana inisialisasi fungsi Auth pada policy RLS, dan satu pasangan indeks duplikat pada `document_records`. VQE: 262 foreign key tanpa indeks, satu peringatan rencana inisialisasi Auth, dan tidak ada temuan indeks duplikat.
 - Advisor juga melaporkan indeks yang belum digunakan (PTSAS 89, VQE 91). Jangan menghapus indeks hanya dari statistik ini; tinjau query workload, batas waktu pengamatan, constraint, dan pola beban dahulu.
 
+### Verifikasi langsung katalog dan Storage VQE — 23 November 2026
+
+Pemeriksaan PostgreSQL dan Storage ini hanya membaca katalog, grant, policy, dan konfigurasi bucket. Tidak ada baris operasional atau objek Storage yang dibaca; tidak ada konfigurasi atau data yang diubah.
+
+- Pada proyek staging VQE `vqemuyzveuirlkvdggjd`, **182 dari 182 tabel `public` mengaktifkan RLS dan FORCE RLS**. Tidak ada grant langsung `SELECT` atau `INSERT` kepada `anon`. Role `authenticated` hanya memiliki grant `SELECT` langsung pada lima tabel (`candidate_documents`, `candidates`, `profiles`, `tenants`, dan `user_profiles`); tidak ada grant `INSERT`, `UPDATE`, atau `DELETE`.
+- Katalog menemukan lima policy baca untuk pengguna terautentikasi—masing-masing dibatasi oleh kepemilikan profil atau tenant/role/izin modul—serta satu policy internal untuk role `postgres` pada progres ayat Tahfidz. Hasil ini mendukung penutupan akses tabel langsung; hasil tersebut **belum membuktikan seluruh validasi tenant dan izin pada setiap API server**.
+- Ada 292 fungsi di schema `public`, 101 di antaranya berstatus `SECURITY DEFINER`. Pemeriksaan grant menemukan tidak ada hak `EXECUTE` fungsi `public` bagi `anon` atau `authenticated`; `service_role` memiliki hak pada 204 fungsi. Route server yang memakai role istimewa tetap perlu memvalidasi sesi, tenant, dan hak modul.
+- Keempat bucket yang terdaftar bersifat privat: `erp4-private-document-attachments` (PDF, 25 MiB), `erp4-private-finance-proofs` (PNG/JPEG/PDF, 3 MiB), `erp4-private-library-assets` (PDF/EPUB/MP3/MP4, 25 MiB), dan `ppdb-documents` (PDF/JPEG/PNG, 2 MiB). Tabel `storage.objects` dan `storage.buckets` memiliki RLS aktif tanpa policy; grant baca katalog pada role API biasa tidak membuka objek karena kebijakan akses tidak mengizinkan baris.
+- Advisor VQE juga melaporkan perlindungan kata sandi bocor Auth nonaktif (WARN), 262 foreign key tanpa indeks dan satu policy dengan peringatan rencana inisialisasi Auth (WARN), serta 91 indeks yang belum terpakai (INFO). Hasil pemeriksaan kesehatan tidak memiliki temuan. Jumlah indeks yang disarankan tidak boleh diterapkan massal tanpa memeriksa indeks yang ada, query, dan beban; indeks yang tampak belum terpakai juga tidak boleh dihapus hanya dari statistik tersebut.
+- Tindak lanjut non-kode: pemilik staging meninjau dan mengaktifkan perlindungan kata sandi bocor, lalu memverifikasi pendaftaran dan pemulihan sandi di VQE. Sesudah itu, tetapkan rencana terpisah untuk Production. Uji baca-simpan-baca UI dan pemeriksaan konfigurasi Environment variables Hostinger tetap merupakan gerbang tersendiri.
+
 ### Batas dan langkah berikut
 
 Hasil Advisor tidak membuktikan kebijakan RLS, grant, route backend, Storage, atau definisi DDL secara menyeluruh. Tidak ada query baris operasional yang dijalankan dalam pemeriksaan Advisor ini. Rekonsiliasi DDL Production, review urutan migrasi, dan latihan backup/restore tetap menjadi gate terpisah bagi pemilik database.
