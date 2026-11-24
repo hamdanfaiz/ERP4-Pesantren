@@ -97,3 +97,11 @@ assert.match(hrisSource, /disabled=\{saving \|\| refreshingSnapshot \|\|/);
 console.log("HRIS job-title refresh check passed.");
 
 assert.match(hrisSource, /SupabaseModuleReferenceSettings domains=\{\["hris_job_title"\]\} label="Pengaturan jabatan pegawai" defaultOpen/);
+
+const enterpriseUnitsSource = fs.readFileSync(path.join(root, "src/pages/SupabaseEnterpriseUnitsManager.tsx"), "utf8");
+assert.doesNotMatch(enterpriseUnitsSource, /window\.confirm/);
+assert.match(enterpriseUnitsSource, /Konfirmasi pemetaan data/);
+assert.match(enterpriseUnitsSource, /Konfirmasi pemetaan pengeluaran/);
+assert.match(enterpriseUnitsSource, /Pemetaan ini hanya dapat dilakukan sekali dan tidak dapat dibatalkan/);
+assert.match(enterpriseUnitsSource, /catatan buku besar[\s\S]*tidak dapat dipindahkan ke unit lain/);
+console.log("Enterprise unit assignment confirmation check passed.");
