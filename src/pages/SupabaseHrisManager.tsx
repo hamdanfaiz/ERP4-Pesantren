@@ -197,7 +197,7 @@ export function SupabaseHrisManager() {
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
       <ERPTabs tabs={HRIS_TABS} value={tab} onChange={(id) => setTab(id as HrisTab)} ariaLabel="Bagian Sumber Daya Manusia" />
-      <SupabaseModuleReferenceSettings domains={["hris_job_title"]} onSaved={async () => {
+      <SupabaseModuleReferenceSettings domains={["hris_job_title"]} label="Pengaturan jabatan pegawai" defaultOpen onSaved={async () => {
         setError(""); setNotice(""); setRefreshingSnapshot(true);
         try {
           await refresh();
