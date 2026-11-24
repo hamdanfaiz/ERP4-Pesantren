@@ -196,7 +196,9 @@ export function SupabaseHrisManager() {
       {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
       <ERPTabs tabs={HRIS_TABS} value={tab} onChange={(id) => setTab(id as HrisTab)} ariaLabel="Bagian Sumber Daya Manusia" />
-      <SupabaseModuleReferenceSettings domains={["hris_job_title"]} />
+      <SupabaseModuleReferenceSettings domains={["hris_job_title"]} onSaved={() => {
+        void refresh().catch((refreshError: any) => setError(toERPUserMessage(refreshError, "Pilihan jabatan belum dapat dimuat.")));
+      }} />
 
       {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat data pesantren…</div> : <>
         {tab === "employees" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
