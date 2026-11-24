@@ -54,3 +54,12 @@ Sebelum promosi Production, tim pemilik database masih perlu membandingkan DDL a
 
 **Larangan untuk langkah berikutnya:** jangan menjalankan `db push` massal, menandai migrasi applied tanpa bukti, atau mengubah PTSAS Production sebelum rekonsiliasi DDL dan bukti pemulihan tersedia.
 
+
+
+## Follow-up — konfirmasi pemetaan unit Multi-Unit (24 November 2026)
+
+- PR [#258](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/258) sudah tergabung ke `main` pada commit `39c07e48b6cae8a79b133ffd59625fe0d1754798`.
+- Dialog bawaan browser untuk pemetaan calon santri/santri dan pengeluaran lama diganti dengan konfirmasi inline. Pengguna dapat melihat nama data, unit tujuan, dan konsekuensi pemetaan sebelum menyimpan; pilihan dan perpindahan halaman terkunci selama konfirmasi terbuka. API kembali memeriksa bahwa unit masih aktif pada saat penyimpanan.
+- Assertion UI memastikan `window.confirm` tidak kembali pada halaman Manajemen Multi-Unit. Workflow CI PR #258 **lulus 3/3 job**: build/typecheck/guard frontend, instalasi NPM pelanggan, dan replay migration + tes database/API/isolasi tenant/Storage/backup-restore pada Supabase lokal terisolasi (run [45432383115](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45432383115)).
+- Tidak ada perubahan API, skema, flag environment, record, atau database Production. CI database menggunakan Supabase lokal sintetis.
+- Deployment staging setelah merge dan UAT Admin untuk kedua alur pemetaan **belum diverifikasi**. Production PTSAS tetap tidak diubah. Gerbang rilis dan pekerjaan rekonsiliasi Production/backup-restore pada bagian sebelumnya masih berlaku.
