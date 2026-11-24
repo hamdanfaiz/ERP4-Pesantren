@@ -1,33 +1,38 @@
-> Agent / multi-agent: mulai dari AGENT_START_HERE.md. Checkpoint di bawah tetap menjadi arsip; gunakan pembaruan terbaru ini untuk angka dan urutan kerja saat ini.
+> Agent / multi-agent: mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Bagian checkpoint bertanggal di bawah adalah arsip; gunakan ringkasan terbaru ini untuk handoff.
+>
+> **Status terkini — 24 November 2026.** Source `main` berada pada `3f3302ad59f8f3883feb10338367c0142437e6c5`. PR #258–#260 sudah tergabung; pencarian terakhir menemukan 0 PR terbuka. Source tersedia untuk review tim backend, tetapi ERP belum dinyatakan siap deploy atau komersial.
 
-> **Status terkini — 21 November 2026, 19.24 WIB.** Gunakan ringkasan ini untuk handoff; bagian checkpoint setelahnya adalah arsip bertanggal dan dapat memiliki angka lama.
+## Source, PR, dan CI
 
-## Source dan PR
+- PR [#258](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/258) memperbaiki konfirmasi pemetaan unit Multi-Unit. CI [run #45432383115](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45432383115) berhasil; ketiga job selesai sukses.
+- PR [#259](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/259) dan [#260](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/260) mencatat bukti dan status staging. CI masing-masing berhasil pada [run #45434991447](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45434991447) dan [run #45437069513](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45437069513).
+- Perbaikan panel katalog Jabatan Pegawai dan pemuatan ulang opsi formulir dari PR #255 sudah ada di `main`. Perbaikan source belum menjadi bukti bahwa Admin UAT sudah mengonfirmasi alur setelah deployment terbaru.
+- Hostinger staging `lightgreen-jay-425688.hostingersite.com` terakhir terlihat **Completed / Current** pada commit `39c07e48b6cae8a79b133ffd59625fe0d1754798` (PR #258). Ini bukti build ter-deploy, bukan verifikasi simpan-baca melalui UI.
+- PTSAS Production tidak disentuh. Tidak ada migrasi atau perubahan konfigurasi cloud pada PR #258–#260.
 
-- `main` memuat PR #185 (`3080422ffc552b82704da0941b574cf8d220b45a`), PR #186 (`ee73543f75f79d9e9ca6666bb0959fb08ad6319f`), dan checkpoint PR #187 (`1365ba1e007c52c7b906f11fe29bfe5c44fbcc78`). PR #182 ditutup sebagai superseded, bukan merged. Pencarian repo setelah merge #187 tidak menemukan PR terbuka.
-- Source aplikasi Tahfidz pada PR #185 diuji di preview dengan akun Ustadz sintetis: satu halaqah, dua santri, tiga setoran hari itu, target 2/2, dan satu leaderboard yang memeringkat 15 lalu 10 ayat unik. Browser yang tersedia kini kembali ke layar masuk; UAT lintas modul/role memerlukan login staging baru.
-- CI pada PR #185 dan #186 lulus 3/3 job wajib (frontend/build guard, paket pelanggan, serta migrasi/API Auth/pgTAP). Supabase Preview dilewati karena tidak ada tautan Supabase Branch.
-- Pemeriksaan lokal tambahan pada source aplikasi `c19f8c2` lulus: Compose dan .env example, 31 public runtime values/38 server gates, runtime Supabase-only tanpa dependency Firebase, serta leaderboard Tahfidz dengan 95 assertion database.
+## Staging VQE
 
-## VQE staging
+- Snapshot ledger baca-saja terakhir yang tercatat (23 November) menunjukkan VQE `vqemuyzveuirlkvdggjd` cocok dengan 167/167 file migrasi source. PR #258–#260 tidak menambah migrasi. Kecocokan metadata ledger tidak membuktikan semua DDL sama dengan source.
+- Pemilik sebelumnya melaporkan halaman HRIS terbuka setelah flag HRIS staging diaktifkan. Status Environment Variables terbaru untuk semua modul belum diperiksa; jangan menganggap seluruh flag aktif.
+- UAT Admin setelah perubahan HRIS #255 dan Multi-Unit #258 masih perlu konfirmasi simpan-baca, validasi relasi, izin role, dan tenant. Hasil CI lokal sintetis tidak menggantikan UAT browser.
 
-- Project `vqemuyzveuirlkvdggjd` terbaca `ACTIVE_HEALTHY`.
-- Ledger VQE memuat **165/165 versi dan nama** yang cocok dengan 165 file source, sampai `20270404000000_tahfidz_unique_ayah_projection_indexes`. Inventaris metadata melaporkan 180 tabel `public`, semuanya RLS aktif.
-- Pemeriksaan ini baca-saja. Ledger yang cocok tidak membuktikan SQL migrasi/DDL live sama, semua policy benar, atau UAT setiap modul lulus. Tidak ada migrasi atau data yang ditulis ke VQE.
+## Production PTSAS
 
-## PTSAS Production dan batas promosi
+- Snapshot ledger baca-saja terakhir (23 November) memuat 100 entri. Dari 167 migrasi source, 97 pasangan versi/nama cocok; 3 baris tidak memiliki nama (`20261205000000`, `20261206000000`, `20270118000000`) dan 67 versi source tidak memiliki baris ledger.
+- Payload SQL dan definisi DDL aktual belum direkonsiliasi. Perbedaan ledger bukan daftar instruksi untuk dijalankan. Jangan melakukan `db push` massal atau `migration repair` untuk menyamakan hitungan.
+- Tim pemilik database masih perlu membandingkan DDL Production dengan migrasi source, mengulas dependensi dan urutan migrasi, serta membuktikan backup dapat dipulihkan. Tidak ada perubahan Production dari pekerjaan Codex yang dicatat di sini.
 
-- Snapshot baca-saja terbaru PTSAS `ptsasgdvgrbdtgyqieie` menunjukkan `ACTIVE_HEALTHY`, PostgreSQL 17.11.0.003, dan **100 versi ledger** sampai `20270316000000`. Dari 165 file source, **97 versi/nama cocok persis**; **3 baris ledger tidak memiliki nama** (`20261205000000`, `20261206000000`, `20270118000000`); **65 versi source tidak mempunyai baris ledger** (pertama `20261207000000`, terakhir `20270404000000`). Tidak ada versi ledger tambahan di luar versi source.
-- Konektor hanya mengembalikan metadata versi/nama. Payload SQL dan DDL Production **belum dibandingkan**; tidak ada isi baris aplikasi dibaca dan tidak ada perubahan Production. Tim backend tetap perlu meninjau payload/DDL/dependensi migrasi dan membuktikan backup/restore yang dapat dipulihkan sebelum rehearsal. Jangan jalankan `db push` massal untuk menyamakan hitungan.
-- Hasil tes Supabase lokal terisolasi, metadata staging, dan UAT satu role tidak menggantikan verifikasi Production atau pengujian browser lintas modul.
+## Pekerjaan sebelum siap diserahkan untuk deploy/UAT
 
-## Tindakan berikutnya
+1. UAT staging berbasis browser per role dan tenant pada modul yang diaktifkan: baca, simpan, muat ulang, relasi, duplikasi, penolakan akses lintas tenant, unggah/unduh Storage privat, serta kondisi kosong/error.
+2. Konfirmasi alur HRIS setelah PR #255: tambah jabatan lewat tombol, pastikan muncul pada pilihan formulir pegawai, lalu simpan dan muat ulang pegawai.
+3. Konfirmasi alur pemetaan calon santri/santri dan pengeluaran pada Multi-Unit setelah PR #258.
+4. Lengkapi uji instalasi bersih, upgrade, dan pemulihan pada profil VPS/on-premise yang akan didukung.
+5. Tim backend menuntaskan gate PTSAS di atas, lalu pemilik menetapkan commit dan konfigurasi rilis untuk target hosting.
 
-1. Ulangi UAT browser Admin, Wali, Santri, Ustadz, dan petugas terkait di VQE untuk simpan-baca, permission/tenant, Storage, serta keadaan error/kosong pada modul prioritas.
-2. Lakukan rekonsiliasi migrasi dan DDL Production baca-saja dari source `main` terbaru, lalu siapkan rencana rehearsal yang eksplisit dan dapat dipulihkan.
-3. Buktikan restore pada salinan terisolasi dan uji clean install/upgrade/restore pada profil host yang akan didukung (Docker/VPS/on-premise).
-4. Tetapkan commit rilis dan variabel/flag environment pelanggan; hanya setelah seluruh gerbang ini lulus, pertimbangkan promosi.
-5. Produk belum dinyatakan siap go-live/komersial; persentase total tidak dihitung tanpa denominator penerimaan yang disepakati.
+UAT dan konfigurasi staging yang belum diverifikasi menunggu sesi operator berikutnya; tidak ada langkah manual yang ditugaskan di checkpoint ini. **Status keseluruhan: source/CI berjalan, beberapa bukti staging tersedia, tetapi pekerjaan belum selesai dan Production belum siap dipromosikan.**
+
+## Snapshot dan catatan historis
 
 ## Pembaruan terdahulu — 20 November 2026
 
