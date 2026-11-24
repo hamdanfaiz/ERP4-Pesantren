@@ -76,5 +76,11 @@ const ppdbSource = fs.readFileSync(path.join(root, "src/pages/SupabasePpdbManage
 assert.doesNotMatch(ppdbSource, /Tagihan pendaftar dapat diterbitkan setelah layanan Keuangan tersedia/);
 assert.match(ppdbSource, /PPDB_FINANCE_BILLS_ENABLED[\s\S]*Tagihan pendaftar dapat diterbitkan pada detail calon santri/);
 assert.match(ppdbSource, /PPDB_FINANCE_BILLS_ENABLED[\s\S]*Penerbitan tagihan pendaftar belum tersedia/);
+const landingSource = fs.readFileSync(path.join(root, "src/pages/FrontendOverview.tsx"), "utf8");
+assert.match(landingSource, /onClick=\{\(\) => showHomeSection\('program'\)\}[^>]*>Program<\/button>/);
+assert.match(landingSource, /onClick=\{\(\) => showHomeSection\('donasi'\)\}[^>]*>Donasi<\/button>/);
+assert.match(landingSource, /id="program"/);
+assert.match(landingSource, /id=\{f\.title === 'Donasi' \? 'donasi' : undefined\}/);
+assert.doesNotMatch(landingSource, /Video Profil/);
 console.log("Customer-facing UI copy check passed.");
 
