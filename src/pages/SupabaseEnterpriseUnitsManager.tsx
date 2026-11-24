@@ -38,6 +38,9 @@ type FinanceExpense = { id: string; description: string; category: string; amoun
 type FinanceLedger = { id: string; type: string; description: string; amount: number; date: string; unitId?: string | null; unitName?: string | null };
 type FinanceLinkSnapshot = { bills: FinanceBill[]; expenses: FinanceExpense[]; ledger: FinanceLedger[] };
 type Draft = { code: string; name: string; unitType: UnitType; location: string };
+type PendingUnitAssignment =
+  | { kind: "master-data"; entityType: "candidate" | "student"; entityId: string; unitId: string; recordName: string; unitName: string; linkedStudent: boolean }
+  | { kind: "finance-expense"; expenseId: string; unitId: string; description: string; amount: number; unitName: string };
 type EnterpriseTab = "dashboard" | "registry" | "transfers" | "billing" | "analytics";
 const EMPTY_FINANCE_LINK: FinanceLinkSnapshot = { bills: [], expenses: [], ledger: [] };
 
@@ -107,6 +110,7 @@ export function SupabaseEnterpriseUnitsManager() {
   const [saving, setSaving] = useState(false);
   const [mappingRequest, setMappingRequest] = useState("");
   const [mappingSelections, setMappingSelections] = useState<Record<string, string>>({});
+  const [pendingUnitAssignment, setPendingUnitAssignment] = useState<PendingUnitAssignment | null>(null);
   const [error, setError] = useState("");
   const [mappingError, setMappingError] = useState("");
   const [financeMappingError, setFinanceMappingError] = useState("");
@@ -278,8 +282,11 @@ export function SupabaseEnterpriseUnitsManager() {
       ? unmapped.candidates.find((item) => item.id === entityId)
       : unmapped.students.find((item) => item.id === entityId);
     const label = record?.name || "data ini";
-    const selectedUnit = snapshot.units.find((item) => item.id === unitId);
-    if (!selectedUnit || !window.confirm(`Tetapkan ${label} ke unit ${selectedUnit.name}? Pemetaan data operasional ini tidak dapat dibatalkan.`)) return;
+    const selectedUnit = snapshot.units.find((item) => item.id === unitId && item.status === "active");
+    if (!record || !selectedUnit) {
+      setMappingError("Data atau unit aktif tidak lagi tersedia. Muat ulang daftar sebelum mencoba kembali.");
+      return;
+    }
     const key = `${entityType}:${entityId}`;
     setMappingRequest(key); setMappingError(""); setNotice("");
     try {
@@ -302,7 +309,10 @@ export function SupabaseEnterpriseUnitsManager() {
     if (!financeMappingReady || !user?.tenantId || !user.uid || !unitId) return;
     const expense = unmappedFinance.expenses.find((item) => item.id === expenseId);
     const selectedUnit = snapshot.units.find((item) => item.id === unitId && item.status === "active");
-    if (!expense || !selectedUnit || !window.confirm(`Tetapkan pengeluaran “${expense.description}” (${expense.amount.toLocaleString("id-ID")} rupiah) ke unit ${selectedUnit.name}? Pemetaan ini akan diterapkan ke buku besar dan tidak dapat dipindahkan.`)) return;
+    if (!expense || !selectedUnit) {
+      setFinanceMappingError("Pengeluaran atau unit aktif tidak lagi tersedia. Muat ulang daftar sebelum mencoba kembali.");
+      return;
+    }
     const key = `finance-expense:${expenseId}`;
     setMappingRequest(key); setFinanceMappingError(""); setNotice("");
     try {
@@ -319,6 +329,62 @@ export function SupabaseEnterpriseUnitsManager() {
     } catch (mappingSaveError: unknown) {
       setFinanceMappingError(toERPUserMessage(mappingSaveError, "Pemetaan pengeluaran belum berhasil disimpan."));
     } finally { setMappingRequest(""); }
+  };
+
+  const requestUnitAssignment = (entityType: "candidate" | "student", entityId: string, unitId: string) => {
+    if (!mappingReady || mappingRequest) return;
+    const record = entityType === "candidate"
+      ? unmapped.candidates.find((item) => item.id === entityId)
+      : unmapped.students.find((item) => item.id === entityId);
+    const unit = snapshot.units.find((item) => item.id === unitId && item.status === "active");
+    if (!record || !unit) {
+      setMappingError("Data atau unit aktif tidak lagi tersedia. Muat ulang daftar sebelum mencoba kembali.");
+      return;
+    }
+    setMappingError("");
+    setFinanceMappingError("");
+    setNotice("");
+    setPendingUnitAssignment({
+      kind: "master-data",
+      entityType,
+      entityId,
+      unitId,
+      recordName: record.name,
+      unitName: unit.name,
+      linkedStudent: "hasLinkedStudent" in record && record.hasLinkedStudent,
+    });
+  };
+
+  const requestFinanceExpenseAssignment = (expenseId: string, unitId: string) => {
+    if (!financeMappingReady || mappingRequest) return;
+    const expense = unmappedFinance.expenses.find((item) => item.id === expenseId);
+    const unit = snapshot.units.find((item) => item.id === unitId && item.status === "active");
+    if (!expense || !unit) {
+      setFinanceMappingError("Pengeluaran atau unit aktif tidak lagi tersedia. Muat ulang daftar sebelum mencoba kembali.");
+      return;
+    }
+    setMappingError("");
+    setFinanceMappingError("");
+    setNotice("");
+    setPendingUnitAssignment({
+      kind: "finance-expense",
+      expenseId,
+      unitId,
+      description: expense.description,
+      amount: expense.amount,
+      unitName: unit.name,
+    });
+  };
+
+  const confirmPendingUnitAssignment = () => {
+    const pending = pendingUnitAssignment;
+    if (!pending || mappingRequest) return;
+    setPendingUnitAssignment(null);
+    if (pending.kind === "master-data") {
+      void assignUnit(pending.entityType, pending.entityId, pending.unitId);
+    } else {
+      void assignFinanceExpenseUnit(pending.expenseId, pending.unitId);
+    }
   };
 
   const changeMappingPage = (offset: number) => { void refreshUnmapped(offset); };
@@ -351,7 +417,7 @@ export function SupabaseEnterpriseUnitsManager() {
       {error && <div role="alert" className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div>}
       {notice && <div role="status" className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"><Check className="mt-0.5 h-4 w-4 shrink-0" /><span>{notice}</span></div>}
 
-      <ERPTabs tabs={ENTERPRISE_TABS} value={activeTab} onChange={(id) => setActiveTab(id as EnterpriseTab)} ariaLabel="Bagian Manajemen Multi-Unit" />
+      <ERPTabs tabs={ENTERPRISE_TABS} value={activeTab} onChange={(id) => { setPendingUnitAssignment(null); setActiveTab(id as EnterpriseTab); }} ariaLabel="Bagian Manajemen Multi-Unit" />
 
       {activeTab === "dashboard" ? <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-3">
@@ -374,31 +440,54 @@ export function SupabaseEnterpriseUnitsManager() {
       {canMapMasterData && <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900" aria-labelledby="unit-assignment-title">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 id="unit-assignment-title" className="font-semibold text-slate-900 dark:text-white">Pemetaan calon santri dan santri</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Pemetaan tersimpan sekali. Jika calon santri sudah menjadi santri, keduanya dipetakan dalam satu transaksi.</p></div>
-          <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmapped.candidateCount + unmapped.studentCount} belum dipetakan</span><button type="button" className={OUTLINE} onClick={() => changeMappingPage(unmapped.offset)} disabled={mappingLoading || Boolean(mappingRequest)} aria-label="Muat ulang data yang belum memiliki unit"><RefreshCw className={`h-4 w-4 ${mappingLoading ? "animate-spin" : ""}`} /></button></div>
+          <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmapped.candidateCount + unmapped.studentCount} belum dipetakan</span><button type="button" className={OUTLINE} onClick={() => changeMappingPage(unmapped.offset)} disabled={mappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} aria-label="Muat ulang data yang belum memiliki unit"><RefreshCw className={`h-4 w-4 ${mappingLoading ? "animate-spin" : ""}`} /></button></div>
         </div>
         {mappingError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{mappingError}</span></div>}
+        {pendingUnitAssignment?.kind === "master-data" && (
+          <div role="group" aria-labelledby="master-unit-assignment-confirm-title" className="m-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+            <h3 id="master-unit-assignment-confirm-title" className="font-semibold">Konfirmasi pemetaan data</h3>
+            <p className="mt-2">Anda akan memetakan {pendingUnitAssignment.entityType === "candidate" ? "calon santri" : "santri"} <strong>{pendingUnitAssignment.recordName}</strong> ke unit <strong>{pendingUnitAssignment.unitName}</strong>.</p>
+            {pendingUnitAssignment.linkedStudent && <p className="mt-2">Calon santri ini sudah tertaut ke santri; keduanya akan dipetakan dalam satu transaksi.</p>}
+            <p className="mt-2">Pemetaan ini hanya dapat dilakukan sekali dan tidak dapat dibatalkan. Pastikan unit yang dipilih sudah benar.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" className={PRIMARY} disabled={Boolean(mappingRequest)} onClick={confirmPendingUnitAssignment}>Konfirmasi &amp; simpan</button>
+              <button type="button" className={OUTLINE} disabled={Boolean(mappingRequest)} onClick={() => setPendingUnitAssignment(null)}>Batal</button>
+            </div>
+          </div>
+        )}
         {mappingLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat data yang belum dipetakan…</div>
           : !mappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan belum tersedia saat ini.</div>
           : unmapped.candidateCount + unmapped.studentCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua calon santri dan santri telah memiliki unit.</div>
           : <>
-            {unmapped.candidates.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-4 text-left font-semibold text-slate-800 dark:text-slate-200">Calon santri tanpa unit ({unmapped.candidateCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Calon santri</th><th className="px-4 py-3">Pendaftaran</th><th className="px-4 py-3">Tahap</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.candidates.map((candidate) => { const selectionKey = `candidate:${candidate.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{candidate.name}</p>{candidate.hasLinkedStudent && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Sudah menjadi santri; unit akan tersinkron</p>}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.registrationId}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.stage || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk calon santri ${candidate.name}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest)} onClick={() => void assignUnit("candidate", candidate.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
-            {unmapped.students.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-5 text-left font-semibold text-slate-800 dark:text-slate-200">Santri tanpa calon pendaftaran tertaut ({unmapped.studentCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Santri</th><th className="px-4 py-3">NIS</th><th className="px-4 py-3">Kelas</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.students.map((student) => { const selectionKey = `student:${student.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{student.name}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.nis}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.grade || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk santri ${student.name}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest)} onClick={() => void assignUnit("student", student.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan baris {unmapped.offset + 1}–{Math.min(unmapped.offset + unmapped.limit, Math.max(unmapped.candidateCount, unmapped.studentCount))} dari {Math.max(unmapped.candidateCount, unmapped.studentCount)} per jenis data.</span><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={unmapped.offset === 0 || mappingLoading || Boolean(mappingRequest)} onClick={() => changeMappingPage(Math.max(0, unmapped.offset - unmapped.limit))}>Sebelumnya</button><button type="button" className={OUTLINE} disabled={unmapped.offset + unmapped.limit >= Math.max(unmapped.candidateCount, unmapped.studentCount) || mappingLoading || Boolean(mappingRequest)} onClick={() => changeMappingPage(unmapped.offset + unmapped.limit)}>Berikutnya</button></div></div>
+            {unmapped.candidates.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-4 text-left font-semibold text-slate-800 dark:text-slate-200">Calon santri tanpa unit ({unmapped.candidateCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Calon santri</th><th className="px-4 py-3">Pendaftaran</th><th className="px-4 py-3">Tahap</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.candidates.map((candidate) => { const selectionKey = `candidate:${candidate.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{candidate.name}</p>{candidate.hasLinkedStudent && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">Sudah menjadi santri; unit akan tersinkron</p>}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.registrationId}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{candidate.stage || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk calon santri ${candidate.name}`} className={FIELD} disabled={Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => requestUnitAssignment("candidate", candidate.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
+            {unmapped.students.length > 0 && <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><caption className="px-4 pb-2 pt-5 text-left font-semibold text-slate-800 dark:text-slate-200">Santri tanpa calon pendaftaran tertaut ({unmapped.studentCount})</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Santri</th><th className="px-4 py-3">NIS</th><th className="px-4 py-3">Kelas</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmapped.students.map((student) => { const selectionKey = `student:${student.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; return <tr key={selectionKey}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{student.name}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.nis}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.grade || "—"}</td><td className="px-4 py-3"><select aria-label={`Unit untuk santri ${student.name}`} className={FIELD} disabled={Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => requestUnitAssignment("student", student.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan baris {unmapped.offset + 1}–{Math.min(unmapped.offset + unmapped.limit, Math.max(unmapped.candidateCount, unmapped.studentCount))} dari {Math.max(unmapped.candidateCount, unmapped.studentCount)} per jenis data.</span><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={unmapped.offset === 0 || mappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => changeMappingPage(Math.max(0, unmapped.offset - unmapped.limit))}>Sebelumnya</button><button type="button" className={OUTLINE} disabled={unmapped.offset + unmapped.limit >= Math.max(unmapped.candidateCount, unmapped.studentCount) || mappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => changeMappingPage(unmapped.offset + unmapped.limit)}>Berikutnya</button></div></div>
           </>}
       </section>}
 
       {canMapFinanceRecords && <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900" aria-labelledby="finance-unit-assignment-title">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
           <div><h2 id="finance-unit-assignment-title" className="font-semibold text-slate-900 dark:text-white">Pemetaan pengeluaran lama</h2><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500 dark:text-slate-400">Pengeluaran tanpa unit tidak masuk ringkasan per unit. Pengeluaran yang disetujui dan catatan buku besarnya dipetakan bersama dalam satu transaksi.</p></div>
-          <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmappedFinance.expenseCount} belum dipetakan</span><button type="button" className={OUTLINE} onClick={() => changeFinanceMappingPage(unmappedFinance.offset)} disabled={financeMappingLoading || Boolean(mappingRequest)} aria-label="Muat ulang pengeluaran yang belum memiliki unit"><RefreshCw className={`h-4 w-4 ${financeMappingLoading ? "animate-spin" : ""}`} /></button></div>
+          <div className="flex items-center gap-2"><span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{unmappedFinance.expenseCount} belum dipetakan</span><button type="button" className={OUTLINE} onClick={() => changeFinanceMappingPage(unmappedFinance.offset)} disabled={financeMappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} aria-label="Muat ulang pengeluaran yang belum memiliki unit"><RefreshCw className={`h-4 w-4 ${financeMappingLoading ? "animate-spin" : ""}`} /></button></div>
         </div>
         {financeMappingError && <div role="alert" className="m-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><span>{financeMappingError}</span></div>}
+        {pendingUnitAssignment?.kind === "finance-expense" && (
+          <div role="group" aria-labelledby="finance-unit-assignment-confirm-title" className="m-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100">
+            <h3 id="finance-unit-assignment-confirm-title" className="font-semibold">Konfirmasi pemetaan pengeluaran</h3>
+            <p className="mt-2">Pengeluaran <strong>“{pendingUnitAssignment.description}”</strong> senilai <strong>{currencyIdr(pendingUnitAssignment.amount)}</strong> akan dipetakan ke unit <strong>{pendingUnitAssignment.unitName}</strong>.</p>
+            <p className="mt-2">Pemetaan ini turut mengubah pengelompokan catatan buku besar. Setelah disimpan, pengeluaran tidak dapat dipindahkan ke unit lain. Pastikan rinciannya benar.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" className={PRIMARY} disabled={Boolean(mappingRequest)} onClick={confirmPendingUnitAssignment}>Konfirmasi &amp; simpan pemetaan</button>
+              <button type="button" className={OUTLINE} disabled={Boolean(mappingRequest)} onClick={() => setPendingUnitAssignment(null)}>Batal</button>
+            </div>
+          </div>
+        )}
         {financeMappingLoading ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat pengeluaran lama…</div>
           : !financeMappingReady ? <div className="p-8 text-center text-sm text-slate-500">Pemetaan Keuangan belum tersedia saat ini.</div>
           : unmappedFinance.expenseCount === 0 ? <div className="p-8 text-center text-sm text-slate-500">Semua pengeluaran lama sudah memiliki unit.</div>
           : <>
-            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><caption className="sr-only">Pengeluaran lama yang belum dipetakan ke unit</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Pengeluaran</th><th className="px-4 py-3">Tanggal / status</th><th className="px-4 py-3">Buku besar</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmappedFinance.expenses.map((expense) => { const selectionKey = `finance-expense:${expense.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; const status = expense.status === "approved" ? "Disetujui" : expense.status === "rejected" ? "Ditolak" : "Menunggu persetujuan"; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{expense.description}</p><p className="mt-1 text-xs text-slate-500">{expense.category} · {expense.department} · {expense.requesterName}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300"><p>{expense.date}</p><p className="mt-1 text-xs">{status}</p></td><td className="px-4 py-3">{expense.hasLedgerEntry ? <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Tercatat</span> : <span className="text-xs text-slate-500">Belum ada</span>}<p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(expense.amount)}</p></td><td className="px-4 py-3"><select aria-label={`Unit untuk pengeluaran ${expense.description}`} className={FIELD} disabled={Boolean(mappingRequest)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest) || !backendReady} onClick={() => void assignFinanceExpenseUnit(expense.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan baris {unmappedFinance.offset + 1}–{Math.min(unmappedFinance.offset + unmappedFinance.limit, unmappedFinance.expenseCount)} dari {unmappedFinance.expenseCount} pengeluaran.</span><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={unmappedFinance.offset === 0 || financeMappingLoading || Boolean(mappingRequest)} onClick={() => changeFinanceMappingPage(Math.max(0, unmappedFinance.offset - unmappedFinance.limit))}>Sebelumnya</button><button type="button" className={OUTLINE} disabled={unmappedFinance.offset + unmappedFinance.limit >= unmappedFinance.expenseCount || financeMappingLoading || Boolean(mappingRequest)} onClick={() => changeFinanceMappingPage(unmappedFinance.offset + unmappedFinance.limit)}>Berikutnya</button></div></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><caption className="sr-only">Pengeluaran lama yang belum dipetakan ke unit</caption><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50 dark:text-slate-400"><tr><th className="px-4 py-3">Pengeluaran</th><th className="px-4 py-3">Tanggal / status</th><th className="px-4 py-3">Buku besar</th><th className="px-4 py-3">Unit yang benar</th><th className="px-4 py-3 text-right">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{unmappedFinance.expenses.map((expense) => { const selectionKey = `finance-expense:${expense.id}`; const selected = mappingRequest === selectionKey; const chosenUnitId = mappingSelections[selectionKey] || ""; const status = expense.status === "approved" ? "Disetujui" : expense.status === "rejected" ? "Ditolak" : "Menunggu persetujuan"; return <tr key={selectionKey}><td className="px-4 py-3"><p className="font-medium text-slate-900 dark:text-white">{expense.description}</p><p className="mt-1 text-xs text-slate-500">{expense.category} · {expense.department} · {expense.requesterName}</p></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300"><p>{expense.date}</p><p className="mt-1 text-xs">{status}</p></td><td className="px-4 py-3">{expense.hasLedgerEntry ? <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">Tercatat</span> : <span className="text-xs text-slate-500">Belum ada</span>}<p className="mt-1 font-semibold text-slate-800 dark:text-slate-200">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(expense.amount)}</p></td><td className="px-4 py-3"><select aria-label={`Unit untuk pengeluaran ${expense.description}`} className={FIELD} disabled={Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} value={chosenUnitId} onChange={(event) => setMappingSelections((current) => ({ ...current, [selectionKey]: event.target.value }))}><option value="">Pilih unit</option>{snapshot.units.filter((unit) => unit.status === "active").map((unit) => <option key={unit.id} value={unit.id}>{unit.code} · {unit.name}</option>)}</select></td><td className="px-4 py-3 text-right"><button type="button" className={PRIMARY} disabled={!chosenUnitId || Boolean(mappingRequest) || Boolean(pendingUnitAssignment) || !backendReady} onClick={() => requestFinanceExpenseAssignment(expense.id, chosenUnitId)}>{selected ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}Tetapkan</button></td></tr>; })}</tbody></table></div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-xs text-slate-500 dark:border-slate-800"><span>Menampilkan baris {unmappedFinance.offset + 1}–{Math.min(unmappedFinance.offset + unmappedFinance.limit, unmappedFinance.expenseCount)} dari {unmappedFinance.expenseCount} pengeluaran.</span><div className="flex gap-2"><button type="button" className={OUTLINE} disabled={unmappedFinance.offset === 0 || financeMappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => changeFinanceMappingPage(Math.max(0, unmappedFinance.offset - unmappedFinance.limit))}>Sebelumnya</button><button type="button" className={OUTLINE} disabled={unmappedFinance.offset + unmappedFinance.limit >= unmappedFinance.expenseCount || financeMappingLoading || Boolean(mappingRequest) || Boolean(pendingUnitAssignment)} onClick={() => changeFinanceMappingPage(unmappedFinance.offset + unmappedFinance.limit)}>Berikutnya</button></div></div>
           </>}
       </section>}
 
