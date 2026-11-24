@@ -84,3 +84,14 @@ assert.match(landingSource, /id=\{f\.title === 'Donasi' \? 'donasi' : undefined\
 assert.doesNotMatch(landingSource, /Video Profil/);
 console.log("Customer-facing UI copy check passed.");
 
+const referenceCatalogSource = fs.readFileSync(path.join(root, "src/components/SupabaseReferenceCatalogManager.tsx"), "utf8");
+const hrisSource = fs.readFileSync(path.join(root, "src/pages/SupabaseHrisManager.tsx"), "utf8");
+assert.match(referenceCatalogSource, /onSaved\?: \(\) => void \| Promise<void>/);
+assert.match(referenceCatalogSource, /try \{ await onSaved\?\.\(\); \}/);
+assert.match(hrisSource, /onSaved=\{async \(\) => \{/);
+assert.match(hrisSource, /setRefreshingSnapshot\(true\)[\s\S]*await refresh\(\)[\s\S]*finally \{\s*setRefreshingSnapshot\(false\);/);
+assert.match(hrisSource, /disabled=\{refreshingSnapshot\}[\s\S]*Tambah pegawai/);
+assert.match(hrisSource, /Jabatan<select required disabled=\{refreshingSnapshot\}/);
+assert.match(hrisSource, /disabled=\{saving \|\| refreshingSnapshot \|\|/);
+console.log("HRIS job-title refresh check passed.");
+
