@@ -96,6 +96,4 @@ assert.match(hrisSource, /Jabatan<select required disabled=\{refreshingSnapshot\
 assert.match(hrisSource, /disabled=\{saving \|\| refreshingSnapshot \|\|/);
 console.log("HRIS job-title refresh check passed.");
 
-
-const hrisSource = fs.readFileSync(path.join(root, "src/pages/SupabaseHrisManager.tsx"), "utf8");
 assert.match(hrisSource, /SupabaseModuleReferenceSettings domains=\{\["hris_job_title"\]\} label="Pengaturan jabatan pegawai" defaultOpen/);
