@@ -13,7 +13,7 @@
 - PR [#265](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/265) menampilkan NIS sebagai identitas utama pada daftar santri; tergabung pada `891d52b`. CI [run #45501057068](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45501057068) lulus untuk frontend, database/API/pgTAP, dan instalasi NPM pelanggan.
 - PR #255 memperjelas panel katalog Jabatan Pegawai dan menyegarkan opsi formulir setelah katalog disimpan. UAT Admin VQE 25 November: tombol `Tambah` membuka form; jabatan aktif sintetis `UAT Pengelola Asrama 20261124` tampil pada katalog dan pilihan pegawai. Pegawai sintetis `UAT Pegawai Uji Simpan 20261125` berhasil disimpan memakai jabatan tersebut dan unit `Unit UAT Pesantren`; sistem menerbitkan `PEG-2026-00003`. Setelah direktori dimuat ulang, record, jabatan, dan unit tetap tampil. Ini membuktikan alur dasar simpan-baca HRIS pada tenant staging tersebut, bukan isolasi lintas tenant/role atau kesiapan keseluruhan HRIS.
 - Hostinger staging `lightgreen-jay-425688.hostingersite.com` menunjukkan source `main` pada commit `891d52b433c8e46695b2c4b8b05980473305f296` **Completed / Current** pada 25 November. Setelah memuat ulang aplikasi, Admin UAT membuka Data Induk dan melihat NIS pada daftar. Tidak ada perubahan Supabase Production.
-- PTSAS Production tidak disentuh. Tidak ada migrasi atau perubahan konfigurasi cloud pada PR #258–#263.
+- PTSAS Production tidak disentuh. Tidak ada migrasi atau perubahan konfigurasi cloud pada PR #258–#265.
 
 ## Staging VQE
 
