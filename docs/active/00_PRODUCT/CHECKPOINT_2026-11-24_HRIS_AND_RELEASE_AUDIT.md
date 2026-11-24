@@ -5,7 +5,7 @@
 - PR [#255](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/255) memperjelas panel pengaturan Jabatan Pegawai pada modul SDM: judulnya menyebut jabatan secara langsung, panel terbuka otomatis, dan pilihan formulir pegawai diperbarui setelah katalog disimpan.
 - PR #255 sudah tergabung ke `main` pada commit `3d0eb0397f82d51e722fea269df7c64fdfdc2f6d`.
 - Ketiga job CI lulus: pemeriksaan frontend/build/runtime, replay migrasi dan tes database/API/pgTAP pada Supabase lokal terisolasi, serta instalasi NPM untuk environment pelanggan.
-- CI bukan bukti UAT browser atau deployment Hostinger. Preview staging belum diperiksa setelah merge ini; Production PTSAS tidak diubah.
+- CI bukan bukti UAT browser. hPanel Hostinger kemudian menunjukkan deployment staging `lightgreen-jay-425688.hostingersite.com` dari commit `4d47568ea7dc71317faf1b2f04f78ddede3299f2` berstatus **Completed / Current** (24 November 2026, 22.37 WIB), dan halaman publik berhasil dimuat. Browser berada pada halaman publik; UAT HRIS dengan sesi Admin belum dilakukan. Production PTSAS tidak diubah.
 - Pencarian GitHub setelah merge menemukan 0 PR terbuka.
 
 ## Snapshot awal sebelum PR #255
