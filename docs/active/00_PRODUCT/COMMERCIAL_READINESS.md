@@ -646,3 +646,22 @@ Tidak ada data sintetis baru yang dibuat pada pemeriksaan ini.
 - Nilai Environment Variables hPanel staging tetap **belum terverifikasi**. Helper computer-use sebelumnya gagal dimulai dengan `failed to write kernel assets: The system cannot find the path specified. (os error 3)`; tidak ada variabel hosting yang diubah. Source menyediakan 11 gate server yang disebut operator; PPDB administrasi juga memerlukan `VITE_SUPABASE_PPDB_RUNTIME_ENABLED`. Lanjutkan verifikasi/aktivasi satu kelompok pada satu waktu setelah prasyarat dan UAT modulnya lulus.
 - PTSAS Production tidak diubah. Langkah tersisa: periksa nilai flag di hPanel staging, jalankan UAT baca-simpan-baca per modul dengan fixture sintetis melalui aplikasi, lalu tim database menyelesaikan rekonsiliasi DDL, urutan promosi, dan bukti restore Production sebelum cutover.
 
+
+
+## Checkpoint UAT HRIS inti di VQE — 24 November 2026
+
+UAT baca-simpan-baca dilakukan pada preview staging Hostinger yang terhubung ke VQE dengan sesi Admin UAT. Seluruh catatan yang dibuat di bagian ini sintetis; Production PTSAS tidak disentuh.
+
+- Katalog jabatan terbuka melalui tombol **Tambah**. Pilihan jabatan `MUDIR` muncul pada formulir pegawai; tidak ada jabatan referensi baru yang dibuat.
+- Satu pegawai uji dibuat dengan jabatan `MUDIR` dan unit `Unit UAT Pesantren`. Nomor pegawai terbit otomatis. Daftar tetap menampilkan pegawai setelah modul dimuat ulang.
+- Kehadiran pegawai uji pada 24 November 2026 dengan status Hadir, pukul 07.00–15.00 berhasil disimpan dan muncul setelah data dimuat ulang.
+- Permohonan cuti tahunan sintetis untuk 25–26 November 2026 berhasil disimpan dan tampil berstatus Menunggu. Keputusan persetujuan tidak dijalankan.
+- Hasil ini membuktikan alur dasar direktori pegawai, relasi jabatan/unit, kehadiran, dan pencatatan cuti pada build staging yang diamati. Pengujian ini tidak membuktikan isolasi lintas tenant/role, pemrosesan bersamaan, atau kesiapan keseluruhan HRIS.
+
+### Batas fitur HRIS yang ditemukan
+
+- Tab **Pelacakan Langsung** menampilkan ringkasan kehadiran terakhir dan menyatakan bahwa pelacakan lokasi belum tersedia. Fitur ini bukan pelacakan GPS.
+- Tab **Jadwal Shift**, **Penggajian**, **Kinerja**, dan **Rekrutmen** belum memiliki model data/API tersendiri pada pemeriksaan source dan katalog staging sebelumnya. Tab yang terlihat bukan bukti fungsi tersebut telah siap. Implementasi memerlukan skema tenant, RLS, API tervalidasi, relasi, dan pengujian sebelum boleh dinyatakan tersedia.
+- Staging kini menyimpan satu pegawai, satu catatan kehadiran, dan satu permohonan cuti sintetis untuk melanjutkan UAT. Jangan menyalin fixture ini ke Production.
+
+Tidak ada perubahan source aplikasi, flag hosting, migrasi, atau database Production pada checkpoint ini.
