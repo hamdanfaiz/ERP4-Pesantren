@@ -1,6 +1,14 @@
 # Checkpoint — HRIS dan rekonsiliasi rilis — 24 November 2026
 
-## Source dan verifikasi terbaru
+## Pembaruan setelah PR #255
+
+- PR [#255](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/255) memperjelas panel pengaturan Jabatan Pegawai pada modul SDM: judulnya menyebut jabatan secara langsung, panel terbuka otomatis, dan pilihan formulir pegawai diperbarui setelah katalog disimpan.
+- PR #255 sudah tergabung ke `main` pada commit `3d0eb0397f82d51e722fea269df7c64fdfdc2f6d`.
+- Ketiga job CI lulus: pemeriksaan frontend/build/runtime, replay migrasi dan tes database/API/pgTAP pada Supabase lokal terisolasi, serta instalasi NPM untuk environment pelanggan.
+- CI bukan bukti UAT browser atau deployment Hostinger. Preview staging belum diperiksa setelah merge ini; Production PTSAS tidak diubah.
+- Pencarian GitHub setelah merge menemukan 0 PR terbuka.
+
+## Snapshot awal sebelum PR #255
 
 - `main` berada pada merge PR [#246](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/246), commit `268f46e122b2d68aae33ee2111a0ee01eeffe4a0`.
 - PR #246 menambah 43 assertion pgTAP untuk HRIS: pegawai, perubahan unit, presensi, pengajuan/ulasan cuti, audit, idempotensi, validasi, izin, dan isolasi tenant. Semua fixture dibatalkan dalam transaksi tes.
