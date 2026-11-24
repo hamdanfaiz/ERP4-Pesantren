@@ -86,7 +86,7 @@ console.log("Customer-facing UI copy check passed.");
 
 const referenceCatalogSource = fs.readFileSync(path.join(root, "src/components/SupabaseReferenceCatalogManager.tsx"), "utf8");
 const hrisSource = fs.readFileSync(path.join(root, "src/pages/SupabaseHrisManager.tsx"), "utf8");
-assert.doesNotMatch(hrisSource, /Direktori pegawai dan kehadiran berhasil diperbarui\\./);
+assert.ok(!hrisSource.includes("Direktori pegawai dan kehadiran berhasil diperbarui."));
 assert.match(referenceCatalogSource, /onSaved\?: \(\) => void \| Promise<void>/);
 assert.match(referenceCatalogSource, /try \{ await onSaved\?\.\(\); \}/);
 assert.match(hrisSource, /onSaved=\{async \(\) => \{/);
