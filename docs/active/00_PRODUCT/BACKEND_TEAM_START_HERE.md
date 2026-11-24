@@ -1,6 +1,6 @@
 > Agent / multi-agent: mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Bagian checkpoint bertanggal di bawah adalah arsip; gunakan ringkasan terbaru ini untuk handoff.
 >
-> **Status terkini — 24 November 2026.** Source `main` berada pada `3f3302ad59f8f3883feb10338367c0142437e6c5`. PR #258–#260 sudah tergabung; pencarian terakhir menemukan 0 PR terbuka. Source tersedia untuk review tim backend, tetapi ERP belum dinyatakan siap deploy atau komersial.
+> **Status terkini — 24 November 2026.** Source `main` pada commit `3f3302ad59f8f3883feb10338367c0142437e6c5` menjadi dasar handoff ini. PR #258–#260 sudah tergabung; sebelum handoff ini dibuat, pencarian terakhir menemukan 0 PR terbuka. Source tersedia untuk review tim backend, tetapi ERP belum dinyatakan siap deploy atau komersial.
 
 ## Source, PR, dan CI
 
