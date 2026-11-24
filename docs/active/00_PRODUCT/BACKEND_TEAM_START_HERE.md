@@ -1,20 +1,22 @@
 > Agent / multi-agent: mulai dari [AGENT_START_HERE.md](AGENT_START_HERE.md). Bagian checkpoint bertanggal di bawah adalah arsip; gunakan ringkasan terbaru ini untuk handoff.
 >
-> **Status terkini — 24 November 2026.** Source `main` pada commit `3f3302ad59f8f3883feb10338367c0142437e6c5` menjadi dasar handoff ini. PR #258–#260 sudah tergabung; sebelum handoff ini dibuat, pencarian terakhir menemukan 0 PR terbuka. Source tersedia untuk review tim backend, tetapi ERP belum dinyatakan siap deploy atau komersial.
+> **Status terkini — 25 November 2026.** Source `main` pada commit `3ba9720e9f8bac422190b0d4debe1c2096c8f377` menjadi dasar handoff ini. PR #261 tergabung; pencarian repo hari ini menemukan 0 PR terbuka dan CI PR #261 berhasil. hPanel staging menunjukkan commit `3ba9720` **Completed / Current**. Pemeriksaan hari ini membuktikan flag runtime terpilih aktif dan opsi jabatan HRIS tersedia pada form pegawai, tanpa menyimpan data baru. Source tersedia untuk review tim backend, tetapi ERP belum siap dipromosikan.
 
 ## Source, PR, dan CI
 
 - PR [#258](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/258) memperbaiki konfirmasi pemetaan unit Multi-Unit. CI [run #45432383115](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45432383115) berhasil; ketiga job selesai sukses.
 - PR [#259](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/259) dan [#260](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/260) mencatat bukti dan status staging. CI masing-masing berhasil pada [run #45434991447](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45434991447) dan [run #45437069513](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45437069513).
-- Perbaikan panel katalog Jabatan Pegawai dan pemuatan ulang opsi formulir dari PR #255 sudah ada di `main`. Perbaikan source belum menjadi bukti bahwa Admin UAT sudah mengonfirmasi alur setelah deployment terbaru.
-- Hostinger staging `lightgreen-jay-425688.hostingersite.com` terakhir terlihat **Completed / Current** pada commit `39c07e48b6cae8a79b133ffd59625fe0d1754798` (PR #258). Ini bukti build ter-deploy, bukan verifikasi simpan-baca melalui UI.
-- PTSAS Production tidak disentuh. Tidak ada migrasi atau perubahan konfigurasi cloud pada PR #258–#260.
+- PR [#261](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/261) memperbarui handoff status. CI [run #45440424846](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45440424846) berhasil.
+- PR #255 memperjelas panel katalog Jabatan Pegawai dan menyegarkan opsi formulir setelah katalog disimpan. Spot-check Admin UAT pada staging 25 November: panel jabatan terbuka, tombol `Tambah` membuka form, jabatan aktif sintetis `UAT Pengelola Asrama 20261124` tampil pada daftar dan opsi `Tambah pegawai`. Form ditutup tanpa disimpan; ini membuktikan visibilitas/pilihan, belum membuktikan simpan-ulang pegawai.
+- Hostinger staging `lightgreen-jay-425688.hostingersite.com` terlihat **Completed / Current** pada commit `3ba9720e9f8bac422190b0d4debe1c2096c8f377` pada 25 November. Ini bukti build ter-deploy, bukan bukti UAT semua modul.
+- PTSAS Production tidak disentuh. Tidak ada migrasi atau perubahan konfigurasi cloud pada PR #258–#261.
 
 ## Staging VQE
 
 - Snapshot ledger baca-saja terakhir yang tercatat (23 November) menunjukkan VQE `vqemuyzveuirlkvdggjd` cocok dengan 167/167 file migrasi source. PR #258–#260 tidak menambah migrasi. Kecocokan metadata ledger tidak membuktikan semua DDL sama dengan source.
-- Pemilik sebelumnya melaporkan halaman HRIS terbuka setelah flag HRIS staging diaktifkan. Status Environment Variables terbaru untuk semua modul belum diperiksa; jangan menganggap seluruh flag aktif.
-- UAT Admin setelah perubahan HRIS #255 dan Multi-Unit #258 masih perlu konfirmasi simpan-baca, validasi relasi, izin role, dan tenant. Hasil CI lokal sintetis tidak menggantikan UAT browser.
+- Pembacaan hPanel staging 25 November menunjukkan nilai `true` untuk 13 flag server: `SUPABASE_PPDB_RUNTIME_ENABLED`, `SUPABASE_FINANCE_RUNTIME_ENABLED`, `SUPABASE_FINANCE_BUDGET_RUNTIME_ENABLED`, `SUPABASE_HEALTHCARE_RUNTIME_ENABLED`, `SUPABASE_COOPERATIVE_RUNTIME_ENABLED`, `SUPABASE_ENTERPRISE_UNITS_RUNTIME_ENABLED`, `SUPABASE_HRIS_RUNTIME_ENABLED`, `SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED`, `SUPABASE_GA_ASSETS_RUNTIME_ENABLED`, `SUPABASE_DONATION_RUNTIME_ENABLED`, `SUPABASE_MARKETPLACE_RUNTIME_ENABLED`, `SUPABASE_MASTER_DATA_RUNTIME_ENABLED`, dan `SUPABASE_TAHFIDZ_RUNTIME_ENABLED`; `VITE_SUPABASE_MASTER_DATA_RUNTIME_ENABLED` juga `true`. Nilai secret tidak dibuka dan tidak ada flag yang diubah. Ini hanya mengonfirmasi konfigurasi pada site staging yang diperiksa, bukan kelulusan API/UAT tiap modul.
+- HRIS: pilihan jabatan dan tombol tambah katalog berhasil diperiksa pada sesi Admin UAT, tetapi penyimpanan pegawai baru setelah memilih jabatan belum diuji. Multi-Unit: konfirmasi simpan-baca/pemetaan unit masih perlu UAT. CI sintetis tidak menggantikan uji browser semua modul, role, dan tenant.
+- Spot-check Admin UAT pada 25 November membuka 12 layar staging: PPDB, Keuangan & Tagihan, UKS, Koperasi, Multi-Unit, Keuangan & Anggaran, SDM, Sarana & Prasarana, CRM, Donasi & Wakaf, Marketplace, Tahfidz, dan Data Induk. Tidak tampak placeholder fitur belum tersedia atau error pada layar. Ini hanya pemeriksaan pemuatan layar, bukan simpan-baca atau validasi relasi/role/tenant.
 
 ## Production PTSAS
 
@@ -25,12 +27,12 @@
 ## Pekerjaan sebelum siap diserahkan untuk deploy/UAT
 
 1. UAT staging berbasis browser per role dan tenant pada modul yang diaktifkan: baca, simpan, muat ulang, relasi, duplikasi, penolakan akses lintas tenant, unggah/unduh Storage privat, serta kondisi kosong/error.
-2. Konfirmasi alur HRIS setelah PR #255: tambah jabatan lewat tombol, pastikan muncul pada pilihan formulir pegawai, lalu simpan dan muat ulang pegawai.
+2. Lanjutkan UAT HRIS: tombol tambah dan pilihan jabatan sudah terkonfirmasi pada 25 November; simpan pegawai dengan jabatan tersebut lalu muat ulang untuk membuktikan relasi tersimpan.
 3. Konfirmasi alur pemetaan calon santri/santri dan pengeluaran pada Multi-Unit setelah PR #258.
 4. Lengkapi uji instalasi bersih, upgrade, dan pemulihan pada profil VPS/on-premise yang akan didukung.
 5. Tim backend menuntaskan gate PTSAS di atas, lalu pemilik menetapkan commit dan konfigurasi rilis untuk target hosting.
 
-UAT dan konfigurasi staging yang belum diverifikasi menunggu sesi operator berikutnya; tidak ada langkah manual yang ditugaskan di checkpoint ini. **Status keseluruhan: source/CI berjalan, beberapa bukti staging tersedia, tetapi pekerjaan belum selesai dan Production belum siap dipromosikan.**
+Tidak ada operasi manual yang diperlukan saat ini. Pemeriksaan staging dilakukan baca-saja; tidak ada data baru atau perubahan Production. **Status keseluruhan: source/CI berjalan, sebagian konfigurasi dan UI staging terkonfirmasi, tetapi UAT lintas modul serta gerbang database/restore masih terbuka dan Production belum siap dipromosikan.**
 
 ## Snapshot dan catatan historis
 
