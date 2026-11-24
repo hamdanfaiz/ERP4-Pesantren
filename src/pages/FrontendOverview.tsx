@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, GraduationCap, Users, CalendarDays, Heart, Play } from 'lucide-react';
+import { LogIn, GraduationCap, Users, CalendarDays, Heart } from 'lucide-react';
 const PublicRegistrationForm = React.lazy(() => import('../components/PublicRegistrationForm').then((module) => ({ default: module.PublicRegistrationForm })));
 
 interface FrontendProps {
@@ -9,6 +9,10 @@ interface FrontendProps {
 
 export function FrontendOverview({ onLoginClick, branding }: FrontendProps) {
   const [activeView, setActiveView] = useState<'home' | 'ppdb'>('home');
+  const showHomeSection = (id: string) => {
+    setActiveView('home');
+    window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 erp-public-landing">
@@ -26,10 +30,10 @@ export function FrontendOverview({ onLoginClick, branding }: FrontendProps) {
         </div>
         
         <nav className="hidden md:flex items-center gap-8">
-          <button onClick={() => setActiveView('home')} className={`text-sm font-medium ${activeView === 'home' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400 hover:text-emerald-500'}`}>Beranda</button>
-          <button className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500">Program</button>
+          <button onClick={() => { setActiveView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`text-sm font-medium ${activeView === 'home' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400 hover:text-emerald-500'}`}>Beranda</button>
+          <button onClick={() => showHomeSection('program')} className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500">Program</button>
           <button onClick={() => setActiveView('ppdb')} className={`text-sm font-medium ${activeView === 'ppdb' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-400 hover:text-emerald-500'}`}>PPDB</button>
-          <button className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500">Donasi</button>
+          <button onClick={() => showHomeSection('donasi')} className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-emerald-500">Donasi</button>
         </nav>
 
         <div className="flex items-center gap-4">
@@ -53,28 +57,25 @@ export function FrontendOverview({ onLoginClick, branding }: FrontendProps) {
                 Sistem Informasi Terpadu {branding?.schoolName} memudahkan akses informasi pendaftaran, kegiatan akademik, tahfidz, dan layanan pesantren lainnya.
               </p>
               <div className="flex items-center justify-center gap-4 pt-4">
-                <button 
-                  onClick={() => setActiveView('ppdb')}
-                  className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20 hover:scale-105"
-                >
+                <button onClick={() => setActiveView('ppdb')} className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-emerald-500/20 hover:scale-105">
                   Daftar Sekarang
                 </button>
-                <button className="px-8 py-3 glass-card text-slate-800 dark:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5 rounded-xl font-medium transition-all flex items-center gap-2 group">
-                  <Play className="w-4 h-4 group-hover:text-emerald-500" />
-                  Video Profil
+                <button onClick={() => showHomeSection('program')} className="px-8 py-3 glass-card text-slate-800 dark:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5 rounded-xl font-medium transition-all flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4" />
+                  Lihat Program
                 </button>
               </div>
             </div>
 
             {/* Quick Features */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-12 erp-landing-grid">
+            <div id="program" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-4 gap-6 pt-12 erp-landing-grid">
               {[
                 { icon: GraduationCap, title: 'Akademik', desc: 'Kurikulum terpadu nasional dan kepesantrenan.' },
                 { icon: Users, title: 'PPDB Online', desc: 'Pendaftaran calon santri baru lebih mudah dan transparan.' },
                 { icon: CalendarDays, title: 'Tahfidz', desc: 'Pemantauan hafalan harian secara real-time.' },
                 { icon: Heart, title: 'Donasi', desc: 'Mari bergabung dalam program wakaf dan infaq.' },
               ].map((f, idx) => (
-                <div key={idx} className="glass-panel p-6 text-center space-y-4 hover:-translate-y-1 transition-all duration-300">
+                <div id={f.title === 'Donasi' ? 'donasi' : undefined} key={idx} className="scroll-mt-24 glass-panel p-6 text-center space-y-4 hover:-translate-y-1 transition-all duration-300">
                   <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
                     <f.icon className="w-6 h-6" />
                   </div>
