@@ -1,8 +1,8 @@
-## Status handoff terbaru — 24 November 2026
+## Status handoff terbaru — 25 November 2026
 
-Ringkasan PR/source dan daftar tindakan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md). `main` berada pada `3f3302ad59f8f3883feb10338367c0142437e6c5`; PR #258–#260 tergabung; sebelum handoff ini dibuat, pencarian terakhir tidak menemukan PR terbuka. Build staging Hostinger terakhir terverifikasi pada commit PR #258, tetapi itu belum membuktikan UAT Admin setelah perubahan HRIS dan Multi-Unit. PTSAS Production tidak diubah.
+Ringkasan PR/source dan daftar tindakan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md). `main` berada pada `3ba9720e9f8bac422190b0d4debe1c2096c8f377`; PR #261 tergabung dan pencarian repo hari ini menemukan 0 PR terbuka. hPanel staging menunjukkan deployment `main` pada commit ini **Completed / Current**. Pemeriksaan staging hari ini membuktikan flag runtime tertentu aktif dan pilihan jabatan HRIS tampil pada formulir pegawai. Pemeriksaan tidak menyimpan data baru. PTSAS Production tidak diubah.
 
-**Produk belum siap dipromosikan.** Gerbang yang tersisa meliputi UAT lintas modul/role/tenant, pemeriksaan setup modul staging, rekonsiliasi DDL dan urutan migrasi PTSAS oleh tim pemilik database, bukti restore yang dapat dipulihkan, serta simulasi instalasi/upgrade/restore pada jenis hosting pelanggan. Jangan menafsirkan angka ledger sebagai izin untuk menerapkan selisih migrasi secara massal.
+**Produk belum siap dipromosikan.** UAT lintas modul/role/tenant dan simpan-baca masih belum lengkap. DDL serta urutan migrasi PTSAS belum direkonsiliasi, bukti pemulihan Production belum tersedia, dan instalasi/upgrade/restore untuk environment pelanggan belum disimulasikan menyeluruh. Jangan menafsirkan angka ledger sebagai izin untuk menerapkan selisih migrasi secara massal.
 
 Bagian bertanggal setelah catatan ini adalah snapshot audit sebelumnya; gunakan handoff tim backend untuk status PR, source, dan bukti deploy terbaru.
 
