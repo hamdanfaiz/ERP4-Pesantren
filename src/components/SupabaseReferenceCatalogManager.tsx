@@ -135,13 +135,13 @@ export function SupabaseReferenceCatalogManager({ domains, onSaved }: { domains?
   </section>;
 }
 
-export function SupabaseModuleReferenceSettings({ domains, onSaved }: { domains: SupabaseReferenceDomain[]; onSaved?: () => void }) {
+export function SupabaseModuleReferenceSettings({ domains, onSaved, label, defaultOpen = false }: { domains: SupabaseReferenceDomain[]; onSaved?: () => void; label?: string; defaultOpen?: boolean }) {
   const { user } = useAuth();
   if (!["Admin", "SuperAdmin"].includes(String(user?.role || ""))) return null;
 
-  return <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
+  return <details open={defaultOpen} className="group rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
     <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 marker:hidden dark:text-slate-100">
-      <span>Pengaturan kategori dan referensi modul ini</span>
+      <span>{label || "Pengaturan kategori dan referensi modul ini"}</span>
       <span className="text-xs font-medium text-slate-500 group-open:hidden">Buka</span>
       <span className="hidden text-xs font-medium text-slate-500 group-open:inline">Tutup</span>
     </summary>
