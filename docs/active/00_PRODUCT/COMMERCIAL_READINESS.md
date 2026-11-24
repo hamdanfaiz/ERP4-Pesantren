@@ -1,3 +1,13 @@
+## Status handoff terbaru — 24 November 2026
+
+Ringkasan PR/source dan daftar tindakan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md). `main` berada pada `3f3302ad59f8f3883feb10338367c0142437e6c5`; PR #258–#260 tergabung; sebelum handoff ini dibuat, pencarian terakhir tidak menemukan PR terbuka. Build staging Hostinger terakhir terverifikasi pada commit PR #258, tetapi itu belum membuktikan UAT Admin setelah perubahan HRIS dan Multi-Unit. PTSAS Production tidak diubah.
+
+**Produk belum siap dipromosikan.** Gerbang yang tersisa meliputi UAT lintas modul/role/tenant, pemeriksaan setup modul staging, rekonsiliasi DDL dan urutan migrasi PTSAS oleh tim pemilik database, bukti restore yang dapat dipulihkan, serta simulasi instalasi/upgrade/restore pada jenis hosting pelanggan. Jangan menafsirkan angka ledger sebagai izin untuk menerapkan selisih migrasi secara massal.
+
+Bagian bertanggal setelah catatan ini adalah snapshot audit sebelumnya; gunakan handoff tim backend untuk status PR, source, dan bukti deploy terbaru.
+
+---
+
 ## Supabase Advisor dan tindak lanjut keamanan — 23 November 2026
 
 Pemeriksaan Advisor bersifat baca-saja dan tidak mengubah skema, Auth, atau data.
