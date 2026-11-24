@@ -1206,7 +1206,7 @@ export function MasterDataManager() {
             className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20 mt-1 cursor-pointer"
           />
         </th>
-        <th className="px-6 py-4">ID</th>
+        <th className="px-6 py-4">{activeTab === "entities" && activeSubTab === "Santri" ? "NIS / Kode" : "ID"}</th>
         <th className="px-6 py-4">Nama</th>
         <th className="px-6 py-4">Jenis Kelamin</th>
         <th className="px-6 py-4">Jenjang/Kelas</th>
@@ -1473,8 +1473,15 @@ export function MasterDataManager() {
             className="accent-emerald-500 rounded border-slate-200 dark:border-white/10 bg-black/20 cursor-pointer pointer-events-none"
           />
         </td>
-        <td className="px-6 py-4 font-mono text-xs opacity-60 text-slate-500 dark:text-slate-400">
-          {row.id}
+        <td className="px-6 py-4">
+          {activeTab === "entities" && activeSubTab === "Santri" ? (
+            <div className="flex min-w-[132px] flex-col">
+              <span className="font-semibold text-slate-800 dark:text-slate-200">{row.nis || "NIS belum terbit"}</span>
+              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">Kode data: {row.id}</span>
+            </div>
+          ) : (
+            <span className="font-mono text-xs opacity-60 text-slate-500 dark:text-slate-400">{row.id}</span>
+          )}
         </td>
         <td className="px-6 py-4 font-medium text-slate-800 dark:text-slate-200">{row.name}</td>
         <td className="px-6 py-4 text-slate-500 dark:text-slate-400">{row.gender}</td>
