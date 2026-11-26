@@ -346,8 +346,14 @@ assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<section/,
   'Alumni directory must render its tenant-backed screen.');
 assert.match(alumniSource, /tab === "tracer"\s*\?\s*<section/,
   'Alumni tracer study must render its module screen.');
-assert.match(alumniSource, /tab === "community"\s*\?\s*<section/,
-  'Alumni community must render its module screen.');
+assert.match(alumniSource, /tab === "community"\s*&&\s*ALUMNI_EVENTS_RUNTIME_ENABLED\s*\?\s*<AlumniCommunityPanel/,
+  'Alumni community must render its tenant-backed events and member panel only behind its dedicated runtime flag.');
+assert.match(alumniSource, /requestAlumni\("\/api\/alumni\/events"\)/,
+  'Alumni community events must load from its authenticated backend route.');
+assert.match(alumniSource, /requestAlumni\(`\/api\/alumni\/events\/\$\{encodeURIComponent\(item\.id\)\}\/status`/,
+  'Alumni event status actions must use the tenant-scoped status route.');
+assert.match(alumniSource, /Simpan kegiatan|Batalkan kegiatan/,
+  'Alumni community must expose its persisted event management actions.');
 assert.match(alumniSource, /requestAlumni\("\/api\/donation\/snapshot"\)/,
   'Alumni donations must read its backend module instead of demo data.');
 const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
