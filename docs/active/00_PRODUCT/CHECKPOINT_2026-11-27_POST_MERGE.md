@@ -4,7 +4,7 @@
 
 - Source resmi pada GitHub `main`: `dca570c8df77d9ff4f37574b50a70f2093a6fd7c`.
 - PR #269, Kegiatan Komunitas Alumni, sudah digabung pada `bd5c9a95d21f87e3dea932c3a300cfbbdb2d9b8f`.
-- PR #270, jadwal shift tenant-scoped HRIS, sudah digabung sesudah #269 pada `9295420e26af0b462c42382ff96091fc59ca9817`.
+- PR #270, jadwal shift tenant-scoped HRIS, digabung sesudah #269 pada `9295420e26af0b462c42382ff96091fc59ca9817`; PR #271 memperbarui dokumentasi handoff dan digabung pada `dca570c8df77d9ff4f37574b50a70f2093a6fd7c`.
 - Pemeriksaan GitHub menunjukkan tidak ada PR terbuka.
 - Dokumentasi handoff: [BACKEND_TEAM_START_HERE.md](BACKEND_TEAM_START_HERE.md) dan [COMMERCIAL_READINESS.md](COMMERCIAL_READINESS.md).
 
@@ -42,4 +42,4 @@
 5. Setelah skema tersedia, aktifkan flag secara bertahap dan ulangi UAT role/tenant pada target hosting sebelum membuka fitur kepada pengguna.
 6. Lanjutkan UAT menyeluruh seluruh modul: alur CRUD, relasi, validasi, role/tenant, transaksi, Storage, kondisi kosong/error, dan instalasi VPS/on-premise.
 
-**Status:** pekerjaan kode #269–#270 selesai dan sudah berada di `main`; produk ERP secara keseluruhan belum terbukti siap Production atau siap komersial. Gate Production dan UAT lintas-modul tetap terbuka.
+**Status:** pekerjaan aplikasi #269–#270 dan dokumentasi #271 sudah berada di `main`; produk ERP secara keseluruhan belum terbukti siap Production atau siap komersial. Gate Production dan UAT lintas-modul tetap terbuka.
