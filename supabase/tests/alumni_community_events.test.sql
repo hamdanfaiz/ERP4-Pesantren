@@ -1,7 +1,7 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path=public,extensions;
-SELECT plan(15);
+SELECT plan(16);
 
 INSERT INTO public.tenants(id,slug,name,status) VALUES
  ('e7400000-0000-4000-8000-000000000001','alumni-event-one','Alumni Event One','active'),
@@ -67,6 +67,11 @@ SELECT throws_ok($$SELECT public.create_alumni_community_event(
  'e7400000-0000-4000-8000-000000000105','Invalid type','free-text','2027-06-01 10:00:00+07','Online','')$$,
  '22023',NULL,'event type is selected from the fixed catalog');
 
+SELECT throws_ok($SELECT public.set_alumni_community_event_status(
+ 'e7400000-0000-4000-8000-000000000001',
+ (SELECT id FROM public.alumni_community_events WHERE tenant_id='e7400000-0000-4000-8000-000000000001'),
+ 'e7400000-0000-4000-8000-000000000011','admin','completed')$,
+ '23514',NULL,'future events cannot be completed early');
 SELECT is(
  public.set_alumni_community_event_status(
   'e7400000-0000-4000-8000-000000000001',

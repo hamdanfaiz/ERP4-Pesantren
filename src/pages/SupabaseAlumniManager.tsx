@@ -4,7 +4,7 @@ import { Briefcase, GraduationCap, HeartHandshake, Search, Users, UserPlus, X, L
 import { useAuth } from "../contexts/AuthContext";
 import { getAccessToken } from "../authSession";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, submitAlumniGraduation, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
-import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
+import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 import { ERPTabs } from "../components/ERPDesignSystem";
 
 type Alumni = { id: string; studentId: string; name: string; nis: string; grade: string; graduationYear: number; graduatedAt: string };
@@ -208,15 +208,13 @@ function AlumniCommunityPanel({ canManage, timeZone, members }: { canManage: boo
     if (!canManage || saving) return;
     setError("");
     setNotice("");
-    const parsedStart = new Date(draft.startsAt);
-    if (!Number.isFinite(parsedStart.getTime())) {
-      setError("Masukkan tanggal dan waktu kegiatan yang valid.");
-      return;
-    }
+    let startsAt: string;
+    try { startsAt = tenantLocalDateTimeToIso(draft.startsAt, timeZone); }
+    catch { setError("Masukkan tanggal dan waktu kegiatan yang valid untuk zona waktu pesantren."); return; }
     const payload = {
       title: draft.title.trim(),
       eventType: draft.eventType,
-      startsAt: parsedStart.toISOString(),
+      startsAt,
       location: draft.location.trim(),
       description: draft.description.trim(),
     };

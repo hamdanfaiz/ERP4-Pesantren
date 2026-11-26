@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, isAlumniGraduationCandidate, submitAlumniGraduation } from "../src/lib/alumniWorkflow";
-import { tenantDate } from "../src/lib/tenantTimeZone";
+import { tenantDate, tenantLocalDateTimeToIso } from "../src/lib/tenantTimeZone";
 import { normalizeAlumniCommunityEventPayload, SupabaseAlumniError } from "../src/server/supabaseAlumni";
 
 assert.equal(isAlumniGraduationCandidate("Active", false), true);
@@ -50,6 +50,10 @@ assert.equal(refreshedAfterFailedSave, false, "a failed save must not trigger a 
 const yearBoundary = new Date("2026-12-31T17:30:00.000Z");
 assert.equal(tenantDate(yearBoundary, "Asia/Jakarta"), "2027-01-01", "Alumni reporting follows the tenant's calendar year");
 assert.equal(tenantDate(yearBoundary, "UTC"), "2026-12-31", "date boundaries differ correctly across tenant time zones");
+assert.equal(tenantLocalDateTimeToIso("2027-06-01T10:00", "Asia/Jakarta"), "2027-06-01T03:00:00.000Z",
+  "community event input is interpreted in the tenant timezone");
+assert.equal(tenantLocalDateTimeToIso("2027-06-01T10:00", "America/Los_Angeles"), "2027-06-01T17:00:00.000Z",
+  "community event time remains tenant-scoped when the browser is elsewhere");
 assert.match(createAlumniClientRequestId(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 
 const communityEvent = normalizeAlumniCommunityEventPayload({

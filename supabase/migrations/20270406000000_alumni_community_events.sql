@@ -136,6 +136,9 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Kegiatan tidak ditemukan pada tenant ini' USING ERRCODE = 'P0002';
   END IF;
+  IF p_status = 'completed' AND v_event.starts_at > now() THEN
+    RAISE EXCEPTION 'Kegiatan yang belum dimulai belum dapat ditandai selesai' USING ERRCODE = '23514';
+  END IF;
   IF v_event.status = p_status THEN
     RETURN jsonb_build_object('success', true, 'alreadyApplied', true, 'eventId', v_event.id, 'status', v_event.status);
   END IF;
