@@ -1,6 +1,10 @@
-## Status handoff terbaru — 25 November 2026
+## Status handoff terbaru — 27 November 2026
 
-Ringkasan PR/source dan daftar tindakan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md). `main` berada pada `891d52b433c8e46695b2c4b8b05980473305f296`; PR #264 (catatan UAT) dan #265 (tampilan NIS Data Induk) telah tergabung. CI PR #264 (`45499978335`) dan #265 (`45501057068`) lulus. Hostinger staging VQE menandai commit `891d52b4` **Completed / Current**. Admin UAT berhasil melakukan simpan-baca HRIS dan Data Induk; setelah PR #265, NIS santri tampil pada daftar dengan kode data sebagai keterangan. Spot-check 12 layar tidak menampilkan placeholder fitur atau error yang terlihat, tetapi ini bukan pengujian menyeluruh CRUD, relasi, role, atau tenant. CI menjalankan replay migrasi dan backup/restore pada database lokal terisolasi; ini bukan bukti pemulihan Production. PTSAS Production tidak diubah.
+Ringkasan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md) dan [checkpoint pasca-merge 27 November](CHECKPOINT_2026-11-27_POST_MERGE.md). `main` berada pada `9295420e26af0b462c42382ff96091fc59ca9817`. PR #269 (Kegiatan Komunitas Alumni) dan #270 (Jadwal Shift HRIS) sudah digabung; tidak ada PR terbuka. CI PR #270 run #2530 dan CI pasca-merge `main` run #2532 lulus. CI mencakup replay migrasi terisolasi, tes auth/tenant, pgTAP, Storage, build/Docker, instalasi NPM, dan pemulihan database lokal. UAT Admin VQE untuk dua fitur tersebut lulus pada alur yang dicatat; fixture sintetis tetap berada di staging.
+
+Kode Production belum diterapkan melalui hPanel yang terverifikasi, dan Production PTSAS tidak diubah. Fitur baru tetap mati secara bawaan. Rekonsiliasi DDL/urutan migrasi PTSAS dan bukti backup/restore Production belum tersedia. Karena itu produk belum dinyatakan siap Production atau siap komersial secara keseluruhan.
+
+## Riwayat UAT — 25 November 2026
 
 ### UAT HRIS simpan-baca — 25 November 2026
 
