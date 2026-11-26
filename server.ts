@@ -790,6 +790,7 @@ async function startServer() {
   };
   const masterDataRuntimeEnabled = String(process.env.SUPABASE_MASTER_DATA_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const alumniRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const alumniEventsRuntimeEnabled = String(process.env.SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryRuntimeEnabled = String(process.env.SUPABASE_LIBRARY_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const libraryDigitalAssetsEnabled = String(process.env.SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED || "").trim().toLowerCase() === "true";
   const boardingRuntimeEnabled = String(process.env.SUPABASE_BOARDING_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
@@ -1035,7 +1036,7 @@ async function startServer() {
 
   app.get("/api/alumni/events", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!alumniRuntimeEnabled || !alumniEventsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1046,7 +1047,7 @@ async function startServer() {
 
   app.post("/api/alumni/events", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!alumniRuntimeEnabled || !alumniEventsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
@@ -1058,7 +1059,7 @@ async function startServer() {
 
   app.post("/api/alumni/events/:eventId/status", requireAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!alumniRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    if (!alumniRuntimeEnabled || !alumniEventsRuntimeEnabled) return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });

@@ -45,6 +45,7 @@ assert.equal(
 const settingsService = read("src/services/systemSettingsService.ts");
 const settingsUi = read("src/pages/SettingsManager.tsx");
 const hrisUi = read("src/pages/SupabaseHrisManager.tsx");
+const alumniUi = read("src/pages/SupabaseAlumniManager.tsx");
 const tahfidzUi = read("src/pages/TahfidzManager.tsx");
 const documentUi = read("src/pages/SupabaseDocumentManager.tsx");
 const gaAssetsUi = read("src/pages/SupabaseGeneralAffairsAssets.tsx");
@@ -213,6 +214,19 @@ assert.doesNotMatch(crmService, /error:\s*detail/,
   "Provider error details must not be returned to CRM users");
 assert.doesNotMatch(hrisUi, /Fase Supabase|backend Supabase|payroll, rekrutmen, biometrik|belum tersambung/i,
   "HRIS UI must not expose implementation-phase or disconnected-feature operator copy");
+
+const alumniEventRoutesStart = server.indexOf('app.get("/api/alumni/events"');
+const nextAlumniRouteStart = server.indexOf('app.post("/api/ppdb/candidates/search"', alumniEventRoutesStart);
+assert.ok(alumniEventRoutesStart >= 0 && nextAlumniRouteStart > alumniEventRoutesStart, "Alumni community-event API routes must remain grouped");
+const alumniEventRoutes = server.slice(alumniEventRoutesStart, nextAlumniRouteStart);
+assert.equal([...alumniEventRoutes.matchAll(/app\.(?:get|post)\("\/api\/alumni\/events/g)].length, 3,
+  "All three alumni community-event endpoints must be present");
+assert.equal([...alumniEventRoutes.matchAll(/if \(!alumniRuntimeEnabled \|\| !alumniEventsRuntimeEnabled\)/g)].length, 3,
+  "Every alumni community-event endpoint must require both the core Alumni and dedicated events flags");
+assert.match(alumniUi, /publicRuntimeConfigValue\("VITE_SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED"\)/,
+  "The community-event UI must follow the dedicated public runtime flag");
+assert.match(alumniUi, /ALUMNI_EVENTS_RUNTIME_ENABLED \? \[\{ id: "community"/,
+  "The community tab must stay hidden when its database migration is not released");
 assert.match(hrisUi, /Saldo cuti dan jadwal kehadiran belum diperbarui otomatis/,
   "HRIS UI must clearly state the user-visible leave balance and attendance limitation");
 assert.match(hrisUi, /hindari mencantumkan rincian diagnosis kesehatan/,

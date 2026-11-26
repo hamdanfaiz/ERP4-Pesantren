@@ -6,14 +6,16 @@ import { getAccessToken } from "../authSession";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, submitAlumniGraduation, type AlumniRequestIdentity } from "../lib/alumniWorkflow";
 import { normalizeTenantTimeZone, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 import { ERPTabs } from "../components/ERPDesignSystem";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 
 type Alumni = { id: string; studentId: string; name: string; nis: string; grade: string; graduationYear: number; graduatedAt: string };
 type EligibleStudent = { id: string; name: string; nis: string; grade: string; status: string };
 type AlumniTab = "directory" | "tracer" | "community" | "donations";
+const ALUMNI_EVENTS_RUNTIME_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED") === "true";
 const ALUMNI_TABS: Array<{ id: AlumniTab; label: string; icon: React.ReactNode }> = [
   { id: "directory", label: "Direktori", icon: <GraduationCap className="h-4 w-4" /> },
   { id: "tracer", label: "Tracer Study", icon: <Search className="h-4 w-4" /> },
-  { id: "community", label: "Komunitas", icon: <Users className="h-4 w-4" /> },
+  ...(ALUMNI_EVENTS_RUNTIME_ENABLED ? [{ id: "community" as const, label: "Komunitas", icon: <Users className="h-4 w-4" /> }] : []),
   { id: "donations", label: "Donasi Alumni", icon: <HeartHandshake className="h-4 w-4" /> },
 ];
 
@@ -151,7 +153,7 @@ export function SupabaseAlumniManager() {
         {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
           : alumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni untuk ditelusuri.</p>
           : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3 text-right">Jumlah alumni</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{Object.entries(alumni.reduce<Record<string, number>>((acc, item) => { const key = String(item.graduationYear); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => <tr key={year}><td className="px-4 py-3 font-medium">{year}</td><td className="px-4 py-3 text-right tabular-nums">{count}</td></tr>)}</tbody></table></div>}
-      </section> : tab === "community" ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} members={filteredAlumni} /> : <AlumniDonationsPanel />}
+      </section> : tab === "community" && ALUMNI_EVENTS_RUNTIME_ENABLED ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} members={filteredAlumni} /> : <AlumniDonationsPanel />}
     </div>
   );
 }

@@ -2172,6 +2172,7 @@ async function main() {
         SUPABASE_CBT_RUNTIME_ENABLED: 'true',
         SUPABASE_LMS_RUNTIME_ENABLED: 'true',
         SUPABASE_ALUMNI_RUNTIME_ENABLED: 'true',
+        SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED: 'true',
         SUPABASE_LMS_DIAGNOSTICS: 'true',
       },
       stdio: ['ignore', 'ignore', 'inherit'],
