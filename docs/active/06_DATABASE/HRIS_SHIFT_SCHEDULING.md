@@ -1,6 +1,6 @@
 # Jadwal Shift HRIS
 
-Status implementasi: source tersedia pada PR #270. Migrasi `20270407000000_hris_shift_scheduling` sudah diterapkan hanya ke VQE staging dan ledger sudah direkonsiliasi ke 169 versi kanonis. UAT UI masih menunggu Admin masuk ke preview PR #270. Production PTSAS belum diubah.
+Status implementasi: source tersedia pada PR #270. Migrasi `20270407000000_hris_shift_scheduling` diterapkan hanya ke VQE staging dengan ledger 169 versi kanonis. UAT UI Admin lulus pada preview PR #270: simpan-baca pola, penugasan shift malam dan siang, penolakan bentrok lintas tengah malam, serta pembatalan yang tetap tercatat setelah muat ulang. Production PTSAS belum diubah.
 
 ## Model dan aturan jadwal
 
@@ -23,13 +23,13 @@ Status implementasi: source tersedia pada PR #270. Migrasi `20270407000000_hris_
 - Server: `SUPABASE_HRIS_RUNTIME_ENABLED=true` dan `SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED=true`.
 - Browser: `VITE_SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED=true`.
 - Pada Production, semua flag tetap `false` sampai migrasi dan rencana rilis Production disetujui.
-- Pada VQE, aktifkan dua flag server (`SUPABASE_HRIS_RUNTIME_ENABLED` dan `SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED`) serta flag browser hanya untuk UAT. Flag browser saja tidak membuka API.
+- Pada VQE staging, dua flag server (`SUPABASE_HRIS_RUNTIME_ENABLED` dan `SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED`) serta flag browser aktif untuk UAT. Flag browser saja tidak membuka API.
 
-## Pemeriksaan staging sebelum aktivasi
+## Hasil pemeriksaan staging
 
 1. Migrasi VQE sudah diterapkan setelah preflight ledger cocok; tiga tabel diverifikasi kosong, RLS/FORCE RLS aktif, dan akses langsung browser tertutup.
 2. CI pada head PR #270 menjalankan replay baseline Production historis, pgTAP `hris_shift_scheduling.test.sql`, rangkaian API-auth/tenant, dan pemeriksaan backup/restore lokal; semua job lulus.
-3. UAT UI dengan Admin VQE masih harus memverifikasi pembuatan pola, permintaan idempoten, bentrok normal dan lintas tengah malam, batas shift berurutan, hari yang tidak cocok, penonaktifan, pembatalan, dan pengisian ulang slot setelah pembatalan.
-4. Pastikan daftar pegawai dan pola berasal dari data tenant, serta tidak ada data contoh yang ditampilkan sebagai data tersimpan.
-5. Setelah UAT staging, tim backend tetap perlu merekonsiliasi ledger dan bukti pemulihan Production sebelum migrasi Production. Jangan mengaktifkan flag pada Production sebelumnya.
+3. UAT UI Admin VQE lulus: pola shift malam (22:00–06:00) dan siang (08:00–16:00) tersimpan; daftar pola dan dua penugasan kembali tampil setelah muat ulang.
+4. Penugasan kedua untuk pola 05:30–07:00 terhadap pegawai yang sama ditolak karena bentrok dengan shift malam; pembatalan penugasan siang tetap muncul sebagai `Dibatalkan` setelah muat ulang. Fixture ditandai UAT dan dipertahankan di VQE untuk skenario pemeriksaan.
+5. CI juga menguji idempotensi, rentang tidak cocok, penonaktifan, konflik, pembatalan, dan pengisian ulang slot. Tim backend tetap perlu merekonsiliasi ledger serta bukti pemulihan Production sebelum migrasi Production. Jangan mengaktifkan flag pada Production sebelumnya.
 
