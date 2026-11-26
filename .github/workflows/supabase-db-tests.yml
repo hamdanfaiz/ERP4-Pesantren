@@ -444,6 +444,9 @@ jobs:
       - name: Verify legacy HRIS employee import preview logic
         run: npm run test:hris-legacy-import
 
+      - name: Verify HRIS shift API mapping and validation
+        run: npm run test:hris-shift-scheduling
+
       - name: Verify Alumni graduation workflow logic
         run: npm run test:alumni-workflow
 

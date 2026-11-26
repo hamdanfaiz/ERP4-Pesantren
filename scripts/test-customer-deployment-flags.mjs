@@ -172,6 +172,16 @@ for (const name of serverFlags) {
   assert.match(envExample, new RegExp(`^${escapeRegExp(name)}=false$`, "m"), `.env.example must keep ${name} off`);
 }
 
+const shiftRoutesStart = server.indexOf('app.get("/api/hris/shifts/snapshot"');
+const hrisEmployeeRoutesStart = server.indexOf('app.post("/api/hris/employees"', shiftRoutesStart);
+assert.ok(shiftRoutesStart >= 0 && hrisEmployeeRoutesStart > shiftRoutesStart, "HRIS shift routes must remain in the HRIS API section");
+const shiftRoutes = server.slice(shiftRoutesStart, hrisEmployeeRoutesStart);
+assert.equal([...shiftRoutes.matchAll(/app\.(?:get|post)\("\/api\/hris\/shifts\//g)].length, 5, "All five shift endpoints must be present");
+assert.equal([...shiftRoutes.matchAll(/if \(!hrisRuntimeEnabled \|\| !hrisShiftSchedulingRuntimeEnabled\)/g)].length, 5,
+  "Every shift endpoint must require both the HRIS and dedicated shift flags");
+assert.match(hrisUi, /publicRuntimeConfigValue\("VITE_SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED"\)/,
+  "The shift UI must remain behind its separate public runtime flag");
+
 assert.match(indexHtml, /src="\/src\/bootstrap\.ts"/, "index.html must load the runtime bootstrap");
 const bootstrap = read("src/bootstrap.ts");
 assert.ok(bootstrap.indexOf('fetch("/runtime-config.json"') < bootstrap.indexOf('import("./main")'), "Runtime settings must load before the browser app");

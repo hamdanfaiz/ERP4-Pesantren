@@ -54,6 +54,7 @@
     "test:guardian-invitation-verification": "tsx scripts/test-guardian-invitation-verification.ts",
     "test:guardian-registration-strictmode": "tsx scripts/test-guardian-registration-strictmode.ts",
     "test:hris-legacy-import": "tsx scripts/test-hris-legacy-import.ts",
+    "test:hris-shift-scheduling": "tsx scripts/test-supabase-hris-shifts.ts",
     "test:alumni-workflow": "tsx scripts/test-alumni-workflow.ts",
     "test:cooperative-legacy-import": "tsx scripts/test-cooperative-legacy-import.ts",
     "test:pending-mutation-id": "tsx scripts/test-pending-mutation-id.ts",

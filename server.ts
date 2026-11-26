@@ -220,7 +220,12 @@ import {
   topUpSupabaseCooperativeWallet,
 } from "./src/server/supabaseCooperative";
 import {
+  assignSupabaseHrisShift,
+  cancelSupabaseHrisShiftAssignment,
+  createSupabaseHrisShiftTemplate,
+  deactivateSupabaseHrisShiftTemplate,
   listSupabaseHrisSnapshot,
+  listSupabaseHrisShiftSnapshot,
   recordSupabaseHrisAttendance,
   requestSupabaseHrisLeave,
   reviewSupabaseHrisLeave,
@@ -761,6 +766,7 @@ async function startServer() {
     return res.status(503).json({ error: FEATURE_UNAVAILABLE_MESSAGE });
   };
   const hrisRuntimeEnabled = String(process.env.SUPABASE_HRIS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
+  const hrisShiftSchedulingRuntimeEnabled = String(process.env.SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const cooperativeRuntimeEnabled = String(process.env.SUPABASE_COOPERATIVE_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const loadCooperativeActor = async (uid: string) => {
     const profile = await getUserProfile(uid);
@@ -3902,6 +3908,75 @@ async function startServer() {
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadHrisActor(uid);
       return res.json(await listSupabaseHrisSnapshot(actor.tenantId));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.get("/api/hris/shifts/snapshot", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled || !hrisShiftSchedulingRuntimeEnabled) {
+      return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await listSupabaseHrisShiftSnapshot(actor.tenantId, req.query.from, req.query.to));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/shifts/templates", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled || !hrisShiftSchedulingRuntimeEnabled) {
+      return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.status(201).json(await createSupabaseHrisShiftTemplate(actor.tenantId, actor.uid, req.body?.template));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/shifts/templates/:shiftTemplateId/deactivate", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled || !hrisShiftSchedulingRuntimeEnabled) {
+      return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await deactivateSupabaseHrisShiftTemplate(actor.tenantId, actor.uid, {
+        ...(req.body || {}), shiftTemplateId: req.params.shiftTemplateId,
+      }));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/shifts/assignments", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled || !hrisShiftSchedulingRuntimeEnabled) {
+      return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.status(201).json(await assignSupabaseHrisShift(actor.tenantId, actor.uid, req.body?.assignment));
+    } catch (error) { return hrisRouteError(res, error); }
+  });
+
+  app.post("/api/hris/shifts/assignments/:shiftAssignmentId/cancel", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    if (!hrisRuntimeEnabled || !hrisShiftSchedulingRuntimeEnabled) {
+      return res.status(503).json({ code: "FEATURE_UNAVAILABLE", error: FEATURE_UNAVAILABLE_MESSAGE });
+    }
+    try {
+      const uid = String((req as any).user?.uid || "");
+      if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
+      const actor = await loadHrisActor(uid);
+      return res.json(await cancelSupabaseHrisShiftAssignment(actor.tenantId, actor.uid, {
+        ...(req.body || {}), shiftAssignmentId: req.params.shiftAssignmentId,
+      }));
     } catch (error) { return hrisRouteError(res, error); }
   });
 
