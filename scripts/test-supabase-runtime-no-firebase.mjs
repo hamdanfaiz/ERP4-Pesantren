@@ -346,8 +346,8 @@ assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<section/,
   'Alumni directory must render its tenant-backed screen.');
 assert.match(alumniSource, /tab === "tracer"\s*\?\s*<section/,
   'Alumni tracer study must render its module screen.');
-assert.match(alumniSource, /tab === "community"\s*\?\s*<AlumniCommunityPanel/,
-  'Alumni community must render its tenant-backed events and member panel.');
+assert.match(alumniSource, /tab === "community"\s*&&\s*ALUMNI_EVENTS_RUNTIME_ENABLED\s*\?\s*<AlumniCommunityPanel/,
+  'Alumni community must render its tenant-backed events and member panel only behind its dedicated runtime flag.');
 assert.match(alumniSource, /requestAlumni\("\/api\/alumni\/events"\)/,
   'Alumni community events must load from its authenticated backend route.');
 assert.match(alumniSource, /requestAlumni\(`\/api\/alumni\/events\/\$\{encodeURIComponent\(item\.id\)\}\/status`/,
