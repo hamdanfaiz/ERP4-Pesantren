@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, isAlumniGraduationCandidate, submitAlumniGraduation } from "../src/lib/alumniWorkflow";
 import { tenantDate } from "../src/lib/tenantTimeZone";
+import { normalizeAlumniCommunityEventPayload, SupabaseAlumniError } from "../src/server/supabaseAlumni";
 
 assert.equal(isAlumniGraduationCandidate("Active", false), true);
 assert.equal(isAlumniGraduationCandidate("Inactive", false), true);
@@ -51,5 +52,32 @@ assert.equal(tenantDate(yearBoundary, "Asia/Jakarta"), "2027-01-01", "Alumni rep
 assert.equal(tenantDate(yearBoundary, "UTC"), "2026-12-31", "date boundaries differ correctly across tenant time zones");
 assert.match(createAlumniClientRequestId(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 
-console.log("Alumni workflow logic tests passed (21 assertions).");
+const communityEvent = normalizeAlumniCommunityEventPayload({
+  clientRequestId: "e7400000-0000-4000-8000-000000000101",
+  title: " Reuni Alumni ",
+  eventType: "reunion",
+  startsAt: "2027-06-01T03:00:00.000Z",
+  location: " Aula Pesantren ",
+  description: " Lintas angkatan ",
+});
+assert.deepEqual(communityEvent, {
+  clientRequestId: "e7400000-0000-4000-8000-000000000101",
+  title: "Reuni Alumni",
+  eventType: "reunion",
+  startsAt: "2027-06-01T03:00:00.000Z",
+  location: "Aula Pesantren",
+  description: "Lintas angkatan",
+});
+assert.throws(() => normalizeAlumniCommunityEventPayload({
+  ...communityEvent,
+  eventType: "acara bebas",
+}), (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+"community event categories cannot be free-typed");
+assert.throws(() => normalizeAlumniCommunityEventPayload({
+  ...communityEvent,
+  startsAt: "bukan tanggal",
+}), (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+"invalid event dates are rejected before persistence");
+
+console.log("Alumni workflow and community event validation tests passed.");
 

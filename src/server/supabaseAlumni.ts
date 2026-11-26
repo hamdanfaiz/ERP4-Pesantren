@@ -40,7 +40,7 @@ async function request(path: string, init: RequestInit = {}) {
       throw new SupabaseAlumniError(400, body?.message || "Data Alumni tidak valid.");
     }
     if (code === "P0002" || response.status === 404) {
-      throw new SupabaseAlumniError(404, body?.message || "Santri tidak ditemukan pada tenant ini.");
+      throw new SupabaseAlumniError(404, body?.message || "Data tidak ditemukan pada tenant ini.");
     }
     if (code === "42501" || response.status === 403) {
       throw new SupabaseAlumniError(403, "Operasi Alumni ditolak oleh kebijakan tenant.");
@@ -143,6 +143,93 @@ export async function listSupabaseAlumniSnapshot(tenantIdentifier: string) {
       status: String(student.status || ""),
       })),
   };
+}
+
+const ALUMNI_EVENT_TYPES = new Set(["reunion", "webinar", "religious", "community", "career", "other"]);
+const ALUMNI_EVENT_STATUSES = new Set(["scheduled", "cancelled", "completed"]);
+
+export function normalizeAlumniCommunityEventPayload(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SupabaseAlumniError(400, "Data kegiatan Alumni tidak valid.");
+  }
+  const payload = value as Row;
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  const title = String(payload.title || "").trim();
+  const eventType = String(payload.eventType || "").trim();
+  const startsAt = String(payload.startsAt || "").trim();
+  const location = String(payload.location || "").trim();
+  const description = String(payload.description || "").trim();
+  const parsedDate = new Date(startsAt);
+  if (!isUuid(clientRequestId) || title.length < 1 || title.length > 180
+    || !ALUMNI_EVENT_TYPES.has(eventType) || !Number.isFinite(parsedDate.getTime())
+    || !startsAt.includes("T") || location.length < 1 || location.length > 180 || description.length > 2000) {
+    throw new SupabaseAlumniError(400, "Judul, jenis, waktu, lokasi, atau keterangan kegiatan tidak valid.");
+  }
+  return { clientRequestId, title, eventType, startsAt: parsedDate.toISOString(), location, description };
+}
+
+export async function listSupabaseAlumniEvents(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  return listTenantRows(
+    "alumni_community_events",
+    tenantId,
+    "id,title,event_type,starts_at,location,description,status,created_at,updated_at",
+    "starts_at.asc,id.asc",
+  );
+}
+
+export async function createSupabaseAlumniEvent(tenantIdentifier: string, actorId: string, role: string, payloadValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  if (!["Admin", "SuperAdmin"].includes(role)) throw new SupabaseAlumniError(403, "Hanya Admin pesantren yang dapat mengelola kegiatan Alumni.");
+  const payload = normalizeAlumniCommunityEventPayload(payloadValue);
+  const result = await request("/rest/v1/rpc/create_alumni_community_event", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: role === "SuperAdmin" ? "super_admin" : "admin",
+      p_client_request_id: payload.clientRequestId,
+      p_title: payload.title,
+      p_event_type: payload.eventType,
+      p_starts_at: payload.startsAt,
+      p_location: payload.location,
+      p_description: payload.description,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.eventId || ""))) {
+    throw new SupabaseAlumniError(503, "Backend belum mengonfirmasi penyimpanan kegiatan.");
+  }
+  return result as Row;
+}
+
+export async function updateSupabaseAlumniEventStatus(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  eventIdValue: unknown,
+  statusValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const eventId = String(eventIdValue || "").trim();
+  const status = String(statusValue || "").trim();
+  if (!["Admin", "SuperAdmin"].includes(role)) throw new SupabaseAlumniError(403, "Hanya Admin pesantren yang dapat mengelola kegiatan Alumni.");
+  if (!isUuid(eventId) || !ALUMNI_EVENT_STATUSES.has(status) || status === "scheduled") {
+    throw new SupabaseAlumniError(400, "Status kegiatan tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/set_alumni_community_event_status", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_event_id: eventId,
+      p_actor_user_id: actorId,
+      p_expected_role: role === "SuperAdmin" ? "super_admin" : "admin",
+      p_status: status,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true) {
+    throw new SupabaseAlumniError(503, "Backend belum mengonfirmasi perubahan status kegiatan.");
+  }
+  return result as Row;
 }
 
 export async function graduateSupabaseStudent(tenantIdentifier: string, actorId: string, role: string, payloadValue: unknown) {
