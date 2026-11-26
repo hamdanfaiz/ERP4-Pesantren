@@ -128,6 +128,154 @@ export async function listSupabaseHrisSnapshot(tenantIdentifier: string) {
   };
 }
 
+function validClockTime(value: unknown, label: string) {
+  const time = requiredText(value, label, 8);
+  if (!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(time)) {
+    throw new SupabaseHrisError(400, `${label} tidak valid.`);
+  }
+  return time.length === 5 ? `${time}:00` : time;
+}
+
+function validShiftRange(startsOnValue: unknown, endsOnValue: unknown) {
+  const startsOn = requiredText(startsOnValue, "Tanggal mulai", 10);
+  const endsOn = requiredText(endsOnValue, "Tanggal akhir", 10);
+  if (!dateOnly(startsOn) || !dateOnly(endsOn) || endsOn < startsOn) {
+    throw new SupabaseHrisError(400, "Rentang tanggal shift tidak valid.");
+  }
+  const days = (Date.parse(endsOn + "T00:00:00.000Z") - Date.parse(startsOn + "T00:00:00.000Z")) / 86_400_000 + 1;
+  if (days > 366) throw new SupabaseHrisError(400, "Rentang penugasan shift maksimal satu tahun.");
+  return { startsOn, endsOn, days };
+}
+
+export async function listSupabaseHrisShiftSnapshot(tenantIdentifier: string, startsOnValue: unknown, endsOnValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const { startsOn, endsOn } = validShiftRange(startsOnValue, endsOnValue);
+  const [templateRows, assignmentRows] = await Promise.all([
+    request("/rest/v1/hris_shift_templates?" + new URLSearchParams({
+      select: "id,name,weekday_mask,starts_at,ends_at,break_minutes,status,created_at,updated_at",
+      tenant_id: "eq." + tenantId, order: "name.asc,id.asc", limit: "1000",
+    }).toString()),
+    request("/rest/v1/hris_shift_assignments?" + new URLSearchParams({
+      select: "id,employee_id,shift_template_id,starts_on,ends_on,status,created_at,cancelled_at",
+      tenant_id: "eq." + tenantId, starts_on: "lte." + endsOn, ends_on: "gte." + startsOn,
+      order: "starts_on.asc,id.asc", limit: "1001",
+    }).toString()),
+  ]);
+  if (!Array.isArray(templateRows) || !Array.isArray(assignmentRows)) {
+    throw new SupabaseHrisError(503, "Jadwal shift pesantren belum dapat dimuat.");
+  }
+  return {
+    templates: templateRows.map((row) => ({
+      id: String(row.id), name: String(row.name), weekdayMask: Number(row.weekday_mask),
+      startsAt: String(row.starts_at).slice(0, 5), endsAt: String(row.ends_at).slice(0, 5),
+      breakMinutes: Number(row.break_minutes), status: String(row.status),
+      createdAt: String(row.created_at), updatedAt: String(row.updated_at),
+    })),
+    assignments: assignmentRows.slice(0, 1000).map((row) => ({
+      id: String(row.id), employeeId: String(row.employee_id), shiftTemplateId: String(row.shift_template_id),
+      startsOn: String(row.starts_on), endsOn: String(row.ends_on), status: String(row.status),
+      createdAt: String(row.created_at), cancelledAt: row.cancelled_at == null ? null : String(row.cancelled_at),
+    })),
+    truncated: assignmentRows.length > 1000,
+  };
+}
+
+export async function createSupabaseHrisShiftTemplate(tenantIdentifier: string, actorUserIdValue: unknown, inputValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const actorId = requiredText(actorUserIdValue, "ID akun Admin", 64);
+  const input = inputValue && typeof inputValue === "object" && !Array.isArray(inputValue) ? inputValue as Row : null;
+  if (!input) throw new SupabaseHrisError(400, "Pola shift tidak valid.");
+  const id = requiredText(input.id, "ID pola shift", 64);
+  const requestId = requiredText(input.clientRequestId, "ID permintaan", 64);
+  const weekdayMask = Number(input.weekdayMask);
+  const breakMinutes = input.breakMinutes == null ? 0 : Number(input.breakMinutes);
+  const startsAt = validClockTime(input.startsAt, "Jam mulai");
+  const endsAt = validClockTime(input.endsAt, "Jam selesai");
+  if (!isUuid(actorId) || !isUuid(id) || !isUuid(requestId)
+    || !Number.isInteger(weekdayMask) || weekdayMask < 1 || weekdayMask > 127
+    || !Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > 240) {
+    throw new SupabaseHrisError(400, "Data pola shift tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/create_hris_shift_template", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_actor_user_id: actorId, p_shift_template_id: id,
+      p_name: requiredText(input.name, "Nama pola shift", 80), p_weekday_mask: weekdayMask,
+      p_starts_at: startsAt, p_ends_at: endsAt, p_break_minutes: breakMinutes,
+      p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || !result.id) throw new SupabaseHrisError(503, "Backend tidak mengembalikan pola shift tersimpan.");
+  return { id: String(result.id), replayed: Boolean(result.replayed) };
+}
+
+export async function assignSupabaseHrisShift(tenantIdentifier: string, actorUserIdValue: unknown, inputValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const actorId = requiredText(actorUserIdValue, "ID akun Admin", 64);
+  const input = inputValue && typeof inputValue === "object" && !Array.isArray(inputValue) ? inputValue as Row : null;
+  if (!input) throw new SupabaseHrisError(400, "Penugasan shift tidak valid.");
+  const employeeId = requiredText(input.employeeId, "Pegawai", 64);
+  const shiftTemplateId = requiredText(input.shiftTemplateId, "Pola shift", 64);
+  const shiftAssignmentId = requiredText(input.id, "ID penugasan", 64);
+  const requestId = requiredText(input.clientRequestId, "ID permintaan", 64);
+  const { startsOn, endsOn } = validShiftRange(input.startsOn, input.endsOn);
+  if (![actorId, employeeId, shiftTemplateId, shiftAssignmentId, requestId].every(isUuid)) {
+    throw new SupabaseHrisError(400, "Identitas penugasan shift tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/assign_hris_shift", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_actor_user_id: actorId, p_employee_id: employeeId,
+      p_shift_template_id: shiftTemplateId, p_starts_on: startsOn, p_ends_on: endsOn,
+      p_shift_assignment_id: shiftAssignmentId, p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || !result.id) throw new SupabaseHrisError(503, "Backend tidak mengembalikan penugasan shift tersimpan.");
+  return { id: String(result.id), status: String(result.status), replayed: Boolean(result.replayed) };
+}
+
+export async function deactivateSupabaseHrisShiftTemplate(tenantIdentifier: string, actorUserIdValue: unknown, inputValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const actorId = requiredText(actorUserIdValue, "ID akun Admin", 64);
+  const input = inputValue && typeof inputValue === "object" && !Array.isArray(inputValue) ? inputValue as Row : null;
+  if (!input) throw new SupabaseHrisError(400, "Penonaktifan pola shift tidak valid.");
+  const shiftTemplateId = requiredText(input.shiftTemplateId, "Pola shift", 64);
+  const requestId = requiredText(input.clientRequestId, "ID permintaan", 64);
+  if (!isUuid(actorId) || !isUuid(shiftTemplateId) || !isUuid(requestId)) {
+    throw new SupabaseHrisError(400, "Identitas penonaktifan pola shift tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/deactivate_hris_shift_template", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_actor_user_id: actorId,
+      p_shift_template_id: shiftTemplateId, p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || !result.id) throw new SupabaseHrisError(503, "Backend tidak mengembalikan perubahan pola shift.");
+  return { id: String(result.id), status: String(result.status), replayed: Boolean(result.replayed) };
+}
+
+export async function cancelSupabaseHrisShiftAssignment(tenantIdentifier: string, actorUserIdValue: unknown, inputValue: unknown) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const actorId = requiredText(actorUserIdValue, "ID akun Admin", 64);
+  const input = inputValue && typeof inputValue === "object" && !Array.isArray(inputValue) ? inputValue as Row : null;
+  if (!input) throw new SupabaseHrisError(400, "Pembatalan penugasan shift tidak valid.");
+  const assignmentId = requiredText(input.shiftAssignmentId, "Penugasan shift", 64);
+  const requestId = requiredText(input.clientRequestId, "ID permintaan", 64);
+  if (!isUuid(actorId) || !isUuid(assignmentId) || !isUuid(requestId)) {
+    throw new SupabaseHrisError(400, "Identitas pembatalan penugasan tidak valid.");
+  }
+  const result = await request("/rest/v1/rpc/cancel_hris_shift_assignment", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId, p_actor_user_id: actorId,
+      p_shift_assignment_id: assignmentId, p_client_request_id: requestId,
+    }),
+  });
+  if (!result || typeof result !== "object" || !result.id) throw new SupabaseHrisError(503, "Backend tidak mengembalikan pembatalan shift.");
+  return { id: String(result.id), status: String(result.status), replayed: Boolean(result.replayed) };
+}
+
 export async function getSupabaseHrisLegacyImportContext(tenantIdentifier: string) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   const tenants = await request("/rest/v1/tenants?" + new URLSearchParams({

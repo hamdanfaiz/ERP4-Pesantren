@@ -111,11 +111,12 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 168);
+assert.equal(sourceMigrationsWithSql.length, 169);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404010000_crm_broadcast_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404000000_tahfidz_unique_ayah_projection_indexes.sql'));
+assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270407000000_hris_shift_scheduling.sql'));
 const rolePermissionFallbackMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270405000000_role_permission_fallback.sql');
 assert(rolePermissionFallbackMigration, 'SQL module gates must preserve role-baseline access when no per-module override is configured.');
 assert.match(rolePermissionFallbackMigration.statements.join('\n'), /v_permissions \? 'boarding'[\s\S]*IS DISTINCT FROM 'true'::jsonb/);
@@ -611,7 +612,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 121);
+assert.equal(productionBaseline.pending.length, 122);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

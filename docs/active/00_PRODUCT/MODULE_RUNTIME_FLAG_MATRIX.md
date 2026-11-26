@@ -56,6 +56,7 @@ Semua flag di kolom **API/server** ditetapkan pada environment server. Pada `.en
 | Perpustakaan | `SUPABASE_LIBRARY_RUNTIME_ENABLED` | — | Perlu uji katalog, sirkulasi, stok, dan relasi santri dengan record tenant baru. |
 | Perpustakaan — aset digital | `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED` | — | Gerbang tambahan untuk aset digital; validasi Storage dan policy secara khusus. |
 | Sumber Daya Manusia | `SUPABASE_HRIS_RUNTIME_ENABLED` | — | Source mencakup direktori pegawai, kehadiran manual, dan pengajuan/ulasan cuti oleh Admin. Payroll, biometrik, rekrutmen, dan beberapa kemampuan lain belum termasuk. |
+| Sumber Daya Manusia — jadwal shift | `SUPABASE_HRIS_RUNTIME_ENABLED` dan `SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED` | `VITE_SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED` | Gerbang terpisah untuk pola mingguan dan penugasan shift tenant. Memerlukan migrasi `20270407000000`, izin Admin HRIS, serta uji idempotensi, konflik jadwal termasuk shift malam, pembatalan, dan isolasi tenant di staging. |
 | Sarana & Prasarana — pemesanan | `SUPABASE_FACILITY_BOOKINGS_RUNTIME_ENABLED` | — | Pemeriksaan bentrok bersifat tenant-scoped; uji transaksi pemesanan diperlukan. |
 | Inventaris GA | `SUPABASE_GA_ASSETS_RUNTIME_ENABLED` | — | RPC tenant-scoped dan ledger append-only; uji izin serta transaksi stok diperlukan. |
 | Marketplace | `SUPABASE_MARKETPLACE_RUNTIME_ENABLED` | — | Katalog dan reservasi stok memakai RPC transaksional tenant-scoped. |

@@ -2,8 +2,14 @@ import { toERPUserMessage } from "../utils/userMessages";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, AlertCircle, Award, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Loader2, MapPin, Plus, RefreshCw, Search, UserPlus, Users, Wallet, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
+import { useAuth } from "../contexts/AuthContext";
+import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
+import { pendingMutationIds } from "../utils/pendingMutationId";
+
+const SHIFT_SCHEDULING_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED") === "true";
 
 type Employee = {
   id: string; employeeNumber: string; fullName: string; jobTitle: string; jobTitleReferenceId: string; department: string;
@@ -21,6 +27,13 @@ type LeaveRequest = {
   startsOn: string; endsOn: string; reason: string; status: "pending" | "approved" | "rejected";
   requestedByUserId: string; reviewedByUserId: string | null; reviewNote: string; reviewedAt: string | null; createdAt: string;
 };
+type ShiftTemplate = {
+  id: string; name: string; weekdayMask: number; startsAt: string; endsAt: string; breakMinutes: number; status: "active" | "inactive";
+};
+type ShiftAssignment = {
+  id: string; employeeId: string; shiftTemplateId: string; startsOn: string; endsOn: string; status: "active" | "cancelled";
+};
+type ShiftSchedule = { templates: ShiftTemplate[]; assignments: ShiftAssignment[]; truncated: boolean };
 type Snapshot = { employees: Employee[]; attendance: Attendance[]; leaveRequests: LeaveRequest[]; organizationUnits: OrganizationUnit[]; jobTitleOptions: JobTitleOption[] };
 type EmployeeDraft = Omit<Employee, "id"> & { id?: string };
 type LeaveDraft = { employeeId: string; leaveType: LeaveRequest["leaveType"]; startsOn: string; endsOn: string; reason: string };
@@ -41,7 +54,8 @@ const EMPTY_DRAFT: EmployeeDraft = {
 };
 const EMPTY_LEAVE_DRAFT: LeaveDraft = { employeeId: "", leaveType: "annual", startsOn: today(), endsOn: today(), reason: "" };
 
-function today() {
+function today(timeZone?: string) {
+  if (timeZone) return tenantDate(new Date(), normalizeTenantTimeZone(timeZone));
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
@@ -79,6 +93,7 @@ async function hrisRequest<T>(path: string, init: RequestInit = {}): Promise<T> 
 }
 
 export function SupabaseHrisManager() {
+  const { user } = useAuth();
   const [snapshot, setSnapshot] = useState<Snapshot>({ employees: [], attendance: [], leaveRequests: [], organizationUnits: [], jobTitleOptions: [] });
   const [tab, setTab] = useState<HrisTab>("employees");
   const [loading, setLoading] = useState(true);
@@ -262,11 +277,7 @@ export function SupabaseHrisManager() {
           </div>
         </section>}
 
-        {tab === "shifts" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
-          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal kehadiran tercatat</h2><p className="mt-1 text-sm text-slate-500">Catatan kehadiran ditampilkan per hari. Pengaturan bentrok dan pertukaran shift belum tersedia.</p></div>
-          {snapshot.attendance.length === 0 ? <EmptyState text="Belum ada catatan kehadiran. Catat kehadiran di tab Kehadiran." />
-            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Tanggal</th><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Masuk</th><th className="px-4 py-3">Pulang</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{[...snapshot.attendance].sort((a, b) => b.workDate.localeCompare(a.workDate)).slice(0, 100).map((item) => <tr key={item.id}><td className="px-4 py-3">{item.workDate}</td><td className="px-4 py-3 font-medium">{employeeById.get(item.employeeId)?.fullName || "Pegawai tidak tersedia"}</td><td className="px-4 py-3">{attendanceText(item.status)}</td><td className="px-4 py-3">{shortTime(item.checkInAt)}</td><td className="px-4 py-3">{shortTime(item.checkOutAt)}</td></tr>)}</tbody></table></div>}
-        </section>}
+        {tab === "shifts" && <ShiftSchedulingView employees={snapshot.employees} tenantId={user?.tenantId || ""} actorId={user?.uid || ""} tenantTimeZone={user?.tenantTimeZone} />}
 
         {tab === "tracking" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
           <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kehadiran terakhir pegawai</h2><p className="mt-1 text-sm text-slate-500">Ringkasan kehadiran terkini per pegawai aktif. Pelacakan lokasi belum tersedia.</p></div>
@@ -340,4 +351,223 @@ function Metric({ label, value }: { label: string; value: number }) {
 }
 function EmptyState({ text }: { text: string }) {
   return <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-white/15"><Users className="mx-auto mb-3 h-7 w-7 text-slate-300" />{text}</div>;
+}
+
+const SHIFT_DAYS = [
+  { label: "Senin", short: "Sen", bit: 1 }, { label: "Selasa", short: "Sel", bit: 2 },
+  { label: "Rabu", short: "Rab", bit: 4 }, { label: "Kamis", short: "Kam", bit: 8 },
+  { label: "Jumat", short: "Jum", bit: 16 }, { label: "Sabtu", short: "Sab", bit: 32 },
+  { label: "Minggu", short: "Min", bit: 64 },
+];
+
+function addCalendarDays(date: string, amount: number) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+function mondayOfWeek(date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return addCalendarDays(date, -((day + 6) % 7));
+}
+
+function shiftWeekdays(mask: number) {
+  return SHIFT_DAYS.filter((day) => (mask & day.bit) !== 0).map((day) => day.short).join(", ");
+}
+
+function ShiftSchedulingView({ employees, tenantId, actorId, tenantTimeZone }: { employees: Employee[]; tenantId: string; actorId: string; tenantTimeZone?: string }) {
+  const [weekStart, setWeekStart] = useState(() => mondayOfWeek(today(tenantTimeZone)));
+  const weekEnd = addCalendarDays(weekStart, 6);
+  const [schedule, setSchedule] = useState<ShiftSchedule>({ templates: [], assignments: [], truncated: false });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [templateDraft, setTemplateDraft] = useState({ name: "", weekdayMask: 31, startsAt: "08:00", endsAt: "16:00", breakMinutes: "0" });
+  const [assignmentDraft, setAssignmentDraft] = useState({
+    employeeId: employees.find((item) => item.employmentStatus === "active")?.id || "",
+    shiftTemplateId: "", startsOn: weekStart, endsOn: weekEnd,
+  });
+
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const query = new URLSearchParams({ from: weekStart, to: weekEnd });
+    const result = await hrisRequest<ShiftSchedule>(`/api/hris/shifts/snapshot?${query}`, { signal });
+    setSchedule({
+      templates: Array.isArray(result.templates) ? result.templates : [],
+      assignments: Array.isArray(result.assignments) ? result.assignments : [],
+      truncated: Boolean(result.truncated),
+    });
+  }, [weekStart, weekEnd]);
+
+  useEffect(() => {
+    if (!SHIFT_SCHEDULING_ENABLED) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    void refresh(controller.signal).catch((loadError: any) => {
+      if (!controller.signal.aborted) setError(toERPUserMessage(loadError, "Jadwal shift belum dapat dimuat."));
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => { controller.abort(); };
+  }, [refresh]);
+
+  useEffect(() => {
+    setAssignmentDraft((current) => ({ ...current, startsOn: weekStart, endsOn: weekEnd }));
+  }, [weekStart, weekEnd]);
+
+  const activeEmployees = employees.filter((item) => item.employmentStatus === "active");
+  const activeTemplates = schedule.templates.filter((item) => item.status === "active");
+  const templateById = useMemo(() => new Map(schedule.templates.map((item) => [item.id, item])), [schedule.templates]);
+  const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item])), [employees]);
+
+  const refreshAfterSave = async (message: string) => {
+    setError("");
+    setNotice("");
+    setSaving(true);
+    try {
+      await refresh();
+      setNotice(message);
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Perubahan tersimpan, tetapi jadwal terbaru belum dapat dimuat. Muat ulang halaman."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveTemplate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!templateDraft.weekdayMask) { setError("Pilih setidaknya satu hari kerja."); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const payload = { tenantId, actorId, name: templateDraft.name.trim(), weekdayMask: templateDraft.weekdayMask,
+        startsAt: templateDraft.startsAt, endsAt: templateDraft.endsAt, breakMinutes: Number(templateDraft.breakMinutes) };
+      const lease = await pendingMutationIds.acquire(`hris-shift-template:${tenantId}:${actorId}`, payload);
+      await hrisRequest("/api/hris/shifts/templates", {
+        method: "POST",
+        body: JSON.stringify({ template: {
+          id: lease.requestId, clientRequestId: lease.requestId, name: payload.name,
+          weekdayMask: payload.weekdayMask, startsAt: payload.startsAt, endsAt: payload.endsAt,
+          breakMinutes: payload.breakMinutes,
+        } }),
+      });
+      lease.clear();
+      setTemplateDraft({ name: "", weekdayMask: 31, startsAt: "08:00", endsAt: "16:00", breakMinutes: "0" });
+      await refreshAfterSave("Pola shift berhasil disimpan.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Pola shift belum dapat disimpan."));
+      setSaving(false);
+    }
+  };
+
+  const assignShift = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!assignmentDraft.employeeId || !assignmentDraft.shiftTemplateId) { setError("Pilih pegawai dan pola shift."); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const payload = { tenantId, actorId, ...assignmentDraft };
+      const lease = await pendingMutationIds.acquire(`hris-shift-assignment:${tenantId}:${actorId}`, payload);
+      await hrisRequest("/api/hris/shifts/assignments", {
+        method: "POST",
+        body: JSON.stringify({ assignment: {
+          id: lease.requestId, clientRequestId: lease.requestId, ...assignmentDraft,
+        } }),
+      });
+      lease.clear();
+      await refreshAfterSave("Jadwal berhasil ditetapkan. Bentrok waktu diperiksa sebelum tersimpan.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Jadwal shift belum dapat ditetapkan."));
+      setSaving(false);
+    }
+  };
+
+  const deactivateTemplate = async (template: ShiftTemplate) => {
+    if (!window.confirm(`Nonaktifkan pola “${template.name}”? Penugasan yang sudah tersimpan tetap berlaku.`)) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const lease = await pendingMutationIds.acquire(`hris-shift-template-deactivate:${tenantId}:${actorId}`, {
+        tenantId, actorId, shiftTemplateId: template.id,
+      });
+      await hrisRequest(`/api/hris/shifts/templates/${encodeURIComponent(template.id)}/deactivate`, {
+        method: "POST", body: JSON.stringify({ clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      await refreshAfterSave("Pola dinonaktifkan untuk penugasan baru.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Pola shift belum dapat dinonaktifkan."));
+      setSaving(false);
+    }
+  };
+
+  const cancelAssignment = async (assignment: ShiftAssignment) => {
+    if (!window.confirm("Batalkan penugasan shift ini? Riwayatnya tetap tersimpan.")) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const lease = await pendingMutationIds.acquire(`hris-shift-assignment-cancel:${tenantId}:${actorId}`, {
+        tenantId, actorId, shiftAssignmentId: assignment.id,
+      });
+      await hrisRequest(`/api/hris/shifts/assignments/${encodeURIComponent(assignment.id)}/cancel`, {
+        method: "POST", body: JSON.stringify({ clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      await refreshAfterSave("Penugasan shift dibatalkan dan tercatat.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Penugasan shift belum dapat dibatalkan."));
+      setSaving(false);
+    }
+  };
+
+  if (!SHIFT_SCHEDULING_ENABLED) {
+    return <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal shift belum tersedia</h2>
+      <p className="mt-1 text-sm text-slate-500">Bagian ini belum diaktifkan untuk pesantren Anda.</p>
+    </section>;
+  }
+
+  return <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal shift pegawai</h2><p className="mt-1 text-sm text-slate-500">Pola berulang mingguan dan penugasan tanggal. Sistem menolak jadwal yang bertabrakan.</p></div>
+      <div className="flex items-end gap-2">
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Pekan mulai<input type="date" value={weekStart} onChange={(event) => setWeekStart(mondayOfWeek(event.target.value))} className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
+        <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Jadwal shift belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading || saving} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-white/10"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+      </div>
+    </header>
+    {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
+    {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">{notice}</div>}
+
+    <form onSubmit={(event) => void saveTemplate(event)} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50">
+      <div><h3 className="font-semibold text-slate-900 dark:text-white">Pola shift mingguan</h3><p className="text-xs text-slate-500">Waktu selesai sebelum waktu mulai berarti shift melewati tengah malam.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300 lg:col-span-2">Nama pola<input required minLength={2} maxLength={80} value={templateDraft.name} onChange={(event) => setTemplateDraft({ ...templateDraft, name: event.target.value })} placeholder="Contoh: Piket malam" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Mulai<input required type="time" value={templateDraft.startsAt} onChange={(event) => setTemplateDraft({ ...templateDraft, startsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Selesai<input required type="time" value={templateDraft.endsAt} onChange={(event) => setTemplateDraft({ ...templateDraft, endsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Istirahat (menit)<input required type="number" min={0} max={240} step={1} value={templateDraft.breakMinutes} onChange={(event) => setTemplateDraft({ ...templateDraft, breakMinutes: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+      </div>
+      <fieldset><legend className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">Hari kerja</legend><div className="flex flex-wrap gap-2">{SHIFT_DAYS.map((day) => <label key={day.bit} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900"><input type="checkbox" checked={(templateDraft.weekdayMask & day.bit) !== 0} onChange={(event) => setTemplateDraft({ ...templateDraft, weekdayMask: event.target.checked ? templateDraft.weekdayMask | day.bit : templateDraft.weekdayMask & ~day.bit })} />{day.label}</label>)}</div></fieldset>
+      <div className="flex justify-end"><button type="submit" disabled={saving || loading || !templateDraft.weekdayMask} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Simpan pola</button></div>
+    </form>
+
+    <div className="grid gap-4 xl:grid-cols-2">
+      <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <div><h3 className="font-semibold text-slate-900 dark:text-white">Pola tersedia</h3><p className="text-xs text-slate-500">Menonaktifkan pola hanya mencegah penugasan baru.</p></div>
+        {loading ? <div role="status" className="py-6 text-center text-sm text-slate-500">Memuat pola shift…</div>
+          : schedule.templates.length === 0 ? <EmptyState text="Belum ada pola shift. Buat pola mingguan untuk memulai." />
+            : <div className="space-y-2">{schedule.templates.map((template) => <div key={template.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10"><div><div className="font-medium text-slate-900 dark:text-white">{template.name}</div><div className="text-xs text-slate-500">{shiftWeekdays(template.weekdayMask)} · {template.startsAt}–{template.endsAt}{template.breakMinutes ? ` · istirahat ${template.breakMinutes} menit` : ""}</div></div>{template.status === "active" ? <button type="button" disabled={saving} onClick={() => void deactivateTemplate(template)} className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50 dark:border-amber-800 dark:text-amber-300">Nonaktifkan</button> : <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-white/10 dark:text-slate-300">Nonaktif</span>}</div>)}</div>}
+      </div>
+
+      <form onSubmit={(event) => void assignShift(event)} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <div><h3 className="font-semibold text-slate-900 dark:text-white">Tetapkan jadwal</h3><p className="text-xs text-slate-500">Masa tugas maksimal satu tahun. Hari kerja mengikuti pola yang dipilih.</p></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pegawai<select required value={assignmentDraft.employeeId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, employeeId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih pegawai</option>{activeEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} · {employee.employeeNumber}</option>)}</select></label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pola shift<select required value={assignmentDraft.shiftTemplateId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, shiftTemplateId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih pola</option>{activeTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} · {shiftWeekdays(template.weekdayMask)} · {template.startsAt}–{template.endsAt}</option>)}</select></label>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Mulai tugas<input required type="date" value={assignmentDraft.startsOn} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, startsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Sampai<input required type="date" min={assignmentDraft.startsOn} value={assignmentDraft.endsOn} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, endsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label></div>
+        <div className="flex justify-end"><button type="submit" disabled={saving || loading || !activeEmployees.length || !activeTemplates.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Tetapkan shift</button></div>
+      </form>
+    </div>
+
+    <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+      <div><h3 className="font-semibold text-slate-900 dark:text-white">Penugasan {weekStart} – {weekEnd}</h3><p className="text-xs text-slate-500">Daftar mencakup tugas yang rentang tanggalnya bersinggungan dengan pekan ini.</p></div>
+      {schedule.truncated && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Daftar sangat panjang untuk periode ini. Pilih pekan yang lebih sempit atau hubungi administrator untuk penelusuran lanjutan.</div>}
+      {loading ? <div role="status" className="py-6 text-center text-sm text-slate-500">Memuat penugasan…</div>
+        : schedule.assignments.length === 0 ? <EmptyState text="Belum ada penugasan shift pada pekan ini." />
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Pola dan hari</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{schedule.assignments.map((assignment) => { const template = templateById.get(assignment.shiftTemplateId); const employee = employeeById.get(assignment.employeeId); return <tr key={assignment.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employee?.fullName || "Pegawai tidak tersedia"}<div className="text-xs text-slate-400">{employee?.employeeNumber || ""}</div></td><td className="px-4 py-3">{template?.name || "Pola shift tidak tersedia"}<div className="text-xs text-slate-500">{template ? `${shiftWeekdays(template.weekdayMask)} · ${template.startsAt}–${template.endsAt}` : ""}</div></td><td className="px-4 py-3">{assignment.startsOn} – {assignment.endsOn}</td><td className="px-4 py-3">{assignment.status === "active" ? "Aktif" : "Dibatalkan"}</td><td className="px-4 py-3 text-right">{assignment.status === "active" && <button type="button" disabled={saving} onClick={() => void cancelAssignment(assignment)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">Batalkan</button>}</td></tr>; })}</tbody></table></div>}
+    </div>
+  </section>;
 }
