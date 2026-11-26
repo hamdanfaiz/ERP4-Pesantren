@@ -1,176 +1,573 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛo9İ:-jZ.¶›­–)Ş³V–×÷'B²FôU%W6W$ÖW76vRÒg&öÒ"ââ÷WF–Ç2÷W6W$ÖW76vW2#°Ğ¦–×÷'B&V7BÂ²W6T6ÆÆ&6²ÂW6TVffV7BÂW6TÖVÖòÂW6U7FFRÒg&öÒ'&V7B#°Ğ¦–×÷'B²7F—f—G’ÂÆW'D6—&6ÆRÂv&BÂ6ÆVæF$6Æö6²Â6ÆVæF$F—2Â6†V6´6—&6ÆS"Â6Æ—&ö&D6†V6²ÂÆöFW#"ÂÖ–âÂÇW2Â&Vg&W6„7rÂ6V&6‚ÂW6W%ÇW2ÂW6W'2ÂvÆÆWBÂ‚Òg&öÒ&ÇV6–FR×&V7B#°Ğ¦–×÷'B²vWD66W75Fö¶VâÒg&öÒ"ââöWF…6W76–öâ#°Ğ¦–×÷'B²W6TWF‚Òg&öÒ"ââö6öçFW‡G2ôWF„6öçFW‡B#°Ğ¦–×÷'B²æ÷&ÖÆ—¦UFVæçEF–ÖU¦öæRÂFVæçDFFRÒg&öÒ"ââöÆ–"÷FVæçEF–ÖU¦öæR#°Ğ¦–×÷'B²V&Æ–5'VçF–ÖT6öæf–ufÇVRÒg&öÒ"ââ÷'VçF–ÖT6öæf–r#°Ğ¦–×÷'B²U%F'2Òg&öÒ"ââö6ö×öæVçG2ôU%FW6–vå7—7FVÒ#°Ğ¦–×÷'B²7W&6TÖöGVÆU&VfW&Væ6U6WGF–æw2Òg&öÒ"ââö6ö×öæVçG2õ7W&6U&VfW&Væ6T6FÆötÖævW"#°Ğ¦–×÷'B²VæF–æt×WFF–öä–G2Òg&öÒ"ââ÷WF–Ç2÷VæF–æt×WFF–öä–B#°Ğ Ğ¦6öç7B4„”eEõ44„TETÄ”äuôTä$ÄTBÒV&Æ–5'VçF–ÖT6öæf–ufÇVR‚%d•DUõ5U$4Uô…$•5õ4„”eE5õ%TåD”ÔUôTä$ÄTB"’ÓÓÒ'G'VR#°Ğ Ğ§G—RV×Æ÷–VRÒ°Ğ¢–C¢7G&–æs²V×Æ÷–VTçVÖ&W#¢7G&–æs²gVÆÄæÖS¢7G&–æs²¦ö%F—FÆS¢7G&–æs²¦ö%F—FÆU&VfW&Væ6T–C¢7G&–æs²FW'FÖVçC¢7G&–æs°Ğ¢÷&væ—¦F–öåVæ—D–C¢7G&–ærÂçVÆÃ²VÖ–Ã¢7G&–æs²†öæS¢7G&–æs²†—&TFFS¢7G&–ærÂçVÆÃ°Ğ¢V×Æ÷–ÖVçE7FGW3¢&7F—fR"Â&öåöÆVfR"Â&–æ7F—fR"Â'FW&Ö–æFVB#°Ğ§Ó°Ğ§G—R÷&væ—¦F–öåVæ—BÒ²–C¢7G&–æs²6öFS¢7G&–æs²æÖS¢7G&–æs²Væ—EG—S¢7G&–ærÓ°Ğ§G—R¦ö%F—FÆT÷F–öâÒ²–C¢7G&–æs²6öFS¢7G&–æs²æÖS¢7G&–æs²FW67&—F–öã¢7G&–ærÓ°Ğ§G—RGFVæFæ6RÒ°Ğ¢–C¢7G&–æs²V×Æ÷–VT–C¢7G&–æs²v÷&´FFS¢7G&–æs²7FGW3¢'&W6VçB"Â&ÆFR"Â&'6VçB"Â&ÆVfR"Â'&VÖ÷FR#°Ğ¢6†V6´–äC¢7G&–ærÂçVÆÃ²6†V6´÷WDC¢7G&–ærÂçVÆÃ°Ğ§Ó°Ğ§G—RÆVfU&WVW7BÒ°Ğ¢–C¢7G&–æs²V×Æ÷–VT–C¢7G&–æs²ÆVfUG—S¢&æçVÂ"Â'6–6²"Â'W'6öæÂ"Â&ÖFW&æ—G’"Â&÷F†W"#°Ğ¢7F'G4öã¢7G&–æs²VæG4öã¢7G&–æs²&V6öã¢7G&–æs²7FGW3¢'VæF–ær"Â&&÷fVB"Â'&V¦V7FVB#°Ğ¢&WVW7FVD'•W6W$–C¢7G&–æs²&Wf–WvVD'•W6W$–C¢7G&–ærÂçVÆÃ²&Wf–Wtæ÷FS¢7G&–æs²&Wf–WvVDC¢7G&–ærÂçVÆÃ²7&VFVDC¢7G&–æs°Ğ§Ó°Ğ§G—R6†–gEFV×ÆFRÒ°Ğ¢–C¢7G&–æs²æÖS¢7G&–æs²vVV¶F”Ö6³¢çVÖ&W#²7F'G4C¢7G&–æs²VæG4C¢7G&–æs²'&V´Ö–çWFW3¢çVÖ&W#²7FGW3¢&7F—fR"Â&–æ7F—fR#°Ğ§Ó°Ğ§G—R6†–gD76–væÖVçBÒ°Ğ¢–C¢7G&–æs²V×Æ÷–VT–C¢7G&–æs²6†–gEFV×ÆFT–C¢7G&–æs²7F'G4öã¢7G&–æs²VæG4öã¢7G&–æs²7FGW3¢&7F—fR"Â&6æ6VÆÆVB#°Ğ§Ó°Ğ§G—R6†–gE66†VGVÆRÒ²FV×ÆFW3¢6†–gEFV×ÆFUµÓ²76–væÖVçG3¢6†–gD76–væÖVçEµÓ²G'Væ6FVC¢&ööÆVâÓ°Ğ§G—R6æ6†÷BÒ²V×Æ÷–VW3¢V×Æ÷–VUµÓ²GFVæFæ6S¢GFVæFæ6UµÓ²ÆVfU&WVW7G3¢ÆVfU&WVW7EµÓ²÷&væ—¦F–öåVæ—G3¢÷&væ—¦F–öåVæ—EµÓ²¦ö%F—FÆT÷F–öç3¢¦ö%F—FÆT÷F–öåµÒÓ°Ğ§G—RV×Æ÷–VTG&gBÒöÖ—CÄV×Æ÷–VRÂ&–B#âb²–Có¢7G&–ærÓ°Ğ§G—RÆVfTG&gBÒ²V×Æ÷–VT–C¢7G&–æs²ÆVfUG—S¢ÆVfU&WVW7E²&ÆVfUG—R%Ó²7F'G4öã¢7G&–æs²VæG4öã¢7G&–æs²&V6öã¢7G&–ærÓ°Ğ§G—R‡&—5F"Ò&V×Æ÷–VW2"Â&GFVæFæ6R"Â&ÆVfR"Â'G&6¶–ær"Â'6†–gG2"Â'—&öÆÂ"Â'W&f÷&Öæ6R"Â&†—&–ær"Â&æÇ—F–72#°Ğ¦6öç7B…$•5õD%3¢'&“Ç²–C¢‡&—5F#²Æ&VÃ¢7G&–æs²–6öã¢&V7Bå&V7DæöFRÓâÒ°Ğ¢²–C¢&V×Æ÷–VW2"ÂÆ&VÃ¢$F—&V·F÷&’Vvv’"Â–6öã¢ÅW6W'26Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢&GFVæFæ6R"ÂÆ&VÃ¢$¶V†F—&â"Â–6öã¢Ä6ÆVæF$6Æö6²6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢&ÆVfR"ÂÆ&VÃ¢$7WF’"Â–6öã¢Ä6Æ—&ö&D6†V6²6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢'G&6¶–ær"ÂÆ&VÃ¢%VÆ6¶âÆæw7Vær"Â–6öã¢ÄÖ–â6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢'6†–gG2"ÂÆ&VÃ¢$¦GvÂ6†–gB"Â–6öã¢Ä6ÆVæF$F—26Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢'—&öÆÂ"ÂÆ&VÃ¢%Vævv¦–â"Â–6öã¢ÅvÆÆWB6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢'W&f÷&Öæ6R"ÂÆ&VÃ¢$¶–æW&¦"Â–6öã¢Äv&B6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢&†—&–ær"ÂÆ&VÃ¢%&V·'WFÖVâ"Â–6öã¢ÅW6W%ÇW26Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¢²–C¢&æÇ—F–72"ÂÆ&VÃ¢$æÆ—F–²4DÒ"Â–6öã¢Ä7F—f—G’6Æ74æÖSÒ&‚ÓBrÓB"óâÒÀĞ¥Ó°Ğ¦6öç7BTÕE•ôE$eC¢V×Æ÷–VTG&gBÒ°Ğ¢V×Æ÷–VTçVÖ&W#¢""ÂgVÆÄæÖS¢""Â¦ö%F—FÆS¢""Â¦ö%F—FÆU&VfW&Væ6T–C¢""ÂFW'FÖVçC¢""Â÷&væ—¦F–öåVæ—D–C¢çVÆÂÂVÖ–Ã¢""Â†öæS¢""Â†—&TFFS¢""ÂV×Æ÷–ÖVçE7FGW3¢&7F—fR"ÀĞ§Ó°Ğ¦6öç7BTÕE•ôÄTdUôE$eC¢ÆVfTG&gBÒ²V×Æ÷–VT–C¢""ÂÆVfUG—S¢&æçVÂ"Â7F'G4öã¢FöF’‚’ÂVæG4öã¢FöF’‚’Â&V6öã¢""Ó°Ğ Ğ¦gVæ7F–öâFöF’‡F–ÖU¦öæSó¢7G&–ær’°Ğ¢–b‡F–ÖU¦öæR’&WGW&âFVæçDFFR†æWrFFR‚’Âæ÷&ÖÆ—¦UFVæçEF–ÖU¦öæR‡F–ÖU¦öæR’“°Ğ¢6öç7Bæ÷rÒæWrFFR‚“°Ğ¢&WGW&âG¶æ÷rævWDgVÆÅ–V"‚—ÒÒGµ7G&–ær†æ÷rævWDÖöçF‚‚’²’çE7F'Bƒ"Â#"—ÒÒGµ7G&–ær†æ÷rævWDFFR‚’’çE7F'Bƒ"Â#"—Ö°Ğ§ĞĞ¦gVæ7F–öâ6†÷'EF–ÖR‡fÇVS¢7G&–ærÂçVÆÂ’°Ğ¢–b‚fÇVR’&WGW&â.(	B#°Ğ¢&WGW&âæWr–çFÂäFFUF–ÖTf÷&ÖB‚&–BÔ”B"Â²†÷W#¢#"ÖF–v—B"ÂÖ–çWFS¢#"ÖF–v—B"Ò’æf÷&ÖB†æWrFFR‡fÇVR’“°Ğ§ĞĞ¦gVæ7F–öâGFVæFæ6UFW‡B‡7FGW3¢GFVæFæ6U²'7FGW2%Ò’°Ğ¢&WGW&â‡²&W6VçC¢$†F—""ÂÆFS¢%FW&ÆÖ&B"Â'6VçC¢%F–F²†F—""ÂÆVfS¢$7WF’"Â&VÖ÷FS¢$¦&²¦V‚"Ò•·7FGW5Ó°Ğ§ĞĞ¦gVæ7F–öâV×Æ÷–ÖVçEFW‡B‡7FGW3¢V×Æ÷–VU²&V×Æ÷–ÖVçE7FGW2%Ò’°Ğ¢&WGW&â‡²7F—fS¢$·F–b"ÂöåöÆVfS¢$7WF’"Â–æ7F—fS¢$æöæ·F–b"ÂFW&Ö–æFVC¢$&W&¶†—""Ò•·7FGW5Ó°Ğ§ĞĞ¦gVæ7F–öâÆVfUG—UFW‡B‡G—S¢ÆVfU&WVW7E²&ÆVfUG—R%Ò’°Ğ¢&WGW&â‡²æçVÃ¢%F‡Væâ"Â6–6³¢%6¶—B"ÂW'6öæÃ¢$¶WW&ÇVâ&–&F’"ÂÖFW&æ—G“¢$ÖVÆ†—&¶â"Â÷F†W#¢$Æ–æç–"Ò•·G—UÓ°Ğ§ĞĞ¦gVæ7F–öâÆVfU7FGW5FW‡B‡7FGW3¢ÆVfU&WVW7E²'7FGW2%Ò’°Ğ¢&WGW&â‡²VæF–æs¢$ÖVçVævwR"Â&÷fVC¢$F—6WGV§V’"Â&V¦V7FVC¢$F—FöÆ²"Ò•·7FGW5Ó°Ğ§ĞĞ¦gVæ7F–öâÆVfTF”6÷VçB†—FVÓ¢–6³ÄÆVfU&WVW7BÂ'7F'G4öâ"Â&VæG4öâ#â’°Ğ¢&WGW&âÖF‚ç&÷VæB‚„FFRç'6R†—FVÒæVæG4öâ²%C££¢"’ÒFFRç'6R†—FVÒç7F'G4öâ²%C££¢"’’òƒeóCó’²°Ğ§ĞĞ Ğ¦7–æ2gVæ7F–öâ‡&—5&WVW7CÅCâ‡Fƒ¢7G&–ærÂ–æ—C¢&WVW7D–æ—BÒ·Ò“¢&öÖ—6SÅCâ°Ğ¢6öç7BFö¶VâÒv—BvWD66W75Fö¶Vâ‚“°Ğ¢–b‚Fö¶Vâ’F‡&÷ræWrW'&÷"‚%6W6’æFFVÆ‚&W&¶†—"â6–Æ¶âÖ7V²¶VÖ&Æ’â"“°Ğ¢6öç7B†VFW'2ÒæWr†VFW'2†–æ—Bæ†VFW'2ÇÂ·Ò“°Ğ¢†VFW'2ç6WB‚$WF†÷&—¦F–öâ"Â&V&W"G·Fö¶VçÖ“°Ğ¢†VFW'2ç6WB‚$66WB"Â&Æ–6F–öâö§6öâ"“°Ğ¢–b†–æ—Bæ&öG’bb†VFW'2æ†2‚$6öçFVçBÕG—R"’’†VFW'2ç6WB‚$6öçFVçBÕG—R"Â&Æ–6F–öâö§6öâ"“°Ğ¢6öç7B&W7öç6RÒv—BfWF6‚‡F‚Â²ââæ–æ—BÂ†VFW'2Â66†S¢&æò×7F÷&R"Ò“°Ğ¢6öç7B&öG’Òv—B&W7öç6Ræ§6öâ‚’æ6F6‚‚‚’Óâ‡·Ò’“°Ğ¢–b‚&W7öç6Ræö²’F‡&÷ræWrW'&÷"†&öG’æW'&÷"ÇÂ$FF…$•2&VÇVÒFBF—&÷6W2â"“°Ğ¢&WGW&â&öG’2C°Ğ§ĞĞ Ğ¦W‡÷'BgVæ7F–öâ7W&6T‡&—4ÖævW"‚’°Ğ¢6öç7B²W6W"ÒÒW6TWF‚‚“°Ğ¢6öç7B·6æ6†÷BÂ6WE6æ6†÷EÒÒW6U7FFSÅ6æ6†÷Câ‡²V×Æ÷–VW3¢µÒÂGFVæFæ6S¢µÒÂÆVfU&WVW7G3¢µÒÂ÷&væ—¦F–öåVæ—G3¢µÒÂ¦ö%F—FÆT÷F–öç3¢µÒÒ“°Ğ¢6öç7B·F"Â6WEF%ÒÒW6U7FFSÄ‡&—5F#â‚&V×Æ÷–VW2"“°Ğ¢6öç7B¶ÆöF–ærÂ6WDÆöF–æuÒÒW6U7FFR‡G'VR“°Ğ¢6öç7B·6f–ærÂ6WE6f–æuÒÒW6U7FFR†fÇ6R“°Ğ¢6öç7B·&Vg&W6†–æu6æ6†÷BÂ6WE&Vg&W6†–æu6æ6†÷EÒÒW6U7FFR†fÇ6R“°Ğ¢6öç7B¶W'&÷"Â6WDW'&÷%ÒÒW6U7FFR‚""“°Ğ¢6öç7B¶æ÷F–6RÂ6WDæ÷F–6UÒÒW6U7FFR‚""“°Ğ¢6öç7B·VW'’Â6WEVW'•ÒÒW6U7FFR‚""“°Ğ¢6öç7B¶V×Æ÷–VTG&gBÂ6WDV×Æ÷–VTG&gEÒÒW6U7FFSÄV×Æ÷–VTG&gBÂçVÆÃâ†çVÆÂ“°Ğ¢6öç7B·v÷&´FFRÂ6WEv÷&´FFUÒÒW6U7FFR‡FöF’‚’“°Ğ¢6öç7B¶V×Æ÷–VT–BÂ6WDV×Æ÷–VT–EÒÒW6U7FFR‚""“°Ğ¢6öç7B·7FGW2Â6WE7FGW5ÒÒW6U7FFSÄGFVæFæ6U²'7FGW2%Óâ‚'&W6VçB"“°Ğ¢6öç7B¶6†V6´–âÂ6WD6†V6´–åÒÒW6U7FFR‚""“°Ğ¢6öç7B¶6†V6´÷WBÂ6WD6†V6´÷WEÒÒW6U7FFR‚""“°Ğ¢6öç7B¶ÆVfTG&gBÂ6WDÆVfTG&gEÒÒW6U7FFSÄÆVfTG&gBÂçVÆÃâ†çVÆÂ“°Ğ¢6öç7B·&Wf–Wv–ætÆVfRÂ6WE&Wf–Wv–ætÆVfUÒÒW6U7FFSÄÆVfU&WVW7BÂçVÆÃâ†çVÆÂ“°Ğ¢6öç7B¶ÆVfTFV6—6–öâÂ6WDÆVfTFV6—6–öåÒÒW6U7FFSÂ&&÷fVB"Â'&V¦V7FVB#â‚&&÷fVB"“°Ğ¢6öç7B·&Wf–Wtæ÷FRÂ6WE&Wf–Wtæ÷FUÒÒW6U7FFR‚""“°Ğ Ğ¢6öç7B&Vg&W6‚ÒW6T6ÆÆ&6²†7–æ2‚’Óâ°Ğ¢6öç7B&W7VÇBÒv—B‡&—5&WVW7CÅ6æ6†÷Câ‚"ö’ö‡&—2÷6æ6†÷B"“°Ğ¢6WE6æ6†÷B‡²V×Æ÷–VW3¢'&’æ—4'&’‡&W7VÇBæV×Æ÷–VW2’ò&W7VÇBæV×Æ÷–VW2¢µÒÂGFVæFæ6S¢'&’æ—4'&’‡&W7VÇBæGFVæFæ6R’ò&W7VÇBæGFVæFæ6R¢µÒÂÆVfU&WVW7G3¢'&’æ—4'&’‡&W7VÇBæÆVfU&WVW7G2’ò&W7VÇBæÆVfU&WVW7G2¢µÒÂ÷&væ—¦F–öåVæ—G3¢'&’æ—4'&’‡&W7VÇBæ÷&væ—¦F–öåVæ—G2’ò&W7VÇBæ÷&væ—¦F–öåVæ—G2¢µÒÂ¦ö%F—FÆT÷F–öç3¢'&’æ—4'&’‡&W7VÇBæ¦ö%F—FÆT÷F–öç2’ò&W7VÇBæ¦ö%F—FÆT÷F–öç2¢µÒÒ“°Ğ¢6WDV×Æ÷–VT–B‚†7W'&VçB’Óâ7W'&VçBÇÂ&W7VÇBæV×Æ÷–VW3òæf–æB‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"“òæ–BÇÂ""“°Ğ¢ÒÂµÒ“°Ğ Ğ¢W6TVffV7B‚‚’Óâ°Ğ¢ÆWBÖ÷VçFVBÒG'VS°Ğ¢6WDÆöF–ær‡G'VR“²6WDW'&÷"‚""“°Ğ¢fö–B‡&—5&WVW7CÅ6æ6†÷Câ‚"ö’ö‡&—2÷6æ6†÷B"Ğ¢çF†Vâ‚‡&W7VÇB’Óâ°Ğ¢–b‚Ö÷VçFVB’&WGW&ã°Ğ¢6WE6æ6†÷B‡²V×Æ÷–VW3¢'&’æ—4'&’‡&W7VÇBæV×Æ÷–VW2’ò&W7VÇBæV×Æ÷–VW2¢µÒÂGFVæFæ6S¢'&’æ—4'&’‡&W7VÇBæGFVæFæ6R’ò&W7VÇBæGFVæFæ6R¢µÒÂÆVfU&WVW7G3¢'&’æ—4'&’‡&W7VÇBæÆVfU&WVW7G2’ò&W7VÇBæÆVfU&WVW7G2¢µÒÂ÷&væ—¦F–öåVæ—G3¢'&’æ—4'&’‡&W7VÇBæ÷&væ—¦F–öåVæ—G2’ò&W7VÇBæ÷&væ—¦F–öåVæ—G2¢µÒÂ¦ö%F—FÆT÷F–öç3¢'&’æ—4'&’‡&W7VÇBæ¦ö%F—FÆT÷F–öç2’ò&W7VÇBæ¦ö%F—FÆT÷F–öç2¢µÒÒ“°Ğ¢6WDV×Æ÷–VT–B‡&W7VÇBæV×Æ÷–VW3òæf–æB‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"“òæ–BÇÂ""“°Ğ¢ÒĞ¢æ6F6‚‚†ÆöDW'&÷#¢ç’’Óâ²–b†Ö÷VçFVB’6WDW'&÷"‡FôU%W6W$ÖW76vR†ÆöDW'&÷"Â$FF…$•2&VÇVÒFBF–×VBâ"’“²ÒĞ¢æf–æÆÇ’‚‚’Óâ²–b†Ö÷VçFVB’6WDÆöF–ær†fÇ6R“²Ò“°Ğ¢&WGW&â‚’Óâ²Ö÷VçFVBÒfÇ6S²Ó°Ğ¢ÒÂµÒ“°Ğ Ğ¢6öç7Bf–ÇFW&VDV×Æ÷–VW2ÒW6TÖVÖò‚‚’Óâ°Ğ¢6öç7BFW‡BÒVW'’çG&–Ò‚’çFôÆö6ÆTÆ÷vW$66R‚&–BÔ”B"“°Ğ¢&WGW&â6æ6†÷BæV×Æ÷–VW2æf–ÇFW"‚†V×Æ÷–VR’ÓâFW‡BÇÂ¶V×Æ÷–VRæV×Æ÷–VTçVÖ&W"ÂV×Æ÷–VRægVÆÄæÖRÂV×Æ÷–VRæ¦ö%F—FÆRÂV×Æ÷–VRæFW'FÖVçBÂV×Æ÷–VRæVÖ–ÅĞĞ¢ç6öÖR‚‡fÇVR’Óâ7G&–ær‡fÇVRÇÂ""’çFôÆö6ÆTÆ÷vW$66R‚&–BÔ”B"’æ–æ6ÇVFW2‡FW‡B’’“°Ğ¢ÒÂ·6æ6†÷BæV×Æ÷–VW2ÂVW'•Ò“°Ğ¢6öç7BV×Æ÷–VT'”–BÒW6TÖVÖò‚‚’ÓâæWrÖ‡6æ6†÷BæV×Æ÷–VW2æÖ‚†—FVÒ’Óâ¶—FVÒæ–BÂ—FVÕÒ’’Â·6æ6†÷BæV×Æ÷–VW5Ò“°Ğ¢6öç7B6VÆV7FVDF”GFVæFæ6RÒW6TÖVÖò‚‚’Óâ6æ6†÷BæGFVæFæ6Ræf–ÇFW"‚†—FVÒ’Óâ—FVÒçv÷&´FFRÓÓÒv÷&´FFR’Â·6æ6†÷BæGFVæFæ6RÂv÷&´FFUÒ“°Ğ Ğ¢6öç7B6fTV×Æ÷–VRÒ7–æ2†WfVçC¢&V7Bäf÷&ÔWfVçB’Óâ°Ğ¢WfVçBç&WfVçDFVfVÇB‚“°Ğ¢–b‚V×Æ÷–VTG&gB’&WGW&ã°Ğ¢6WE6f–ær‡G'VR“²6WDW'&÷"‚""“²6WDæ÷F–6R‚""“°Ğ¢G'’°Ğ¢6öç7B—4æWtV×Æ÷–VRÒV×Æ÷–VTG&gBæ–C°Ğ¢v—B‡&—5&WVW7B‚"ö’ö‡&—2öV×Æ÷–VW2"Â°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡²V×Æ÷–VS¢²ââæV×Æ÷–VTG&gBÂ–C¢V×Æ÷–VTG&gBæ–BÇÂ7'—Fòç&æFöÕUT”B‚’Â6Æ–VçE&WVW7D–C¢7'—Fòç&æFöÕUT”B‚’ÒÒ’ÀĞ¢Ò“°Ğ¢6WDV×Æ÷–VTG&gB†çVÆÂ“²6WDæ÷F–6R†—4æWtV×Æ÷–VRò%W'V&†âFFVvv’&W&†6–ÂF—6–×ââæöÖ÷"Vvv’F–'VB÷FöÖF—2â"¢%W'V&†âFFVvv’&W&†6–ÂF—6–×ââ"“²v—B&Vg&W6‚‚“°Ğ¢Ò6F6‚‡6fTW'&÷#¢ç’’²6WDW'&÷"‡FôU%W6W$ÖW76vR‡6fTW'&÷"Â$FFVvv’&VÇVÒFBF—6–×ââ"’“²ĞĞ¢f–æÆÇ’²6WE6f–ær†fÇ6R“²ĞĞ¢Ó°Ğ Ğ¢6öç7B6fTGFVæFæ6RÒ7–æ2†WfVçC¢&V7Bäf÷&ÔWfVçB’Óâ°Ğ¢WfVçBç&WfVçDFVfVÇB‚“°Ğ¢–b‚V×Æ÷–VT–B’&WGW&ã°Ğ¢6WE6f–ær‡G'VR“²6WDW'&÷"‚""“²6WDæ÷F–6R‚""“°Ğ¢G'’°Ğ¢6öç7B6†V6´–äBÒ6†V6´–âòæWrFFR†G·v÷&´FFWÕBG¶6†V6´–çÖ’çFô•4õ7G&–ær‚’¢çVÆÃ°Ğ¢6öç7B6†V6´÷WDBÒ6†V6´÷WBòæWrFFR†G·v÷&´FFWÕBG¶6†V6´÷WGÖ’çFô•4õ7G&–ær‚’¢çVÆÃ°Ğ¢v—B‡&—5&WVW7B‚"ö’ö‡&—2öGFVæFæ6R"Â°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡²6Æ–VçE&WVW7D–C¢7'—Fòç&æFöÕUT”B‚’ÂV×Æ÷–VT–BÂv÷&´FFRÂ7FGW2Â6†V6´–äBÂ6†V6´÷WDBÒ’ÀĞ¢Ò“°Ğ¢6WDæ÷F–6R‚$¶V†F—&âFW'6–×âFâW'V&†æç–FW&6FBF&—v–Bâ"“²v—B&Vg&W6‚‚“°Ğ¢Ò6F6‚‡6fTW'&÷#¢ç’’²6WDW'&÷"‡FôU%W6W$ÖW76vR‡6fTW'&÷"Â$¶V†F—&â&VÇVÒFBF—6–×ââ"’“²ĞĞ¢f–æÆÇ’²6WE6f–ær†fÇ6R“²ĞĞ¢Ó°Ğ Ğ¢6öç7B6fTÆVfRÒ7–æ2†WfVçC¢&V7Bäf÷&ÔWfVçB’Óâ°Ğ¢WfVçBç&WfVçDFVfVÇB‚“°Ğ¢–b‚ÆVfTG&gB’&WGW&ã°Ğ¢6WE6f–ær‡G'VR“²6WDW'&÷"‚""“²6WDæ÷F–6R‚""“°Ğ¢G'’°Ğ¢v—B‡&—5&WVW7B‚"ö’ö‡&—2öÆVfR×&WVW7G2"Â°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡²ÆVfU&WVW7C¢²ââæÆVfTG&gBÂ6Æ–VçE&WVW7D–C¢7'—Fòç&æFöÕUT”B‚’ÒÒ’ÀĞ¢Ò“°Ğ¢6WDÆVfTG&gB†çVÆÂ“²6WDæ÷F–6R‚$6FFâ7WF’&W&†6–ÂF—6–×ââ"“²v—B&Vg&W6‚‚“°Ğ¢Ò6F6‚‡6fTW'&÷#¢ç’’²6WDW'&÷"‡FôU%W6W$ÖW76vR‡6fTW'&÷"Â$6FFâ7WF’&VÇVÒFBF—6–×ââ"’“²ĞĞ¢f–æÆÇ’²6WE6f–ær†fÇ6R“²ĞĞ¢Ó°Ğ Ğ¢6öç7B7V&Ö—DÆVfU&Wf–WrÒ7–æ2†WfVçC¢&V7Bäf÷&ÔWfVçB’Óâ°Ğ¢WfVçBç&WfVçDFVfVÇB‚“°Ğ¢–b‚&Wf–Wv–ætÆVfR’&WGW&ã°Ğ¢6WE6f–ær‡G'VR“²6WDW'&÷"‚""“²6WDæ÷F–6R‚""“°Ğ¢G'’°Ğ¢v—B‡&—5&WVW7B†ö’ö‡&—2öÆVfR×&WVW7G2òG¶Væ6öFUU$”6ö×öæVçB‡&Wf–Wv–ætÆVfRæ–B—Ò÷&Wf–WvÂ°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡²7FGW3¢ÆVfTFV6—6–öâÂ&Wf–Wtæ÷FRÂ6Æ–VçE&WVW7D–C¢7'—Fòç&æFöÕUT”B‚’Ò’ÀĞ¢Ò“°Ğ¢6WE&Wf–Wv–ætÆVfR†çVÆÂ“²6WE&Wf–Wtæ÷FR‚""“²6WDæ÷F–6R†Væv§Vâ7WF’G¶ÆVfU7FGW5FW‡B†ÆVfTFV6—6–öâ’çFôÆö6ÆTÆ÷vW$66R‚&–BÔ”B"—ÒFâFW&6FBæ“²v—B&Vg&W6‚‚“°Ğ¢Ò6F6‚‡&Wf–WtW'&÷#¢ç’’²6WDW'&÷"‡FôU%W6W$ÖW76vR‡&Wf–WtW'&÷"Â$¶WWGW6â7WF’&VÇVÒFBF—6–×ââ"’“²ĞĞ¢f–æÆÇ’²6WE6f–ær†fÇ6R“²ĞĞ¢Ó°Ğ Ğ¢&WGW&â€Ğ¢ÆÖ–â6Æ74æÖSÒ&×‚ÖWFòrÖgVÆÂÖ‚×rÓw†Â76R×’ÓRÓBÖC§Ób#àĞ¢Æ†VFW"6Æ74æÖSÒ&fÆW‚fÆW‚Ö6öÂvÓ26Ó¦fÆW‚×&÷r6Ó¦—FV×2Ö6VçFW"6Ó¦§W7F–g’Ö&WGvVVâ#àĞ¢ÆF—cãÆƒ6Æ74æÖSÒ'FW‡BÓ'†ÂföçBÖ&öÆBFW‡B×6ÆFRÓ“F&³§FW‡B×v†—FR#å4DÒW6çG&VãÂöƒãÂöF—càĞ¢Æ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ²6WDÆöF–ær‡G'VR“²fö–B&Vg&W6‚‚’æ6F6‚‚†S¢ç’’Óâ6WDW'&÷"‡FôU%W6W$ÖW76vR†RÂ$vvÂÖV×VBVÆærâ"’’’æf–æÆÇ’‚‚’Óâ6WDÆöF–ær†fÇ6R’“²×ÒF—6&ÆVC×¶ÆöF–æwÒ6Æ74æÖSÒ&–æÆ–æRÖfÆW‚—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"vÓ"&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚ÓB’Ó"FW‡B×6ÒföçBÖÖVF—VÒFW‡B×6ÆFRÓs†÷fW#¦&r×6ÆFRÓSF—6&ÆVC¦÷6—G’ÓSF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“F&³§FW‡B×6ÆFRÓ##ãÅ&Vg&W6„7r6Æ74æÖS×¶‚ÓBrÓBG¶ÆöF–ærò&æ–ÖFR×7–â"¢"'ÖÒóä×VBVÆæsÂö'WGFöãàĞ¢Âö†VFW#àĞ Ğ¢ÆF—b&öÆSÒ'7FGW2"6Æ74æÖSÒ'&÷VæFVB×†Â&÷&FW"&÷&FW"×6·’Ó#&r×6·’ÓS‚ÓB’Ó2FW‡B×6ÒFW‡B×6·’Ó“F&³¦&÷&FW"×6·’Ó“ócF&³¦&r×6·’Ó“Só3F&³§FW‡B×6·’Ó##ä¶VÆöÆFFVvv’Â¶V†F—&âÂFâ7WF’F’6–æ’â6ÆFò7WF’Fâ¦GvÂ¶V†F—&â&VÇVÒF—W&&'V’÷FöÖF—2âVçGV²ÖVæ¦v&—f6’ÂwVæ¶âÆ6â7WF’V×VÒFâ†–æF&’ÖVæ6çGVÖ¶â&–æ6–âF–væ÷6—2¶W6V†FâãÂöF—càĞ¢¶W'&÷"bbÆF—b&öÆSÒ&ÆW'B"6Æ74æÖSÒ&fÆW‚—FV×2×7F'BvÓ"&÷VæFVB×†Â&÷&FW"&÷&FW"×&÷6RÓ#&r×&÷6RÓS‚ÓB’Ó2FW‡B×6ÒFW‡B×&÷6RÓƒF&³¦&÷&FW"×&÷6RÓ“óSF&³¦&r×&÷6RÓ“Só3F&³§FW‡B×&÷6RÓ##ãÄÆW'D6—&6ÆR6Æ74æÖSÒ&×BÓãR‚ÓBrÓB6‡&–æ²Ó"óç¶W'&÷'ÓÂöF—cçĞĞ¢¶æ÷F–6RbbÆF—b&öÆSÒ'7FGW2"6Æ74æÖSÒ&fÆW‚—FV×2Ö6VçFW"vÓ"&÷VæFVB×†Â&÷&FW"&÷&FW"ÖVÖW&ÆBÓ#&rÖVÖW&ÆBÓS‚ÓB’Ó2FW‡B×6ÒFW‡BÖVÖW&ÆBÓƒF&³¦&÷&FW"ÖVÖW&ÆBÓ“óSF&³¦&rÖVÖW&ÆBÓ“Só3F&³§FW‡BÖVÖW&ÆBÓ##ãÄ6†V6´6—&6ÆS"6Æ74æÖSÒ&‚ÓBrÓB"óç¶æ÷F–6WÓÂöF—cçĞĞ Ğ¢ÄU%F'2F'3×´…$•5õD%7ÒfÇVS×·F'Òöä6†ævS×²†–B’Óâ6WEF"†–B2‡&—5F"—Ò&–Æ&VÃÒ$&v–â7VÖ&W"F–ÖçW6–"óàĞ¢Å7W&6TÖöGVÆU&VfW&Væ6U6WGF–æw2FöÖ–ç3×µ²&‡&—5ö¦ö%÷F—FÆR%×ÒÆ&VÃÒ%VævGW&â¦&FâVvv’"FVfVÇD÷Vâöå6fVC×¶7–æ2‚’Óâ°Ğ¢6WDW'&÷"‚""“²6WDæ÷F–6R‚""“²6WE&Vg&W6†–æu6æ6†÷B‡G'VR“°Ğ¢G'’°Ğ¢v—B&Vg&W6‚‚“°Ğ¢6WDæ÷F–6R‚%–Æ–†â¦&FâFW&&'R7VF‚FW'6VF–Ff÷&×VÆ—"Vvv’â"“°Ğ¢Ò6F6‚‡&Vg&W6„W'&÷#¢ç’’°Ğ¢6WDW'&÷"‡FôU%W6W$ÖW76vR‡&Vg&W6„W'&÷"Â$¦&FâFW'6–×âÂFWF’–Æ–†âFW&&'R&VÇVÒFBF–×VBâ×VBVÆærÖöGVÂ4DÒâ"’“°Ğ¢Òf–æÆÇ’°Ğ¢6WE&Vg&W6†–æu6æ6†÷B†fÇ6R“°Ğ¢ĞĞ¢×ÒóàĞ Ğ¢¶ÆöF–æròÆF—b&öÆSÒ'7FGW2"6Æ74æÖSÒ&fÆW‚—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"vÓ"&÷VæFVB×†Â&÷&FW"&÷&FW"×6ÆFRÓ#Ó"FW‡B×6ÒFW‡B×6ÆFRÓSF&³¦&÷&FW"×v†—FRó#ãÄÆöFW#"6Æ74æÖSÒ&‚ÓBrÓBæ–ÖFR×7–â"óäÖV×VBFFW6çG&Vî(
-cÂöF—câ¢ÃàĞ¢·F"ÓÓÒ&V×Æ÷–VW2"bbÇ6V7F–öâ6Æ74æÖSÒ'76R×’ÓB&÷VæFVBÓ'†Â&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FRÓB6†F÷r×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“ÖC§ÓR#àĞ¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚Ö6öÂvÓ26Ó¦fÆW‚×&÷r6Ó¦—FV×2Ö6VçFW"6Ó¦§W7F–g’Ö&WGvVVâ#àĞ¢ÆF—b6Æ74æÖSÒ'&VÆF—fRrÖgVÆÂ6Ó¦Ö‚×rÖÖB#ãÅ6V&6‚6Æ74æÖSÒ&'6öÇWFRÆVgBÓ2F÷Óó"‚ÓBrÓB×G&ç6ÆFR×’Óó"FW‡B×6ÆFRÓC"óãÆ–çWBfÇVS×·VW'—Òöä6†ævS×²†R’Óâ6WEVW'’†RçF&vWBçfÇVR—ÒÆ6V†öÆFW#Ò$6&’æÖÂæöÖ÷"Â¦&FâÂFRVæ—B"6Æ74æÖSÒ'rÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR’Ó"ÂÓ’"Ó2FW‡B×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“S"óãÂöF—càĞ¢Æ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ²6WDW'&÷"‚""“²6WDV×Æ÷–VTG&gB‡²ââäTÕE•ôE$eBÒ“²×ÒF—6&ÆVC×·&Vg&W6†–æu6æ6†÷GÒ6Æ74æÖSÒ&–æÆ–æRÖfÆW‚—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"vÓ"&÷VæFVBÖÆr&rÖVÖW&ÆBÓc‚ÓB’Ó"FW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×v†—FR†÷fW#¦&rÖVÖW&ÆBÓs#ãÅÇW26Æ74æÖSÒ&‚ÓBrÓB"óç·&Vg&W6†–æu6æ6†÷Bò$ÖV×VB–Æ–†â¦&Fî(
-b"¢%FÖ&‚Vvv’'ÓÂö'WGFöãàĞ¢ÂöF—càĞ¢ÆF—b6Æ74æÖSÒ&w&–BvÓ26Ó¦w&–BÖ6öÇ2Ó2#ãÄÖWG&–2Æ&VÃÒ$§VÖÆ‚Vvv’"fÇVS×·6æ6†÷BæV×Æ÷–VW2æÆVæwF‡ÒóãÄÖWG&–2Æ&VÃÒ$·F–b"fÇVS×·6æ6†÷BæV×Æ÷–VW2æf–ÇFW"‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"’æÆVæwF‡ÒóãÄÖWG&–2Æ&VÃÒ%F–F²·F–bò7WF’"fÇVS×·6æ6†÷BæV×Æ÷–VW2æf–ÇFW"‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÒ&7F—fR"’æÆVæwF‡ÒóãÂöF—càĞ¢¶f–ÇFW&VDV×Æ÷–VW2æÆVæwF‚ÓÓÒòÄV×G•7FFRFW‡C×·6æ6†÷BæV×Æ÷–VW2æÆVæwF‚ò%F–F²FFF–ær6ö6ö²FVævâVæ6&–ââ"¢$&VÇVÒFVvv’FW6çG&Vâ–æ’âFÖ&†¶âFFVvv’VçGV²ÖV×VÆ’â'Òóâ¢ÆF—b6Æ74æÖSÒ&÷fW&fÆ÷r×‚ÖWFò&÷VæFVB×†Â&÷&FW"&÷&FW"×6ÆFRÓ#F&³¦&÷&FW"×v†—FRó#ãÇF&ÆR6Æ74æÖSÒ'rÖgVÆÂÖ–â×rÕ³sc…ÒFW‡BÖÆVgBFW‡B×6Ò#ãÇF†VB6Æ74æÖSÒ&&r×6ÆFRÓSFW‡B×‡2WW&66RG&6¶–ær×v–FRFW‡B×6ÆFRÓSF&³¦&r×v†—FRóR#ãÇG#ãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#åVvv“Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#äæöÖ÷#Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#ä¦&FâòVæ—CÂ÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#ä¶öçF³Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#å7FGW3Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#ãÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’6Æ74æÖSÒ&F—f–FR×’F—f–FR×6ÆFRÓF&³¦F—f–FR×v†—FRóR#ç¶f–ÇFW&VDV×Æ÷–VW2æÖ‚†V×Æ÷–VR’ÓâÇG"¶W“×¶V×Æ÷–VRæ–GÓãÇFB6Æ74æÖSÒ'‚ÓB’Ó2föçBÖÖVF—VÒFW‡B×6ÆFRÓ“F&³§FW‡B×v†—FR#ç¶V×Æ÷–VRægVÆÄæÖWÓÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2FW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#ç¶V×Æ÷–VRæV×Æ÷–VTçVÖ&W'ÓÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2FW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#ç¶V×Æ÷–VRæ¦ö%F—FÆWÓÆF—b6Æ74æÖSÒ'FW‡B×‡2FW‡B×6ÆFRÓC#ç¶V×Æ÷–VRæFW'FÖVçGÓÂöF—cãÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2FW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#ç¶V×Æ÷–VRæVÖ–ÂÇÂ.(	B'ÓÆF—b6Æ74æÖSÒ'FW‡B×‡2FW‡B×6ÆFRÓC#ç¶V×Æ÷–VRç†öæRÇÂ.(	B'ÓÂöF—cãÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2#ãÇ7â6Æ74æÖS×¶&÷VæFVBÖgVÆÂ‚Ó"ãR’ÓFW‡B×‡2föçBÖÖVF—VÒG¶V×Æ÷–VRæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"ò&&rÖVÖW&ÆBÓSFW‡BÖVÖW&ÆBÓsF&³¦&rÖVÖW&ÆBÓ“SóCF&³§FW‡BÖVÖW&ÆBÓ3"¢&&r×6ÆFRÓFW‡B×6ÆFRÓcF&³¦&r×v†—FRóF&³§FW‡B×6ÆFRÓ3'ÖÓç¶V×Æ÷–ÖVçEFW‡B†V×Æ÷–VRæV×Æ÷–ÖVçE7FGW2—ÓÂ÷7ããÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2FW‡B×&–v‡B#ãÆ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâ²6WDW'&÷"‚""“²6WDV×Æ÷–VTG&gB‡²ââæV×Æ÷–VRÒ“²×Ò6Æ74æÖSÒ'&÷VæFVBÖÖB‚Ó2’ÓãRFW‡B×‡2föçB×6VÖ–&öÆBFW‡BÖVÖW&ÆBÓs†÷fW#¦&rÖVÖW&ÆBÓSF&³§FW‡BÖVÖW&ÆBÓ3F&³¦†÷fW#¦&rÖVÖW&ÆBÓ“Só3#åV&ƒÂö'WGFöããÂ÷FCãÂ÷G#â—ÓÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cçĞĞ¢Â÷6V7F–öãçĞĞ Ğ¢·F"ÓÓÒ&GFVæFæ6R"bbÇ6V7F–öâ6Æ74æÖSÒ'76R×’ÓB&÷VæFVBÓ'†Â&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FRÓB6†F÷r×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“ÖC§ÓR#àĞ¢Æf÷&Òöå7V&Ö—C×²†WfVçB’Óâfö–B6fTGFVæFæ6R†WfVçB—Ò6Æ74æÖSÒ&w&–BvÓ2&÷VæFVB×†Â&÷&FW"&÷&FW"×6ÆFRÓ#&r×6ÆFRÓSÓBF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“SóS6Ó¦w&–BÖ6öÇ2Ó"Æs¦w&–BÖ6öÇ2ÓbÆs¦—FV×2ÖVæB#àĞ¢ÆÆ&VÂ6Æ74æÖSÒ'FW‡B×‡2föçBÖÖVF—VÒFW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#åFævvÃÆ–çWB&WV—&VBG—SÒ&FFR"fÇVS×·v÷&´FFWÒöä6†ævS×²†R’Óâ6WEv÷&´FFR†RçF&vWBçfÇVR—Ò6Æ74æÖSÒ&×BÓrÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚Ó2’Ó"FW‡B×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“"óãÂöÆ&VÃàĞ¢ÆÆ&VÂ6Æ74æÖSÒ'FW‡B×‡2föçBÖÖVF—VÒFW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ36Ó¦6öÂ×7âÓ"#åVvv“Ç6VÆV7B&WV—&VBfÇVS×¶V×Æ÷–VT–GÒöä6†ævS×²†R’Óâ6WDV×Æ÷–VT–B†RçF&vWBçfÇVR—Ò6Æ74æÖSÒ&×BÓrÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚Ó2’Ó"FW‡B×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“#ãÆ÷F–öâfÇVSÒ"#å–Æ–‚Vvv(
-cÂö÷F–öãç·6æ6†÷BæV×Æ÷–VW2æf–ÇFW"‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"’æÖ‚†—FVÒ’ÓâÆ÷F–öâ¶W“×¶—FVÒæ–GÒfÇVS×¶—FVÒæ–GÓç¶—FVÒægVÆÄæÖWÒ+r¶—FVÒæV×Æ÷–VTçVÖ&W'ÓÂö÷F–öãâ—ÓÂ÷6VÆV7CãÂöÆ&VÃàĞ¢ÆÆ&VÂ6Æ74æÖSÒ'FW‡B×‡2föçBÖÖVF—VÒFW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#å7FGW3Ç6VÆV7BfÇVS×·7FGW7Òöä6†ævS×²†R’Óâ²6öç7BæW‡BÒRçF&vWBçfÇVR2GFVæFæ6U²'7FGW2%Ó²6WE7FGW2†æW‡B“²–b†æW‡BÓÓÒ&'6VçB"ÇÂæW‡BÓÓÒ&ÆVfR"’²6WD6†V6´–â‚""“²6WD6†V6´÷WB‚""“²Ò×Ò6Æ74æÖSÒ&×BÓrÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚Ó2’Ó"FW‡B×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“#ãÆ÷F–öâfÇVSÒ'&W6VçB#ä†F—#Âö÷F–öããÆ÷F–öâfÇVSÒ&ÆFR#åFW&ÆÖ&CÂö÷F–öããÆ÷F–öâfÇVSÒ'&VÖ÷FR#ä¦&²¦VƒÂö÷F–öããÆ÷F–öâfÇVSÒ&'6VçB#åF–F²†F—#Âö÷F–öããÆ÷F–öâfÇVSÒ&ÆVfR#ä7WF“Âö÷F–öããÂ÷6VÆV7CãÂöÆ&VÃàĞ¢ÆÆ&VÂ6Æ74æÖSÒ'FW‡B×‡2föçBÖÖVF—VÒFW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#ä¦ÒÖ7V³Æ–çWBG—SÒ'F–ÖR"&WV—&VC×·7FGW2ÓÓÒ'&W6VçB"ÇÂ7FGW2ÓÓÒ&ÆFR"ÇÂ7FGW2ÓÓÒ'&VÖ÷FR'ÒF—6&ÆVC×·7FGW2ÓÓÒ&'6VçB"ÇÂ7FGW2ÓÓÒ&ÆVfR'ÒfÇVS×¶6†V6´–çÒöä6†ævS×²†R’Óâ6WD6†V6´–â†RçF&vWBçfÇVR—Ò6Æ74æÖSÒ&×BÓrÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚Ó2’Ó"FW‡B×6ÒF—6&ÆVC¦÷6—G’ÓSF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“"óãÂöÆ&VÃàĞ¢ÆÆ&VÂ6Æ74æÖSÒ'FW‡B×‡2föçBÖÖVF—VÒFW‡B×6ÆFRÓcF&³§FW‡B×6ÆFRÓ3#ä¦ÒVÆæsÆ–çWBG—SÒ'F–ÖR"F—6&ÆVC×·7FGW2ÓÓÒ&'6VçB"ÇÂ7FGW2ÓÓÒ&ÆVfR'ÒfÇVS×¶6†V6´÷WGÒöä6†ævS×²†R’Óâ6WD6†V6´÷WB†RçF&vWBçfÇVR—Ò6Æ74æÖSÒ&×BÓrÖgVÆÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR‚Ó2’Ó"FW‡B×6ÒF—6&ÆVC¦÷6—G’ÓSF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“"óãÂöÆ&VÃàĞ¢Æ'WGFöâG—SÒ'7V&Ö—B"F—6&ÆVC×·6f–ærÇÂÆöF–ærÇÂV×Æ÷–VT–GÒ6Æ74æÖSÒ&–æÆ–æRÖfÆW‚—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"vÓ"&÷VæFVBÖÆr&rÖVÖW&ÆBÓc‚ÓB’Ó"FW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×v†—FR†÷fW#¦&rÖVÖW&ÆBÓsF—6&ÆVC¦÷6—G’ÓS6Ó¦6öÂ×7âÓ"Æs¦6öÂ×7âÓb#ç·6f–æròÄÆöFW#"6Æ74æÖSÒ&‚ÓBrÓBæ–ÖFR×7–â"óâ¢Ä6†V6´6—&6ÆS"6Æ74æÖSÒ&‚ÓBrÓB"óçÕ6–×â¶V†F—&ãÂö'WGFöãàĞ¢Âöf÷&ÓàĞ¢·6VÆV7FVDF”GFVæFæ6RæÆVæwF‚ÓÓÒòÄV×G•7FFRFW‡C×¶&VÇVÒF6FFâ¶V†F—&âVçGV²G·v÷&´FFWÒæÒóâ¢ÆF—b6Æ74æÖSÒ&÷fW&fÆ÷r×‚ÖWFò&÷VæFVB×†Â&÷&FW"&÷&FW"×6ÆFRÓ#F&³¦&÷&FW"×v†—FRó#ãÇF&ÆR6Æ74æÖSÒ'rÖgVÆÂÖ–â×rÕ³c…ÒFW‡BÖÆVgBFW‡B×6Ò#ãÇF†VB6Æ74æÖSÒ&&r×6ÆFRÓSFW‡B×‡2WW&66RG&6¶–ær×v–FRFW‡B×6ÆFRÓSF&³¦&r×v†—FRóR#ãÇG#ãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#åVvv“Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#å7FGW3Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#äÖ7V³Â÷FƒãÇF‚6Æ74æÖSÒ'‚ÓB’Ó2#åVÆæsÂ÷FƒãÂ÷G#ãÂ÷F†VCãÇF&öG’6Æ74æÖSÒ&F—f–FR×’F—f–FR×6ÆFRÓF&³¦F—f–FR×v†—FRóR#ç·6VÆV7FVDF”GFVæFæ6RæÖ‚†—FVÒ’ÓâÇG"¶W“×¶—FVÒæ–GÓãÇFB6Æ74æÖSÒ'‚ÓB’Ó2föçBÖÖVF—VÒFW‡B×6ÆFRÓ“F&³§FW‡B×v†—FR#ç¶V×Æ÷–VT'”–BævWB†—FVÒæV×Æ÷–VT–B“òægVÆÄæÖRÇÂ%Vvv’F–F²FW'6VF–'ÓÆF—b6Æ74æÖSÒ'FW‡B×‡2FW‡B×6ÆFRÓC#ç¶V×Æ÷–VT'”–BævWB†—FVÒæV×Æ÷–VT–B“òæV×Æ÷–VTçVÖ&W"ÇÂ"'ÓÂöF—cãÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2#ç¶GFVæFæ6UFW‡B†—FVÒç7FGW2—ÓÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2#ç·6†÷'EF–ÖR†—FVÒæ6†V6´–äB—ÓÂ÷FCãÇFB6Æ74æÖSÒ'‚ÓB’Ó2#ç·6†÷'EF–ÖR†—FVÒæ6†V6´÷WDB—ÓÂ÷FCãÂ÷G#â—ÓÂ÷F&öG“ãÂ÷F&ÆSãÂöF—cçĞĞ¢Â÷6V7F–öãçĞĞ Ğ¢·F"ÓÓÒ&ÆVfR"bbÇ6V7F–öâ6Æ74æÖSÒ'76R×’ÓB&÷VæFVBÓ'†Â&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FRÓB6†F÷r×6ÒF&³¦&÷&FW"×v†—FRóF&³¦&r×6ÆFRÓ“ÖC§ÓR#àĞ¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚Ö6öÂvÓ26Ó¦fÆW‚×&÷r6Ó¦—FV×2Ö6VçFW"6Ó¦§W7F–g’Ö&WGvVVâ#àĞ¢ÆF—cãÆƒ"6Æ74æÖSÒ'FW‡BÖÆrföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“F&³§FW‡B×v†—FR#ä6FFâFâW'6WGV§Vâ7WF“Âöƒ#ãÇ6Æ74æÖSÒ&×BÓFW‡B×6ÒFW‡B×6ÆFRÓS#äFÖ–âÖVæ6FBVæv§VâF2æÖVvv’FâÖV×WGW2Væv§Vâ–ærÖ6–‚ÖVçVævwRãÂ÷ãÂöF—càĞ¢Æ'WGFöâG—SÒ&'WGFöâ"F—6&ÆVC×²6æ6†÷BæV×Æ÷–VW2ç6öÖR‚†—FVÒ’Óâ—FVÒæV×Æ÷–ÖVçE7FGW2ÓÓÒ&7F—fR"—Òöä6Æ–6³×²‚’Óâ²6WDW'&÷"‚""“²6WDÆVfTG&gB‡²ââäTÕE•ôÄTdUôE$eBÂV×Æ÷–VT–C¢6æ6†÷BæV×Æ÷–VW2æf–æB‚†—FVÒ’Óâ—FVÒî¼ç{h‘éì¶»§q«^wœ]™\]Z\™Y\OH™]HˆZ[^ÛX]™Q˜Yœİ\ÓÛŸH˜[YO^ÛX]™Q˜Y™[™ÓÛŸHÛÚ[™ÙO^ÊJHOˆÙ]X]™Q˜Y
-È‹‹›X]™Q˜Y[™ÓÛˆK\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKL‹H^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[Ù]ƒBˆX™[Û\ÜÓ˜[YOH˜›ØÚÈ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ[\Ø[ˆ[][O^\™XH™\]Z\™YZ[“[™İ^ÌßHX^[™İ^ÌLH˜[YO^ÛX]™Q˜Yœ™X\ÛÛŸHÛÚ[™ÙO^ÊJHOˆÙ]X]™Q˜Y
-È‹‹›X]™Q˜Y™X\ÛÛˆK\™Ù]˜[YHJ_H›İÜÏ^ÌßHXÙZÛ\H’[™\šHY[X\İZÚØ[ˆXYÛ›ÜÚ\È]]Hš[˜ÚX[ˆÙ\ÙZ][ˆÙ[œÚ]Y‹ˆˆÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKL‹H^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[ƒBˆ]ˆÛ\ÜÓ˜[YOH™›^\İYKY[™Ø\Lˆ›Ü™\‹]›Ü™\‹\Û]KLŒM\šÎ˜›Ü™\‹]Ú]KÌL]Ûˆ\OH˜]Ûˆˆ\ØX›Y^ÜØ]š[™ßHÛÛXÚÏ^Ê
-HOˆÙ]X]™Q˜Y
-[
-_HÛ\ÜÓ˜[YOHœ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒMKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL˜][Ø]Û]Ûˆ\OHœİX›Z]ˆ\ØX›Y^ÜØ]š[™ßHÛ\ÜÓ˜[YOHš[›[™KY›^][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È™ËY[Y\˜[MŒMKLˆ^\ÛH›Û\Ù[ZX›Û^]Ú]H\ØX›Y›ÜXÚ]KMLÜØ]š[™È	‰ˆØY\ŒˆÛ\ÜÓ˜[YOHšMËM[š[X]K\Ü[ˆˆÏŸTÚ[\[ˆØ]][Ø]ÛÙ]ƒBˆÙ›Ü›OÙ]ŸCBˆÜ™]šY]Ú[™ÓX]™H	‰ˆ]ˆÛ\ÜÓ˜[YOH™š^Y[œÙ]L‹ML›^][\ËXÙ[\ˆ\İYKXÙ[\ˆ™Ë\Û]KNMLÍŒM›Ü›HÛ”İX›Z]^Ê]™[
-HOˆ›ÚYİX›Z]X]™T™]šY]Ê]™[
-_HÛ\ÜÓ˜[YOHËY[X^]Ë[ÈÜXÙK^KM›İ[™YL›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HMHÚYİËL\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLƒBˆ]ˆÛ\ÜÓ˜[YOH^[È›ÛX›Û^\Û]KNL\šÎ^]Ú]H•[š˜]HØ]][ˆİ]OÚÛ\ÜÓ˜[YOH›]LH^\ÛH^\Û]KMLÙ[\ŞYYPRY™Ù]
-™]šY]Ú[™ÓX]™K™[\ŞYYRY
-OË™[˜[YH”YØ]ØZHŸH0­ÈÜ™]šY]Ú[™ÓX]™Kœİ\ÓÛŸH8 $ÈÜ™]šY]Ú[™ÓX]™K™[™ÓÛŸOÜÙ]ƒBˆX™[Û\ÜÓ˜[YOH˜›ØÚÈ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ’Ù\]\Ø[Ù[Xİ˜[YO^ÛX]™QXÚ\Ú[ÛŸHÛÚ[™ÙO^ÊJHOˆÙ]X]™QXÚ\Ú[ÛŠK\™Ù]˜[YH\È˜\›İ™Yˆœ™Z™XİYŠ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKL‹H^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLÜ[Ûˆ˜[YOH˜\›İ™Y”Ù]ZZOÛÜ[ÛÜ[Ûˆ˜[YOHœ™Z™XİY•ÛZÏÛÜ[ÛÜÙ[XİÛX™[ƒBˆX™[Û\ÜÓ˜[YOH˜›ØÚÈ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌØ]][ˆ™]šY]ŞÛX]™QXÚ\Ú[ÛˆOOHœ™Z™XİYˆ	‰ˆÜ[ˆÛ\ÜÓ˜[YOH^\›ÜÙKMŒˆ0­ÈØZšXˆZ\ÚOÜÜ[ŸO^\™XH™\]Z\™Y^ÛX]™QXÚ\Ú[ÛˆOOHœ™Z™XİYŸHZ[“[™İ^ÛX]™QXÚ\Ú[ÛˆOOHœ™Z™XİYˆÈÈˆ[™Yš[™YHX^[™İ^ÌLH˜[YO^Ü™]šY]Ó›İ_HÛÚ[™ÙO^ÊJHOˆÙ]™]šY]Ó›İJK\™Ù]˜[YJ_H›İÜÏ^ÌßHÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKL‹H^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[ƒBˆ]ˆÛ\ÜÓ˜[YOH™›^\İYKY[™Ø\Lˆ›Ü™\‹]›Ü™\‹\Û]KLŒM\šÎ˜›Ü™\‹]Ú]KÌL]Ûˆ\OH˜]Ûˆˆ\ØX›Y^ÜØ]š[™ßHÛÛXÚÏ^Ê
-HOˆÙ]™]šY]Ú[™ÓX]™J[
-_HÛ\ÜÓ˜[YOHœ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒMKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL˜][Ø]Û]Ûˆ\OHœİX›Z]ˆ\ØX›Y^ÜØ]š[™ßHÛ\ÜÓ˜[YOHš[›[™KY›^][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È™ËY[Y\˜[MŒMKLˆ^\ÛH›Û\Ù[ZX›Û^]Ú]H\ØX›Y›ÜXÚ]KMLÜØ]š[™È	‰ˆØY\ŒˆÛ\ÜÓ˜[YOHšMËM[š[X]K\Ü[ˆˆÏŸTÚ[\[ˆÙ\]\Ø[Ø]ÛÙ]ƒBˆÙ›Ü›OÙ]ŸCBˆÛXZ[ƒBˆ
-NÃBŸCBƒB™[˜İ[ÛˆY]šXÊÈX™[˜[YHNˆÈX™[ˆİš[™ÎÈ˜[YNˆ[X™\ˆJHÃBˆ™]\›ˆ]ˆÛ\ÜÓ˜[YOHœ›İ[™Y^›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë\Û]KMLM\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLÍL]ˆÛ\ÜÓ˜[YOH^^È›Û[YY][H\\˜Ø\ÙH˜XÚÚ[™Ë]ÚYH^\Û]KMLÛX™[OÙ]]ˆÛ\ÜÓ˜[YOH›]Lˆ^L›ÛX›Û^\Û]KNL\šÎ^]Ú]Hİ˜[Y_OÙ]Ù]ÃBŸCB™[˜İ[Ûˆ[\Tİ]JÈ^NˆÈ^ˆİš[™ÈJHÃBˆ™]\›ˆ]ˆÛ\ÜÓ˜[YOHœ›İ[™Y^›Ü™\ˆ›Ü™\‹Y\ÚY›Ü™\‹\Û]KLÌLL^XÙ[\ˆ^\ÛH^\Û]KML\šÎ˜›Ü™\‹]Ú]KÌMH\Ù\œÈÛ\ÜÓ˜[YOH›^X]]ÈX‹LÈMÈËMÈ^\Û]KLÌˆÏİ^OÙ]ÃBŸCBƒB˜ÛÛœİÒQ•ÑVTÈHÃBˆÈX™[ˆ”Ù[š[ˆ‹ÚÜˆ”Ù[ˆ‹š]ˆHKÈX™[ˆ”Ù[\ØH‹ÚÜˆ”Ù[‹š]ˆˆKBˆÈX™[ˆ”˜XH‹ÚÜˆ”˜Xˆ‹š]ˆKÈX™[ˆ’Ø[Z\È‹ÚÜˆ’Ø[H‹š]ˆKBˆÈX™[ˆ’[X]‹ÚÜˆ’[H‹š]ˆMˆKÈX™[ˆ”ØXH‹ÚÜˆ”ØXˆ‹š]ˆÌˆKBˆÈX™[ˆ“Z[™ÙİH‹ÚÜˆ“Z[ˆ‹š]ˆKB—NÃBƒB™[˜İ[ÛˆYØ[[™\‘^\Ê]Nˆİš[™Ë[[İ[ˆ[X™\ŠHÃBˆÛÛœİ˜[YHH™]È]J	Ù]_UŒŒŒ˜
-NÃBˆ˜[YKœÙ]UÑ]J˜[YK™Ù]UÑ]J
-H
-È[[İ[
-NÃBˆ™]\›ˆ˜[YKÒTÓÔİš[™Ê
-KœÛXÙJL
-NÃBŸCBƒB™[˜İ[Ûˆ[Û™^SÙ•ÙYZÊ]Nˆİš[™ÊHÃBˆÛÛœİ^HH™]È]J	Ù]_UŒŒŒ˜
-K™Ù]UÑ^J
-NÃBˆ™]\›ˆYØ[[™\‘^\Ê]KJ
-^H
-ÈŠH	HÊJNÃBŸCBƒB™[˜İ[ÛˆÚYÙYZÙ^\ÊX\ÚÎˆ[X™\ŠHÃBˆ™]\›ˆÒQ•ÑVTË™š[\Š
-^JHOˆ
-X\ÚÈ	ˆ^K˜š]
-HOOH
-K›X\
+import { toERPUserMessage } from "../utils/userMessages";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Activity, AlertCircle, Award, CalendarClock, CalendarDays, CheckCircle2, ClipboardCheck, Loader2, MapPin, Plus, RefreshCw, Search, UserPlus, Users, Wallet, X } from "lucide-react";
+import { getAccessToken } from "../authSession";
+import { useAuth } from "../contexts/AuthContext";
+import { normalizeTenantTimeZone, tenantDate } from "../lib/tenantTimeZone";
+import { publicRuntimeConfigValue } from "../runtimeConfig";
+import { ERPTabs } from "../components/ERPDesignSystem";
+import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
+import { pendingMutationIds } from "../utils/pendingMutationId";
 
-^JHOˆ^KœÚÜ
-Kš›Ú[Š‹ŠNÃBŸCBƒB™[˜İ[ÛˆÚYØÚY[[™ÕšY]ÊÈ[\ŞYY\Ë[˜[YXİÜ’Y[˜[[YV›Û™HNˆÈ[\ŞYY\Îˆ[\ŞYYV×NÈ[˜[Yˆİš[™ÎÈXİÜ’Yˆİš[™ÎÈ[˜[[YV›Û™OÎˆİš[™ÈJHÃBˆÛÛœİİÙYZÔİ\Ù]ÙYZÔİ\HH\ÙTİ]J
+const SHIFT_SCHEDULING_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_HRIS_SHIFTS_RUNTIME_ENABLED") === "true";
 
-HOˆ[Û™^SÙ•ÙYZÊÙ^J[˜[[YV›Û™JJJNÃBˆÛÛœİÙYZÑ[™HYØ[[™\‘^\ÊÙYZÔİ\ŠNÃBˆÛÛœİÜØÚY[KÙ]ØÚY[WHH\ÙTİ]OÚYØÚY[OŠÈ[\]\Îˆ×K\ÜÚYÛ›Y[Îˆ×K[˜Ø]Yˆ˜[ÙHJNÃBˆÛÛœİÛØY[™ËÙ]ØY[™×HH\ÙTİ]J˜[ÙJNÃBˆÛÛœİÜØ]š[™ËÙ]Ø]š[™×HH\ÙTİ]J˜[ÙJNÃBˆÛÛœİÙ\œ›Ü‹Ù]\œ›Ü—HH\ÙTİ]JˆŠNÃBˆÛÛœİÛ›İXÙKÙ]›İXÙWHH\ÙTİ]JˆŠNÃBˆÛÛœİİ[\]Q˜YÙ][\]Q˜YHH\ÙTİ]JÈ˜[YNˆˆ‹ÙYZÙ^SX\ÚÎˆÌKİ\Ğ]ˆŒŒ‹[™Ğ]ˆŒMŒ‹œ™XZÓZ[]\ÎˆŒˆJNÃBˆÛÛœİØ\ÜÚYÛ›Y[˜YÙ]\ÜÚYÛ›Y[˜YHH\ÙTİ]JÃBˆ[\ŞYYRYˆ[\ŞYY\Ë™š[™
+type Employee = {
+  id: string; employeeNumber: string; fullName: string; jobTitle: string; jobTitleReferenceId: string; department: string;
+  organizationUnitId: string | null; email: string; phone: string; hireDate: string | null;
+  employmentStatus: "active" | "on_leave" | "inactive" | "terminated";
+};
+type OrganizationUnit = { id: string; code: string; name: string; unitType: string };
+type JobTitleOption = { id: string; code: string; name: string; description: string };
+type Attendance = {
+  id: string; employeeId: string; workDate: string; status: "present" | "late" | "absent" | "leave" | "remote";
+  checkInAt: string | null; checkOutAt: string | null;
+};
+type LeaveRequest = {
+  id: string; employeeId: string; leaveType: "annual" | "sick" | "personal" | "maternity" | "other";
+  startsOn: string; endsOn: string; reason: string; status: "pending" | "approved" | "rejected";
+  requestedByUserId: string; reviewedByUserId: string | null; reviewNote: string; reviewedAt: string | null; createdAt: string;
+};
+type ShiftTemplate = {
+  id: string; name: string; weekdayMask: number; startsAt: string; endsAt: string; breakMinutes: number; status: "active" | "inactive";
+};
+type ShiftAssignment = {
+  id: string; employeeId: string; shiftTemplateId: string; startsOn: string; endsOn: string; status: "active" | "cancelled";
+};
+type ShiftSchedule = { templates: ShiftTemplate[]; assignments: ShiftAssignment[]; truncated: boolean };
+type Snapshot = { employees: Employee[]; attendance: Attendance[]; leaveRequests: LeaveRequest[]; organizationUnits: OrganizationUnit[]; jobTitleOptions: JobTitleOption[] };
+type EmployeeDraft = Omit<Employee, "id"> & { id?: string };
+type LeaveDraft = { employeeId: string; leaveType: LeaveRequest["leaveType"]; startsOn: string; endsOn: string; reason: string };
+type HrisTab = "employees" | "attendance" | "leave" | "tracking" | "shifts" | "payroll" | "performance" | "hiring" | "analytics";
+const HRIS_TABS: Array<{ id: HrisTab; label: string; icon: React.ReactNode }> = [
+  { id: "employees", label: "Direktori Pegawai", icon: <Users className="h-4 w-4" /> },
+  { id: "attendance", label: "Kehadiran", icon: <CalendarClock className="h-4 w-4" /> },
+  { id: "leave", label: "Cuti", icon: <ClipboardCheck className="h-4 w-4" /> },
+  { id: "tracking", label: "Pelacakan Langsung", icon: <MapPin className="h-4 w-4" /> },
+  { id: "shifts", label: "Jadwal Shift", icon: <CalendarDays className="h-4 w-4" /> },
+  { id: "payroll", label: "Penggajian", icon: <Wallet className="h-4 w-4" /> },
+  { id: "performance", label: "Kinerja", icon: <Award className="h-4 w-4" /> },
+  { id: "hiring", label: "Rekrutmen", icon: <UserPlus className="h-4 w-4" /> },
+  { id: "analytics", label: "Analitik SDM", icon: <Activity className="h-4 w-4" /> },
+];
+const EMPTY_DRAFT: EmployeeDraft = {
+  employeeNumber: "", fullName: "", jobTitle: "", jobTitleReferenceId: "", department: "", organizationUnitId: null, email: "", phone: "", hireDate: "", employmentStatus: "active",
+};
+const EMPTY_LEAVE_DRAFT: LeaveDraft = { employeeId: "", leaveType: "annual", startsOn: today(), endsOn: today(), reason: "" };
 
-][JHOˆ][K™[\Ş[Y[İ]\ÈOOH˜Xİ]™HŠOËšYˆ‹BˆÚY[\]RYˆˆ‹İ\ÓÛˆÙYZÔİ\[™ÓÛˆÙYZÑ[™BˆJNÃBƒBˆÛÛœİ™Yœ™\ÚH\ÙPØ[˜XÚÊ\Ş[˜È
-ÚYÛ˜[ÎˆX›ÜÚYÛ˜[
-HOˆÃBˆÛÛœİ]Y\HH™]ÈT“ÙX\˜Ú\˜[\ÊÈœ›ÛNˆÙYZÔİ\ÎˆÙYZÑ[™JNÃBˆÛÛœİ™\İ[H]ØZ]š\Ô™\]Y\İÚYØÚY[OŠØ\KÚš\ËÜÚYËÜÛ˜\ÚİÉÜ]Y\_XÈÚYÛ˜[JNÃBˆÙ]ØÚY[JÃBˆ[\]\Îˆ\œ˜^Kš\Ğ\œ˜^J™\İ[[\]\ÊHÈ™\İ[[\]\Èˆ×KBˆ\ÜÚYÛ›Y[Îˆ\œ˜^Kš\Ğ\œ˜^J™\İ[˜\ÜÚYÛ›Y[ÊHÈ™\İ[˜\ÜÚYÛ›Y[Èˆ×KBˆ[˜Ø]Yˆ›ÛÛX[Š™\İ[[˜Ø]Y
-KBˆJNÃBˆKİÙYZÔİ\ÙYZÑ[™JNÃBƒBˆ\ÙQY™™Xİ
+function today(timeZone?: string) {
+  if (timeZone) return tenantDate(new Date(), normalizeTenantTimeZone(timeZone));
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function shortTime(value: string | null) {
+  if (!value) return "â€”";
+  return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
+}
+function attendanceText(status: Attendance["status"]) {
+  return ({ present: "Hadir", late: "Terlambat", absent: "Tidak hadir", leave: "Cuti", remote: "Jarak jauh" })[status];
+}
+function employmentText(status: Employee["employmentStatus"]) {
+  return ({ active: "Aktif", on_leave: "Cuti", inactive: "Nonaktif", terminated: "Berakhir" })[status];
+}
+function leaveTypeText(type: LeaveRequest["leaveType"]) {
+  return ({ annual: "Tahunan", sick: "Sakit", personal: "Keperluan pribadi", maternity: "Melahirkan", other: "Lainnya" })[type];
+}
+function leaveStatusText(status: LeaveRequest["status"]) {
+  return ({ pending: "Menunggu", approved: "Disetujui", rejected: "Ditolak" })[status];
+}
+function leaveDayCount(item: Pick<LeaveRequest, "startsOn" | "endsOn">) {
+  return Math.round((Date.parse(item.endsOn + "T00:00:00Z") - Date.parse(item.startsOn + "T00:00:00Z")) / 86_400_000) + 1;
+}
 
+async function hrisRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = await getAccessToken();
+  if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
+  const headers = new Headers(init.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Accept", "application/json");
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...init, headers, cache: "no-store" });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || "Data HRIS belum dapat diproses.");
+  return body as T;
+}
 
-HOˆÃBˆYˆ
-TÒQ•ÔĞÒQSS‘×ÑSP“Q
-H™]\›ÃBˆÛÛœİÛÛ›Û\ˆH™]ÈX›ÜÛÛ›Û\Š
-NÃBˆÙ]ØY[™ÊYJNÃBˆÙ]\œ›ÜŠˆŠNÃBˆ›ÚY™Yœ™\Ú
-ÛÛ›Û\‹œÚYÛ˜[
-K˜Ø]Ú
+export function SupabaseHrisManager() {
+  const { user } = useAuth();
+  const [snapshot, setSnapshot] = useState<Snapshot>({ employees: [], attendance: [], leaveRequests: [], organizationUnits: [], jobTitleOptions: [] });
+  const [tab, setTab] = useState<HrisTab>("employees");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [refreshingSnapshot, setRefreshingSnapshot] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [query, setQuery] = useState("");
+  const [employeeDraft, setEmployeeDraft] = useState<EmployeeDraft | null>(null);
+  const [workDate, setWorkDate] = useState(today());
+  const [employeeId, setEmployeeId] = useState("");
+  const [status, setStatus] = useState<Attendance["status"]>("present");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [leaveDraft, setLeaveDraft] = useState<LeaveDraft | null>(null);
+  const [reviewingLeave, setReviewingLeave] = useState<LeaveRequest | null>(null);
+  const [leaveDecision, setLeaveDecision] = useState<"approved" | "rejected">("approved");
+  const [reviewNote, setReviewNote] = useState("");
 
-ØY\œ›Üˆ[JHOˆÃBˆYˆ
-XÛÛ›Û\‹œÚYÛ˜[˜X›ÜY
-HÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØY\œ›Ü‹’˜YØ[ÚY™[[H\][]X]ˆŠJNÃBˆJK™š[˜[J
+  const refresh = useCallback(async () => {
+    const result = await hrisRequest<Snapshot>("/api/hris/snapshot");
+    setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [], organizationUnits: Array.isArray(result.organizationUnits) ? result.organizationUnits : [], jobTitleOptions: Array.isArray(result.jobTitleOptions) ? result.jobTitleOptions : [] });
+    setEmployeeId((current) => current || result.employees?.find((item) => item.employmentStatus === "active")?.id || "");
+  }, []);
 
-HOˆÈYˆ
-XÛÛ›Û\‹œÚYÛ˜[˜X›ÜY
-HÙ]ØY[™Ê˜[ÙJNÈJNÃBˆ™]\›ˆ
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true); setError("");
+    void hrisRequest<Snapshot>("/api/hris/snapshot")
+      .then((result) => {
+        if (!mounted) return;
+        setSnapshot({ employees: Array.isArray(result.employees) ? result.employees : [], attendance: Array.isArray(result.attendance) ? result.attendance : [], leaveRequests: Array.isArray(result.leaveRequests) ? result.leaveRequests : [], organizationUnits: Array.isArray(result.organizationUnits) ? result.organizationUnits : [], jobTitleOptions: Array.isArray(result.jobTitleOptions) ? result.jobTitleOptions : [] });
+        setEmployeeId(result.employees?.find((item) => item.employmentStatus === "active")?.id || "");
+      })
+      .catch((loadError: any) => { if (mounted) setError(toERPUserMessage(loadError, "Data HRIS belum dapat dimuat.")); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, []);
 
-HOˆÈÛÛ›Û\‹˜X›Ü
+  const filteredEmployees = useMemo(() => {
+    const text = query.trim().toLocaleLowerCase("id-ID");
+    return snapshot.employees.filter((employee) => !text || [employee.employeeNumber, employee.fullName, employee.jobTitle, employee.department, employee.email]
+      .some((value) => String(value || "").toLocaleLowerCase("id-ID").includes(text)));
+  }, [snapshot.employees, query]);
+  const employeeById = useMemo(() => new Map(snapshot.employees.map((item) => [item.id, item])), [snapshot.employees]);
+  const selectedDayAttendance = useMemo(() => snapshot.attendance.filter((item) => item.workDate === workDate), [snapshot.attendance, workDate]);
 
-NÈNÃBˆKÜ™Yœ™\ÚJNÃBƒBˆ\ÙQY™™Xİ
+  const saveEmployee = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!employeeDraft) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const isNewEmployee = !employeeDraft.id;
+      await hrisRequest("/api/hris/employees", {
+        method: "POST",
+        body: JSON.stringify({ employee: { ...employeeDraft, id: employeeDraft.id || crypto.randomUUID(), clientRequestId: crypto.randomUUID() } }),
+      });
+      setEmployeeDraft(null); setNotice(isNewEmployee ? "Perubahan data pegawai berhasil disimpan. Nomor pegawai dibuat otomatis." : "Perubahan data pegawai berhasil disimpan."); await refresh();
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Data pegawai belum dapat disimpan.")); }
+    finally { setSaving(false); }
+  };
 
+  const saveAttendance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!employeeId) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const checkInAt = checkIn ? new Date(`${workDate}T${checkIn}`).toISOString() : null;
+      const checkOutAt = checkOut ? new Date(`${workDate}T${checkOut}`).toISOString() : null;
+      await hrisRequest("/api/hris/attendance", {
+        method: "POST",
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID(), employeeId, workDate, status, checkInAt, checkOutAt }),
+      });
+      setNotice("Kehadiran tersimpan dan perubahannya tercatat pada riwayat."); await refresh();
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Kehadiran belum dapat disimpan.")); }
+    finally { setSaving(false); }
+  };
 
-HOˆÃBˆÙ]\ÜÚYÛ›Y[˜Y
+  const saveLeave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!leaveDraft) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      await hrisRequest("/api/hris/leave-requests", {
+        method: "POST",
+        body: JSON.stringify({ leaveRequest: { ...leaveDraft, clientRequestId: crypto.randomUUID() } }),
+      });
+      setLeaveDraft(null); setNotice("Catatan cuti berhasil disimpan."); await refresh();
+    } catch (saveError: any) { setError(toERPUserMessage(saveError, "Catatan cuti belum dapat disimpan.")); }
+    finally { setSaving(false); }
+  };
 
-İ\œ™[
-HOˆ
-È‹‹˜İ\œ™[İ\ÓÛˆÙYZÔİ\[™ÓÛˆÙYZÑ[™JJNÃBˆKİÙYZÔİ\ÙYZÑ[™JNÃBƒBˆÛÛœİXİ]™Q[\ŞYY\ÈH[\ŞYY\Ë™š[\Š
-][JHOˆ][K™[\Ş[Y[İ]\ÈOOH˜Xİ]™HŠNÃBˆÛÛœİXİ]™U[\]\ÈHØÚY[K[\]\Ë™š[\Š
-][JHOˆ][Kœİ]\ÈOOH˜Xİ]™HŠNÃBˆÛÛœİ[\]PRYH\ÙSY[[Ê
+  const submitLeaveReview = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!reviewingLeave) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      await hrisRequest(`/api/hris/leave-requests/${encodeURIComponent(reviewingLeave.id)}/review`, {
+        method: "POST",
+        body: JSON.stringify({ status: leaveDecision, reviewNote, clientRequestId: crypto.randomUUID() }),
+      });
+      setReviewingLeave(null); setReviewNote(""); setNotice(`Pengajuan cuti ${leaveStatusText(leaveDecision).toLocaleLowerCase("id-ID")} dan tercatat.`); await refresh();
+    } catch (reviewError: any) { setError(toERPUserMessage(reviewError, "Keputusan cuti belum dapat disimpan.")); }
+    finally { setSaving(false); }
+  };
 
-HOˆ™]ÈX\
-ØÚY[K[\]\Ë›X\
+  return (
+    <main className="mx-auto w-full max-w-7xl space-y-5 p-4 md:p-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><h1 className="text-2xl font-bold text-slate-900 dark:text-white">SDM Pesantren</h1></div>
+        <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Gagal memuat ulang."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+      </header>
 
-][JHOˆÚ][KšY][WJJKÜØÚY[K[\]\×JNÃBˆÛÛœİ[\ŞYYPRYH\ÙSY[[Ê
+      <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900/60 dark:bg-sky-950/30 dark:text-sky-200">Kelola data pegawai, kehadiran, dan cuti di sini. Saldo cuti dan jadwal kehadiran belum diperbarui otomatis. Untuk menjaga privasi, gunakan alasan cuti umum dan hindari mencantumkan rincian diagnosis kesehatan.</div>
+      {error && <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div>}
+      {notice && <div role="status" className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200"><CheckCircle2 className="h-4 w-4" />{notice}</div>}
 
-HOˆ™]ÈX\
-[\ŞYY\Ë›X\
+      <ERPTabs tabs={HRIS_TABS} value={tab} onChange={(id) => setTab(id as HrisTab)} ariaLabel="Bagian Sumber Daya Manusia" />
+      <SupabaseModuleReferenceSettings domains={["hris_job_title"]} label="Pengaturan jabatan pegawai" defaultOpen onSaved={async () => {
+        setError(""); setNotice(""); setRefreshingSnapshot(true);
+        try {
+          await refresh();
+          setNotice("Pilihan jabatan terbaru sudah tersedia pada formulir pegawai.");
+        } catch (refreshError: any) {
+          setError(toERPUserMessage(refreshError, "Jabatan tersimpan, tetapi pilihan terbaru belum dapat dimuat. Muat ulang modul SDM."));
+        } finally {
+          setRefreshingSnapshot(false);
+        }
+      }} />
 
-][JHOˆÚ][KšY][WJJKÙ[\ŞYY\×JNÃBƒBˆÛÛœİ™Yœ™\ÚY\”Ø]™HH\Ş[˜È
-Y\ÜØYÙNˆİš[™ÊHOˆÃBˆÙ]\œ›ÜŠˆŠNÃBˆÙ]›İXÙJˆŠNÃBˆÙ]Ø]š[™ÊYJNÃBˆHÃBˆ]ØZ]™Yœ™\Ú
+      {loading ? <div role="status" className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 p-12 text-sm text-slate-500 dark:border-white/10"><Loader2 className="h-4 w-4 animate-spin" />Memuat data pesantrenâ€¦</div> : <>
+        {tab === "employees" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama, nomor, jabatan, atau unit" className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm dark:border-white/10 dark:bg-slate-950" /></div>
+            <button type="button" onClick={() => { setError(""); setEmployeeDraft({ ...EMPTY_DRAFT }); }} disabled={refreshingSnapshot} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"><Plus className="h-4 w-4" />{refreshingSnapshot ? "Memuat pilihan jabatanâ€¦" : "Tambah pegawai"}</button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3"><Metric label="Jumlah pegawai" value={snapshot.employees.length} /><Metric label="Aktif" value={snapshot.employees.filter((item) => item.employmentStatus === "active").length} /><Metric label="Tidak aktif / cuti" value={snapshot.employees.filter((item) => item.employmentStatus !== "active").length} /></div>
+          {filteredEmployees.length === 0 ? <EmptyState text={snapshot.employees.length ? "Tidak ada data yang cocok dengan pencarian." : "Belum ada pegawai pada pesantren ini. Tambahkan data pegawai untuk memulai."} /> : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Nomor</th><th className="px-4 py-3">Jabatan / unit</th><th className="px-4 py-3">Kontak</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{filteredEmployees.map((employee) => <tr key={employee.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employee.fullName}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.employeeNumber}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.jobTitle}<div className="text-xs text-slate-400">{employee.department}</div></td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.email || "â€”"}<div className="text-xs text-slate-400">{employee.phone || "â€”"}</div></td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${employee.employmentStatus === "active" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"}`}>{employmentText(employee.employmentStatus)}</span></td><td className="px-4 py-3 text-right"><button type="button" onClick={() => { setError(""); setEmployeeDraft({ ...employee }); }} className="rounded-md px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">Ubah</button></td></tr>)}</tbody></table></div>}
+        </section>}
 
-NÃBˆÙ]›İXÙJY\ÜØYÙJNÃBˆHØ]Ú
-Ø]™Q\œ›Üˆ[JHÃBˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØ]™Q\œ›Ü‹”\X˜Z[ˆ\œÚ[\[‹]\H˜YØ[\˜˜\H™[[H\][]X]ˆ]X][[™È[[X[‹ˆŠJNÃBˆHš[˜[HÃBˆÙ]Ø]š[™Ê˜[ÙJNÃBˆCBˆNÃBƒBˆÛÛœİØ]™U[\]HH\Ş[˜È
-]™[ˆ™XXİ‘›Ü›Q]™[
-HOˆÃBˆ]™[œ™]™[Y˜][
+        {tab === "attendance" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <form onSubmit={(event) => void saveAttendance(event)} className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50 sm:grid-cols-2 lg:grid-cols-6 lg:items-end">
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Tanggal<input required type="date" value={workDate} onChange={(e) => setWorkDate(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:col-span-2">Pegawai<select required value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900"><option value="">Pilih pegawaiâ€¦</option>{snapshot.employees.filter((item) => item.employmentStatus === "active").map((item) => <option key={item.id} value={item.id}>{item.fullName} Â· {item.employeeNumber}</option>)}</select></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status<select value={status} onChange={(e) => { const next = e.target.value as Attendance["status"]; setStatus(next); if (next === "absent" || next === "leave") { setCheckIn(""); setCheckOut(""); } }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900"><option value="present">Hadir</option><option value="late">Terlambat</option><option value="remote">Jarak jauh</option><option value="absent">Tidak hadir</option><option value="leave">Cuti</option></select></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Jam masuk<input type="time" required={status === "present" || status === "late" || status === "remote"} disabled={status === "absent" || status === "leave"} value={checkIn} onChange={(e) => setCheckIn(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-white/10 dark:bg-slate-900" /></label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Jam pulang<input type="time" disabled={status === "absent" || status === "leave"} value={checkOut} onChange={(e) => setCheckOut(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:border-white/10 dark:bg-slate-900" /></label>
+            <button type="submit" disabled={saving || loading || !employeeId} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 sm:col-span-2 lg:col-span-6">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Simpan kehadiran</button>
+          </form>
+          {selectedDayAttendance.length === 0 ? <EmptyState text={`Belum ada catatan kehadiran untuk ${workDate}.`} /> : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[600px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Masuk</th><th className="px-4 py-3">Pulang</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{selectedDayAttendance.map((item) => <tr key={item.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employeeById.get(item.employeeId)?.fullName || "Pegawai tidak tersedia"}<div className="text-xs text-slate-400">{employeeById.get(item.employeeId)?.employeeNumber || ""}</div></td><td className="px-4 py-3">{attendanceText(item.status)}</td><td className="px-4 py-3">{shortTime(item.checkInAt)}</td><td className="px-4 py-3">{shortTime(item.checkOutAt)}</td></tr>)}</tbody></table></div>}
+        </section>}
 
-NÃBˆYˆ
-][\]Q˜YÙYZÙ^SX\ÚÊHÈÙ]\œ›ÜŠ”[ZÙ]YZÛXHØ]H\šHÙ\š˜KˆŠNÈ™]\›ÈCBˆÙ]Ø]š[™ÊYJNÈÙ]\œ›ÜŠˆŠNÈÙ]›İXÙJˆŠNÃBˆHÃBˆÛÛœİ^[ØYHÈ[˜[YXİÜ’Y˜[YNˆ[\]Q˜Y›˜[YKš[J
-KÙYZÙ^SX\ÚÎˆ[\]Q˜YÙYZÙ^SX\ÚËBˆİ\Ğ]ˆ[\]Q˜Yœİ\Ğ][™Ğ]ˆ[\]Q˜Y™[™Ğ]œ™XZÓZ[]\Îˆ[X™\Š[\]Q˜Y˜œ™XZÓZ[]\ÊHNÃBˆÛÛœİX\ÙHH]ØZ][™[™Ó]]][Û’YË˜XÜ]Z\™Jš\Ë\ÚY][\]N‰İ[˜[YN‰ØXİÜ’YX^[ØY
-NÃBˆ]ØZ]š\Ô™\]Y\İ
-‹Ø\KÚš\ËÜÚYËİ[\]\È‹ÃBˆY]Ùˆ”ÔÕ‹Bˆ›ÙNˆ”ÓÓ‹œİš[™ÚYJÈ[\]NˆÃBˆYˆX\ÙKœ™\]Y\İYÛY[™\]Y\İYˆX\ÙKœ™\]Y\İY˜[YNˆ^[ØY›˜[YKBˆÙYZÙ^SX\ÚÎˆ^[ØYÙYZÙ^SX\ÚËİ\Ğ]ˆ^[ØYœİ\Ğ][™Ğ]ˆ^[ØY™[™Ğ]Bˆœ™XZÓZ[]\Îˆ^[ØY˜œ™XZÓZ[]\ËBˆHJKBˆJNÃBˆX\ÙK˜ÛX\Š
-NÃBˆÙ][\]Q˜Y
-È˜[YNˆˆ‹ÙYZÙ^SX\ÚÎˆÌKİ\Ğ]ˆŒŒ‹[™Ğ]ˆŒMŒ‹œ™XZÓZ[]\ÎˆŒˆJNÃBˆ]ØZ]™Yœ™\ÚY\”Ø]™J”ÛHÚY™\š\Ú[\Ú[\[‹ˆŠNÃBˆHØ]Ú
-Ø]™Q\œ›Üˆ[JHÃBˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØ]™Q\œ›Ü‹”ÛHÚY™[[H\]\Ú[\[‹ˆŠJNÃBˆÙ]Ø]š[™Ê˜[ÙJNÃBˆCBˆNÃBƒBˆÛÛœİ\ÜÚYÛ”ÚYH\Ş[˜È
-]™[ˆ™XXİ‘›Ü›Q]™[
-HOˆÃBˆ]™[œ™]™[Y˜][
+        {tab === "leave" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Catatan dan persetujuan cuti</h2><p className="mt-1 text-sm text-slate-500">Admin mencatat pengajuan atas nama pegawai dan memutus pengajuan yang masih menunggu.</p></div>
+            <button type="button" disabled={!snapshot.employees.some((item) => item.employmentStatus === "active")} onClick={() => { setError(""); setLeaveDraft({ ...EMPTY_LEAVE_DRAFT, employeeId: snapshot.employees.find((item) => item.employmentStatus === "active")?.id || "" }); }} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"><Plus className="h-4 w-4" />Catat cuti</button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3"><Metric label="Total catatan" value={snapshot.leaveRequests.length} /><Metric label="Menunggu keputusan" value={snapshot.leaveRequests.filter((item) => item.status === "pending").length} /><Metric label="Disetujui" value={snapshot.leaveRequests.filter((item) => item.status === "approved").length} /></div>
+          {snapshot.leaveRequests.length === 0 ? <EmptyState text="Belum ada catatan cuti pada pesantren ini." /> : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[820px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Jenis</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Alasan</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.leaveRequests.map((item) => <tr key={item.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employeeById.get(item.employeeId)?.fullName || "Pegawai tidak tersedia"}<div className="text-xs text-slate-400">{employeeById.get(item.employeeId)?.employeeNumber || ""}</div></td><td className="px-4 py-3">{leaveTypeText(item.leaveType)}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.startsOn} â€“ {item.endsOn}<div className="text-xs text-slate-400">{leaveDayCount(item)} hari kalender</div></td><td className="max-w-xs whitespace-normal px-4 py-3 text-slate-600 dark:text-slate-300">{item.reason}</td><td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${item.status === "approved" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" : item.status === "rejected" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"}`}>{leaveStatusText(item.status)}</span>{item.reviewNote && <div className="mt-1 max-w-[180px] whitespace-normal text-xs text-slate-400">{item.reviewNote}</div>}</td><td className="px-4 py-3 text-right">{item.status === "pending" && <button type="button" onClick={() => { setError(""); setReviewingLeave(item); setLeaveDecision("approved"); setReviewNote(""); }} className="rounded-md px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">Tinjau</button>}</td></tr>)}</tbody></table></div>}
+        </section>}
 
-NÃBˆYˆ
-X\ÜÚYÛ›Y[˜Y™[\ŞYYRYX\ÜÚYÛ›Y[˜YœÚY[\]RY
-HÈÙ]\œ›ÜŠ”[ZYØ]ØZH[ˆÛHÚYˆŠNÈ™]\›ÈCBˆÙ]Ø]š[™ÊYJNÈÙ]\œ›ÜŠˆŠNÈÙ]›İXÙJˆŠNÃBˆHÃBˆÛÛœİ^[ØYHÈ[˜[YXİÜ’Y‹‹˜\ÜÚYÛ›Y[˜YNÃBˆÛÛœİX\ÙHH]ØZ][™[™Ó]]][Û’YË˜XÜ]Z\™Jš\Ë\ÚYX\ÜÚYÛ›Y[‰İ[˜[YN‰ØXİÜ’YX^[ØY
-NÃBˆ]ØZ]š\Ô™\]Y\İ
-‹Ø\KÚš\ËÜÚYËØ\ÜÚYÛ›Y[È‹ÃBˆY]Ùˆ”ÔÕ‹Bˆ›ÙNˆ”ÓÓ‹œİš[™ÚYJÈ\ÜÚYÛ›Y[ˆÃBˆYˆX\ÙKœ™\]Y\İYÛY[™\]Y\İYˆX\ÙKœ™\]Y\İY‹‹˜\ÜÚYÛ›Y[˜YBˆHJKBˆJNÃBˆX\ÙK˜ÛX\Š
-NÃBˆ]ØZ]™Yœ™\ÚY\”Ø]™J’˜YØ[™\š\Ú[]]\Ø[‹ˆ™[›ÚÈØZİH\\šZÜØHÙX™[[H\œÚ[\[‹ˆŠNÃBˆHØ]Ú
-Ø]™Q\œ›Üˆ[JHÃBˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØ]™Q\œ›Ü‹’˜YØ[ÚY™[[H\]]]\Ø[‹ˆŠJNÃBˆÙ]Ø]š[™Ê˜[ÙJNÃBˆCBˆNÃBƒBˆÛÛœİXXİ]˜]U[\]HH\Ş[˜È
-[\]NˆÚY[\]JHOˆÃBˆYˆ
-]Ú[™İË˜ÛÛ™š\›J›Û˜ZİYšØ[ˆÛH8 '	İ[\]K›˜[Y_x 'OÈ[YØ\Ø[ˆX[™ÈİYZ\œÚ[\[ˆ]\™\›ZİK˜
-JH™]\›ÃBˆÙ]Ø]š[™ÊYJNÈÙ]\œ›ÜŠˆŠNÈÙ]›İXÙJˆŠNÃBˆHÃBˆÛÛœİX\ÙHH]ØZ][™[™Ó]]][Û’YË˜XÜ]Z\™Jš\Ë\ÚY][\]KYXXİ]˜]N‰İ[˜[YN‰ØXİÜ’YXÃBˆ[˜[YXİÜ’YÚY[\]RYˆ[\]KšYBˆJNÃBˆ]ØZ]š\Ô™\]Y\İ
-Ø\KÚš\ËÜÚYËİ[\]\ËÉÙ[˜ÛÙUT’PÛÛ\Û™[
-[\]KšY
-_KÙXXİ]˜]XÃBˆY]Ùˆ”ÔÕ‹›ÙNˆ”ÓÓ‹œİš[™ÚYJÈÛY[™\]Y\İYˆX\ÙKœ™\]Y\İYJKBˆJNÃBˆX\ÙK˜ÛX\Š
-NÃBˆ]ØZ]™Yœ™\ÚY\”Ø]™J”ÛH[›Û˜ZİYšØ[ˆ[ZÈ[YØ\Ø[ˆ˜\KˆŠNÃBˆHØ]Ú
-Ø]™Q\œ›Üˆ[JHÃBˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØ]™Q\œ›Ü‹”ÛHÚY™[[H\][›Û˜ZİYšØ[‹ˆŠJNÃBˆÙ]Ø]š[™Ê˜[ÙJNÃBˆCBˆNÃBƒBˆÛÛœİØ[˜Ù[\ÜÚYÛ›Y[H\Ş[˜È
-\ÜÚYÛ›Y[ˆÚY\ÜÚYÛ›Y[
-HOˆÃBˆYˆ
-]Ú[™İË˜ÛÛ™š\›J˜][Ø[ˆ[YØ\Ø[ˆÚY[šOÈš]Ø^X]XH]\\œÚ[\[‹ˆŠJH™]\›ÃBˆÙ]Ø]š[™ÊYJNÈÙ]\œ›ÜŠˆŠNÈÙ]›İXÙJˆŠNÃBˆHÃBˆÛÛœİX\ÙHH]ØZ][™[™Ó]]][Û’YË˜XÜ]Z\™Jš\Ë\ÚYX\ÜÚYÛ›Y[XØ[˜Ù[‰İ[˜[YN‰ØXİÜ’YXÃBˆ[˜[YXİÜ’YÚY\ÜÚYÛ›Y[Yˆ\ÜÚYÛ›Y[šYBˆJNÃBˆ]ØZ]š\Ô™\]Y\İ
-Ø\KÚš\ËÜÚYËØ\ÜÚYÛ›Y[ËÉÙ[˜ÛÙUT’PÛÛ\Û™[
-\ÜÚYÛ›Y[šY
-_KØØ[˜Ù[ÃBˆY]Ùˆ”ÔÕ‹›ÙNˆ”ÓÓ‹œİš[™ÚYJÈÛY[™\]Y\İYˆX\ÙKœ™\]Y\İYJKBˆJNÃBˆX\ÙK˜ÛX\Š
-NÃBˆ]ØZ]™Yœ™\ÚY\”Ø]™J”[YØ\Ø[ˆÚYX˜][Ø[ˆ[ˆ\˜Ø]]ˆŠNÃBˆHØ]Ú
-Ø]™Q\œ›Üˆ[JHÃBˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJØ]™Q\œ›Ü‹”[YØ\Ø[ˆÚY™[[H\]X˜][Ø[‹ˆŠJNÃBˆÙ]Ø]š[™Ê˜[ÙJNÃBˆCBˆNÃBƒBˆYˆ
-TÒQ•ÔĞÒQSS‘×ÑSP“Q
-HÃBˆ™]\›ˆÙXİ[ÛˆÛ\ÜÓ˜[YOHœ›İ[™YL›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HMˆÚYİË\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLƒBˆˆÛ\ÜÓ˜[YOH^[È›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H’˜YØ[ÚY™[[H\œÙYXOÚƒBˆÛ\ÜÓ˜[YOH›]LH^\ÛH^\Û]KML˜YÚX[ˆ[šH™[[HXZİYšØ[ˆ[ZÈ\Ø[™[ˆ[™KÜƒBˆÜÙXİ[ÛÃBˆCBƒBˆ™]\›ˆÙXİ[ÛˆÛ\ÜÓ˜[YOHœÜXÙK^KMH›İ[™YL›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HMÚYİË\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLYœMHƒBˆXY\ˆÛ\ÜÓ˜[YOH™›^›^XÛÛØ\LÈÛN™›^\›İÈÛNš][\ËY[™ÛNš\İYKX™]ÙY[ˆƒBˆ]ˆÛ\ÜÓ˜[YOH^[È›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H’˜YØ[ÚYYØ]ØZOÚÛ\ÜÓ˜[YOH›]LH^\ÛH^\Û]KML”ÛH™\[[™ÈZ[™ÙİX[ˆ[ˆ[YØ\Ø[ˆ[™ÙØ[ˆÚ\İ[HY[›ÛZÈ˜YØ[X[™È™\Xœ˜ZØ[‹ÜÙ]ƒBˆ]ˆÛ\ÜÓ˜[YOH™›^][\ËY[™Ø\LˆƒBˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ”ZØ[ˆ][ZO[œ]\OH™]Hˆ˜[YO^İÙYZÔİ\HÛÚ[™ÙO^Ê]™[
-HOˆÙ]ÙYZÔİ\
-[Û™^SÙ•ÙYZÊ]™[\™Ù]˜[YJJ_HÛ\ÜÓ˜[YOH›]LH›ØÚÈ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[ƒBˆ]Ûˆ\OH˜]ÛˆˆÛÛXÚÏ^Ê
-HOˆÈÙ]ØY[™ÊYJNÈ›ÚY™Yœ™\Ú
+        {tab === "analytics" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Ringkasan SDM pesantren</h2><p className="mt-1 text-sm text-slate-500">Angka dihitung dari data pegawai, kehadiran, dan cuti yang sudah termuat.</p></div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric label="Pegawai aktif" value={snapshot.employees.filter((item) => item.employmentStatus === "active").length} />
+            <Metric label="Kehadiran hari ini" value={snapshot.attendance.filter((item) => item.workDate === today() && (item.status === "present" || item.status === "late" || item.status === "remote")).length} />
+            <Metric label="Cuti menunggu" value={snapshot.leaveRequests.filter((item) => item.status === "pending").length} />
+            <Metric label="Unit kerja tertaut" value={new Set(snapshot.employees.map((item) => item.organizationUnitId).filter(Boolean)).size} />
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
+            <table className="w-full min-w-[520px] text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Unit kerja</th><th className="px-4 py-3 text-right">Pegawai</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                {snapshot.organizationUnits.length === 0 ? <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500">Belum ada unit organisasi. Tambahkan unit di Manajemen Multi-Unit.</td></tr>
+                  : snapshot.organizationUnits.map((unit) => {
+                    const linked = snapshot.employees.filter((item) => item.organizationUnitId === unit.id);
+                    return <tr key={unit.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{unit.name}<div className="text-xs text-slate-400">{unit.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{linked.length}</td><td className="px-4 py-3 text-right tabular-nums">{linked.filter((item) => item.employmentStatus === "active").length}</td></tr>;
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </section>}
 
-K˜Ø]Ú
+        {tab === "shifts" && <ShiftSchedulingView employees={snapshot.employees} tenantId={user?.tenantId || ""} actorId={user?.uid || ""} tenantTimeZone={user?.tenantTimeZone} />}
 
-Nˆ[JHOˆÙ]\œ›ÜŠÑT”\Ù\“Y\ÜØYÙJK’˜YØ[ÚY™[[H\][]X]ˆŠJJK™š[˜[J
+        {tab === "tracking" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kehadiran terakhir pegawai</h2><p className="mt-1 text-sm text-slate-500">Ringkasan kehadiran terkini per pegawai aktif. Pelacakan lokasi belum tersedia.</p></div>
+          {snapshot.employees.filter((item) => item.employmentStatus === "active").length === 0 ? <EmptyState text="Belum ada pegawai aktif." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Unit</th><th className="px-4 py-3">Kehadiran terakhir</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Masuk</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.filter((item) => item.employmentStatus === "active").map((employee) => {
+              const latest = [...snapshot.attendance].filter((item) => item.employeeId === employee.id).sort((a, b) => b.workDate.localeCompare(a.workDate))[0];
+              return <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3 text-slate-600 dark:text-slate-300">{employee.department || "â€”"}</td><td className="px-4 py-3">{latest?.workDate || "â€”"}</td><td className="px-4 py-3">{latest ? attendanceText(latest.status) : "Belum ada"}</td><td className="px-4 py-3">{latest ? shortTime(latest.checkInAt) : "â€”"}</td></tr>;
+            })}</tbody></table></div>}
+        </section>}
 
-HOˆÙ]ØY[™Ê˜[ÙJJNÈ_H\ØX›Y^ÛØY[™ÈØ]š[™ßHÛ\ÜÓ˜[YOHš[›[™KY›^][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL™Yœ™\ÚİÈÛ\ÜÓ˜[YO^ØMËM	ÛØY[™ÈÈ˜[š[X]K\Ü[ˆˆˆˆŸXHÏ“]X][[™ÏØ]ÛƒBˆÙ]ƒBˆÚXY\ƒBˆÙ\œ›Üˆ	‰ˆ]ˆ›ÛOH˜[\ˆÛ\ÜÓ˜[YOHœ›İ[™Y^›Ü™\ˆ›Ü™\‹\›ÜÙKLŒ™Ë\›ÜÙKMLMKLÈ^\ÛH^\›ÜÙKN\šÎ˜›Ü™\‹\›ÜÙKNLÍL\šÎ˜™Ë\›ÜÙKNMLÌÌ\šÎ^\›ÜÙKLŒÙ\œ›ÜŸOÙ]ŸCBˆÛ›İXÙH	‰ˆ]ˆ›ÛOHœİ]\ÈˆÛ\ÜÓ˜[YOHœ›İ[™Y^›Ü™\ˆ›Ü™\‹Y[Y\˜[LŒ™ËY[Y\˜[MLMKLÈ^\ÛH^Y[Y\˜[N\šÎ˜›Ü™\‹Y[Y\˜[NLÍL\šÎ˜™ËY[Y\˜[NMLÌÌ\šÎ^Y[Y\˜[LŒÛ›İXÙ_OÙ]ŸCBƒBˆ›Ü›HÛ”İX›Z]^Ê]™[
-HOˆ›ÚYØ]™U[\]J]™[
-_HÛ\ÜÓ˜[YOHœÜXÙK^KM›İ[™Y^›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë\Û]KMLM\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLÍLƒBˆ]ÈÛ\ÜÓ˜[YOH™›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H”ÛHÚYZ[™ÙİX[ÚÏÛ\ÜÓ˜[YOH^^È^\Û]KML•ØZİHÙ[\ØZHÙX™[[HØZİH][ZH™\˜\HÚYY[]Ø]H[™ØZX[[KÜÙ]ƒBˆ]ˆÛ\ÜÓ˜[YOH™ÜšYØ\LÈÛN™ÜšYXÛÛËLˆÎ™ÜšYXÛÛËMHƒBˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌÎ˜ÛÛ\Ü[‹Lˆ“˜[XHÛO[œ]™\]Z\™YZ[“[™İ^ÌŸHX^[™İ^ÎH˜[YO^İ[\]Q˜Y›˜[Y_HÛÚ[™ÙO^Ê]™[
-HOˆÙ][\]Q˜Y
-È‹‹[\]Q˜Y˜[YNˆ]™[\™Ù]˜[YHJ_HXÙZÛ\HÛÛÚˆZÙ]X[[HˆÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLˆÏÛX™[ƒBˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ“][ZO[œ]™\]Z\™Y\OH[YHˆ˜[YO^İ[\]Q˜Yœİ\Ğ]HÛÚ[™ÙO^Ê]™[
-HOˆÙ][\]Q˜Y
-È‹‹[\]Q˜Yİ\Ğ]ˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLˆÏÛX™[ƒBˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ”Ù[\ØZO[œ]™\]Z\™Y\OH[YHˆ˜[YO^İ[\]Q˜Y™[™Ğ]HÛÚ[™ÙO^Ê]™[
-HOˆÙ][\]Q˜Y
-È‹‹[\]Q˜Y[™Ğ]ˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLˆÏÛX™[ƒBˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ’\İ\˜Z]
-Y[š]
-O[œ]™\]Z\™Y\OH›[X™\ˆˆZ[^ÌHX^^ÌHİ\^Ì_H˜[YO^İ[\]Q˜Y˜œ™XZÓZ[]\ßHÛÚ[™ÙO^Ê]™[
-HOˆÙ][\]Q˜Y
-È‹‹[\]Q˜Yœ™XZÓZ[]\Îˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNLˆÏÛX™[ƒBˆÙ]ƒBˆšY[Ù]YÙ[™Û\ÜÓ˜[YOH›X‹Lˆ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ’\šHÙ\š˜OÛYÙ[™]ˆÛ\ÜÓ˜[YOH™›^›^]Ü˜\Ø\LˆÔÒQ•ÑVTË›X\
+        {tab === "payroll" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Basis data penggajian</h2><p className="mt-1 text-sm text-slate-500">Daftar pegawai aktif digunakan sebagai penerima. Penggajian, potongan, dan slip pembayaran belum tersedia.</p></div>
+          <div className="grid gap-3 sm:grid-cols-3"><Metric label="Calon penerima aktif" value={snapshot.employees.filter((item) => item.employmentStatus === "active").length} /><Metric label="On leave" value={snapshot.employees.filter((item) => item.employmentStatus === "on_leave").length} /><Metric label="Nonaktif / berakhir" value={snapshot.employees.filter((item) => item.employmentStatus === "inactive" || item.employmentStatus === "terminated").length} /></div>
+          {snapshot.employees.length === 0 ? <EmptyState text="Tambahkan pegawai di Direktori Pegawai sebelum menyusun penggajian." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Nomor</th><th className="px-4 py-3">Jabatan</th><th className="px-4 py-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.map((employee) => <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3">{employee.employeeNumber}</td><td className="px-4 py-3">{employee.jobTitle || "â€”"}</td><td className="px-4 py-3">{employmentText(employee.employmentStatus)}</td></tr>)}</tbody></table></div>}
+        </section>}
 
-^JHOˆX™[Ù^O^Ù^K˜š]HÛ\ÜÓ˜[YOHš[›[™KY›^İ\œÛÜ‹\Ú[\ˆ][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNL[œ]\OH˜ÚXÚØ›ŞˆÚXÚÙY^Ê[\]Q˜YÙYZÙ^SX\ÚÈ	ˆ^K˜š]
-HOOHHÛÚ[™ÙO^Ê]™[
-HOˆÙ][\]Q˜Y
-È‹‹[\]Q˜YÙYZÙ^SX\ÚÎˆ]™[\™Ù]˜ÚXÚÙYÈ[\]Q˜YÙYZÙ^SX\ÚÈ^K˜š]ˆ[\]Q˜YÙYZÙ^SX\ÚÈ	ˆ™^K˜š]J_HÏÙ^K›X™[OÛX™[Š_OÙ]ÙšY[Ù]ƒBˆ]ˆÛ\ÜÓ˜[YOH™›^\İYKY[™]Ûˆ\OHœİX›Z]ˆ\ØX›Y^ÜØ]š[™ÈØY[™È][\]Q˜YÙYZÙ^SX\ÚßHÛ\ÜÓ˜[YOHš[›[™KY›^][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È™ËY[Y\˜[MŒMKLˆ^\ÛH›Û\Ù[ZX›Û^]Ú]H\ØX›Y›ÜXÚ]KML\ÈÛ\ÜÓ˜[YOHšMËMˆÏ”Ú[\[ˆÛOØ]ÛÙ]ƒBˆÙ›Ü›OƒBƒBˆ]ˆÛ\ÜÓ˜[YOH™ÜšYØ\M™ÜšYXÛÛËLˆƒBˆ]ˆÛ\ÜÓ˜[YOHœÜXÙK^KLÈ›İ[™Y^›Ü™\ˆ›Ü™\‹\Û]KLŒM\šÎ˜›Ü™\‹]Ú]KÌLƒBˆ]ÈÛ\ÜÓ˜[YOH™›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H”ÛH\œÙYXOÚÏÛ\ÜÓ˜[YOH^^È^\Û]KML“Y[›Û˜ZİYšØ[ˆÛH[XHY[˜ÙYØZ[YØ\Ø[ˆ˜\KÜÙ]ƒBˆÛØY[™ÈÈ]ˆ›ÛOHœİ]\ÈˆÛ\ÜÓ˜[YOHœKMˆ^XÙ[\ˆ^\ÛH^\Û]KML“Y[]X]ÛHÚY8 )Ù]ƒBˆˆØÚY[K[\]\Ë›[™İOOHÈ[\Tİ]H^H™[[HYHÛHÚYˆX]ÛHZ[™ÙİX[ˆ[ZÈY[][ZKˆˆÏƒBˆˆ]ˆÛ\ÜÓ˜[YOHœÜXÙK^KLˆÜØÚY[K[\]\Ë›X\
+        {tab === "performance" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Indikator kehadiran pegawai</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari catatan kehadiran dan cuti. Penilaian sasaran kerja belum tersedia.</p></div>
+          {snapshot.employees.length === 0 ? <EmptyState text="Belum ada pegawai untuk dianalisis." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[700px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3 text-right">Hadir</th><th className="px-4 py-3 text-right">Terlambat</th><th className="px-4 py-3 text-right">Tidak hadir</th><th className="px-4 py-3 text-right">Cuti disetujui</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.employees.map((employee) => {
+              const rows = snapshot.attendance.filter((item) => item.employeeId === employee.id);
+              const leaves = snapshot.leaveRequests.filter((item) => item.employeeId === employee.id && item.status === "approved").length;
+              return <tr key={employee.id}><td className="px-4 py-3 font-medium">{employee.fullName}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "present" || item.status === "remote").length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "late").length}</td><td className="px-4 py-3 text-right tabular-nums">{rows.filter((item) => item.status === "absent").length}</td><td className="px-4 py-3 text-right tabular-nums">{leaves}</td></tr>;
+            })}</tbody></table></div>}
+        </section>}
 
-[\]JHOˆ]ˆÙ^O^İ[\]KšYHÛ\ÜÓ˜[YOH™›^›^XÛÛØ\Lˆ›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒLÈÛN™›^\›İÈÛNš][\ËXÙ[\ˆÛNš\İYKX™]ÙY[ˆ\šÎ˜›Ü™\‹]Ú]KÌL]]ˆÛ\ÜÓ˜[YOH™›Û[YY][H^\Û]KNL\šÎ^]Ú]Hİ[\]K›˜[Y_OÙ]]ˆÛ\ÜÓ˜[YOH^^È^\Û]KMLÜÚYÙYZÙ^\Ê[\]KÙYZÙ^SX\ÚÊ_H0­Èİ[\]Kœİ\Ğ]x $Şİ[\]K™[™Ğ]^İ[\]K˜œ™XZÓZ[]\ÈÈ0­È\İ\˜Z]	İ[\]K˜œ™XZÓZ[]\ßHY[š]ˆˆŸOÙ]Ù]İ[\]Kœİ]\ÈOOH˜Xİ]™HˆÈ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^ÜØ]š[™ßHÛÛXÚÏ^Ê
-HOˆ›ÚYXXİ]˜]U[\]J[\]J_HÛ\ÜÓ˜[YOHœ›İ[™Y[È›Ü™\ˆ›Ü™\‹X[X™\‹LÌLÈKLKH^^È›Û\Ù[ZX›Û^X[X™\‹N\ØX›Y›ÜXÚ]KML\šÎ˜›Ü™\‹X[X™\‹N\šÎ^X[X™\‹LÌ“›Û˜ZİYšØ[Ø]ÛˆˆÜ[ˆÛ\ÜÓ˜[YOHËYš]›İ[™YY[™Ë\Û]KLLL‹HKLH^^È^\Û]KMŒ\šÎ˜™Ë]Ú]KÌL\šÎ^\Û]KLÌ“›Û˜ZİYÜÜ[ŸOÙ]Š_OÙ]ŸCBˆÙ]ƒBƒBˆ›Ü›HÛ”İX›Z]^Ê]™[
-HOˆ›ÚY\ÜÚYÛ”ÚY
-]™[
-_HÛ\ÜÓ˜[YOHœÜXÙK^KLÈ›İ[™Y^›Ü™\ˆ›Ü™\‹\Û]KLŒM\šÎ˜›Ü™\‹]Ú]KÌLƒBˆ]ÈÛ\ÜÓ˜[YOH™›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H•]\Ø[ˆ˜YØ[ÚÏÛ\ÜÓ˜[YOH^^È^\Û]KML“X\ØHYØ\ÈXZÜÚ[X[Ø]HZ[‹ˆ\šHÙ\š˜HY[™ÚZİ]HÛHX[™È\[ZÜÙ]ƒBˆX™[Û\ÜÓ˜[YOH˜›ØÚÈ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ”YØ]ØZOÙ[Xİ™\]Z\™Y˜[YO^Ø\ÜÚYÛ›Y[˜Y™[\ŞYYRYHÛÚ[™ÙO^Ê]™[
-HOˆÙ]\ÜÚYÛ›Y[˜Y
-È‹‹˜\ÜÚYÛ›Y[˜Y[\ŞYYRYˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLÜ[Ûˆ˜[YOHˆ”[ZYØ]ØZOÛÜ[ÛØXİ]™Q[\ŞYY\Ë›X\
+        {tab === "hiring" && <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+          <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Kebutuhan jabatan</h2><p className="mt-1 text-sm text-slate-500">Dihitung dari daftar jabatan dan pegawai yang terdaftar. Pengelolaan lowongan dan proses kandidat belum tersedia.</p></div>
+          {snapshot.jobTitleOptions.length === 0 ? <EmptyState text="Tambahkan jabatan di pengaturan kategori modul SDM." />
+            : <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10"><table className="w-full min-w-[520px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Jabatan</th><th className="px-4 py-3 text-right">Terisi</th><th className="px-4 py-3 text-right">Aktif</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{snapshot.jobTitleOptions.map((title) => {
+              const linked = snapshot.employees.filter((item) => item.jobTitleReferenceId === title.id);
+              return <tr key={title.id}><td className="px-4 py-3 font-medium">{title.name}<div className="text-xs text-slate-400">{title.code}</div></td><td className="px-4 py-3 text-right tabular-nums">{linked.length}</td><td className="px-4 py-3 text-right tabular-nums">{linked.filter((item) => item.employmentStatus === "active").length}</td></tr>;
+            })}</tbody></table></div>}
+        </section>}
+      </>}
 
-[\ŞYYJHOˆÜ[ÛˆÙ^O^Ù[\ŞYYKšYH˜[YO^Ù[\ŞYYKšYOÙ[\ŞYYK™[˜[Y_H0­ÈÙ[\ŞYYK™[\ŞYYS[X™\ŸOÛÜ[ÛŠ_OÜÙ[XİÛX™[ƒBˆX™[Û\ÜÓ˜[YOH˜›ØÚÈ^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ”ÛHÚYÙ[Xİ™\]Z\™Y˜[YO^Ø\ÜÚYÛ›Y[˜YœÚY[\]RYHÛÚ[™ÙO^Ê]™[
-HOˆÙ]\ÜÚYÛ›Y[˜Y
-È‹‹˜\ÜÚYÛ›Y[˜YÚY[\]RYˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLÜ[Ûˆ˜[YOHˆ”[ZÛOÛÜ[ÛØXİ]™U[\]\Ë›X\
+      {employeeDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void saveEmployee(event)} className="max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">{employeeDraft.id ? "Ubah data pegawai" : "Tambah pegawai"}</h2><p className="mt-1 text-sm text-slate-500">Perubahan dicatat dengan akun Admin pesantren.</p></div>
+        <div className="grid gap-3 sm:grid-cols-2">{employeeDraft.id
+          ? <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Nomor pegawai<input readOnly value={employeeDraft.employeeNumber} className="mt-1 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 py-2.5 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950 dark:text-slate-300" /><span className="mt-1 block font-normal">Nomor identitas yang sudah diterbitkan tidak dapat diubah.</span></label>
+          : <p role="note" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-900 dark:border-sky-500/20 dark:bg-sky-950/30 dark:text-sky-200 sm:col-span-2">Nomor pegawai dibuat otomatis dan diperiksa unik saat data disimpan.</p>}
+          {(["fullName", "email", "phone"] as const).map((field) => <label key={field} className="text-xs font-medium text-slate-600 dark:text-slate-300">{{ fullName: "Nama lengkap", email: "Email", phone: "Telepon" }[field]}<input required={field !== "email" && field !== "phone"} type={field === "email" ? "email" : "text"} maxLength={field === "fullName" ? 180 : 120} value={employeeDraft[field] || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, [field]: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /> </label>)}
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Jabatan<select required disabled={refreshingSnapshot} value={employeeDraft.jobTitleReferenceId || ""} onChange={(e) => { const selected = snapshot.jobTitleOptions.find((option) => option.id === e.target.value); setEmployeeDraft({ ...employeeDraft, jobTitleReferenceId: e.target.value, jobTitle: selected?.name || "" }); }} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih jabatan</option>{snapshot.jobTitleOptions.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</select><span className="mt-1 block font-normal">Jabatan harus berasal dari katalog pesantren agar nama dan laporan SDM konsisten.</span>{!snapshot.jobTitleOptions.length && <span className="mt-1 block font-normal text-amber-700">Buka Pengaturan kategori modul SDM untuk menambahkan jabatan.</span>}</label>
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Unit kerja<select required value={employeeDraft.organizationUnitId || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, organizationUnitId: e.target.value || null })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih unit kerja</option>{snapshot.organizationUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name} Â· {unit.code}</option>)}</select><span className="mt-1 block font-normal">Unit kerja terhubung ke struktur organisasi pesantren.</span>{!snapshot.organizationUnits.length && <span className="mt-1 block font-normal text-amber-700">Tambahkan unit di Manajemen Multi-Unit sebelum mendaftarkan pegawai.</span>}</label>
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Tanggal mulai<input type="date" value={employeeDraft.hireDate || ""} onChange={(e) => setEmployeeDraft({ ...employeeDraft, hireDate: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
+          <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status kerja<select value={employeeDraft.employmentStatus} onChange={(e) => setEmployeeDraft({ ...employeeDraft, employmentStatus: e.target.value as Employee["employmentStatus"] })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="active">Aktif</option><option value="on_leave">Cuti</option><option value="inactive">Nonaktif</option><option value="terminated">Berakhir</option></select></label>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10"><button type="button" onClick={() => setEmployeeDraft(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving || refreshingSnapshot || !employeeDraft.organizationUnitId || !employeeDraft.jobTitleReferenceId} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Menyimpanâ€¦" : "Simpan"}</button></div>
+      </form></div>}
+      {leaveDraft && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void saveLeave(event)} className="max-h-[92vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Catat cuti pegawai</h2><p className="mt-1 text-sm text-slate-500">Pengajuan dicatat Admin atas nama pegawai aktif; periode maksimal 120 hari kalender.</p></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pegawai<select required value={leaveDraft.employeeId} onChange={(e) => setLeaveDraft({ ...leaveDraft, employeeId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih pegawaiâ€¦</option>{snapshot.employees.filter((item) => item.employmentStatus === "active").map((item) => <option key={item.id} value={item.id}>{item.fullName} Â· {item.employeeNumber}</option>)}</select></label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Jenis cuti<select value={leaveDraft.leaveType} onChange={(e) => setLeaveDraft({ ...leaveDraft, leaveType: e.target.value as LeaveRequest["leaveType"] })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="annual">Tahunan</option><option value="sick">Sakit</option><option value="personal">Keperluan pribadi</option><option value="maternity">Melahirkan</option><option value="other">Lainnya</option></select></label>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Mulai<input required type="date" value={leaveDraft.startsOn} onChange={(e) => setLeaveDraft({ ...leaveDraft, startsOn: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Sampai<input required type="date" min={leaveDraft.startsOn} value={leaveDraft.endsOn} onChange={(e) => setLeaveDraft({ ...leaveDraft, endsOn: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Alasan umum<textarea required minLength={3} maxLength={1000} value={leaveDraft.reason} onChange={(e) => setLeaveDraft({ ...leaveDraft, reason: e.target.value })} rows={3} placeholder="Hindari memasukkan diagnosis atau rincian kesehatan sensitif." className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
+        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10"><button type="button" disabled={saving} onClick={() => setLeaveDraft(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan catatan</button></div>
+      </form></div>}
+      {reviewingLeave && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={(event) => void submitLeaveReview(event)} className="w-full max-w-lg space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+        <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Tinjau catatan cuti</h2><p className="mt-1 text-sm text-slate-500">{employeeById.get(reviewingLeave.employeeId)?.fullName || "Pegawai"} Â· {reviewingLeave.startsOn} â€“ {reviewingLeave.endsOn}</p></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Keputusan<select value={leaveDecision} onChange={(e) => setLeaveDecision(e.target.value as "approved" | "rejected")} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950"><option value="approved">Setujui</option><option value="rejected">Tolak</option></select></label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Catatan review{leaveDecision === "rejected" && <span className="text-rose-600"> Â· wajib diisi</span>}<textarea required={leaveDecision === "rejected"} minLength={leaveDecision === "rejected" ? 3 : undefined} maxLength={1000} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
+        <div className="flex justify-end gap-2 border-t border-slate-200 pt-4 dark:border-white/10"><button type="button" disabled={saving} onClick={() => setReviewingLeave(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm dark:border-white/10">Batal</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan keputusan</button></div>
+      </form></div>}
+    </main>
+  );
+}
 
-[\]JHOˆÜ[ÛˆÙ^O^İ[\]KšYH˜[YO^İ[\]KšYOİ[\]K›˜[Y_H0­ÈÜÚYÙYZÙ^\Ê[\]KÙYZÙ^SX\ÚÊ_H0­Èİ[\]Kœİ\Ğ]x $Şİ[\]K™[™Ğ]OÛÜ[ÛŠ_OÜÙ[XİÛX™[ƒBˆ]ˆÛ\ÜÓ˜[YOH™ÜšYØ\LÈÛN™ÜšYXÛÛËLˆX™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ“][ZHYØ\Ï[œ]™\]Z\™Y\OH™]Hˆ˜[YO^Ø\ÜÚYÛ›Y[˜Yœİ\ÓÛŸHÛÚ[™ÙO^Ê]™[
-HOˆÙ]\ÜÚYÛ›Y[˜Y
-È‹‹˜\ÜÚYÛ›Y[˜Yİ\ÓÛˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[X™[Û\ÜÓ˜[YOH^^È›Û[YY][H^\Û]KMŒ\šÎ^\Û]KLÌ”Ø[\ZO[œ]™\]Z\™Y\OH™]HˆZ[^Ø\ÜÚYÛ›Y[˜Yœİ\ÓÛŸH˜[YO^Ø\ÜÚYÛ›Y[˜Y™[™ÓÛŸHÛÚ[™ÙO^Ê]™[
-HOˆÙ]\ÜÚYÛ›Y[˜Y
-È‹‹˜\ÜÚYÛ›Y[˜Y[™ÓÛˆ]™[\™Ù]˜[YHJ_HÛ\ÜÓ˜[YOH›]LHËY[›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ™Ë]Ú]HLÈKLˆ^\ÛH\šÎ˜›Ü™\‹]Ú]KÌL\šÎ˜™Ë\Û]KNMLˆÏÛX™[Ù]ƒBˆ]ˆÛ\ÜÓ˜[YOH™›^\İYKY[™]Ûˆ\OHœİX›Z]ˆ\ØX›Y^ÜØ]š[™ÈØY[™ÈXXİ]™Q[\ŞYY\Ë›[™İXXİ]™U[\]\Ë›[™İHÛ\ÜÓ˜[YOHš[›[™KY›^][\ËXÙ[\ˆØ\Lˆ›İ[™Y[È™ËY[Y\˜[MŒMKLˆ^\ÛH›Û\Ù[ZX›Û^]Ú]H\ØX›Y›ÜXÚ]KML•]\Ø[ˆÚYØ]ÛÙ]ƒBˆÙ›Ü›OƒBˆÙ]ƒBƒBˆ]ˆÛ\ÜÓ˜[YOHœÜXÙK^KLÈ›İ[™Y^›Ü™\ˆ›Ü™\‹\Û]KLŒM\šÎ˜›Ü™\‹]Ú]KÌLƒBˆ]ÈÛ\ÜÓ˜[YOH™›Û\Ù[ZX›Û^\Û]KNL\šÎ^]Ú]H”[YØ\Ø[ˆİÙYZÔİ\H8 $ÈİÙYZÑ[™OÚÏÛ\ÜÓ˜[YOH^^È^\Û]KML‘Y\ˆY[˜ØZİ\YØ\ÈX[™È™[[™È[™ÙØ[XH™\œÚ[™Ùİ[™Ø[ˆ[™Ø[ˆZØ[ˆ[šKÜÙ]ƒBˆÜØÚY[K[˜Ø]Y	‰ˆ]ˆ›ÛOHœİ]\ÈˆÛ\ÜÓ˜[YOHœ›İ[™Y[È›Ü™\ˆ›Ü™\‹X[X™\‹LŒ™ËX[X™\‹MLLÈKLˆ^\ÛH^X[X™\‹N‘Y\ˆØ[™Ø][š˜[™È[ZÈ\š[ÙH[šKˆ[ZZØ[ˆX[™ÈXšZÙ[\]]]HX[™ÚHYZ[š\İ˜]Üˆ[ZÈ[™[\İ\˜[ˆ[š][‹Ù]ŸCBˆÛØY[™ÈÈ]ˆ›ÛOHœİ]\ÈˆÛ\ÜÓ˜[YOHœKMˆ^XÙ[\ˆ^\ÛH^\Û]KML“Y[]X][YØ\Ø[¸ )Ù]ƒBˆˆØÚY[K˜\ÜÚYÛ›Y[Ë›[™İOOHÈ[\Tİ]H^H™[[HYH[YØ\Ø[ˆÚYYHZØ[ˆ[šKˆˆÏƒBˆˆ]ˆÛ\ÜÓ˜[YOH›İ™\™›İË^X]]È›İ[™Y[È›Ü™\ˆ›Ü™\‹\Û]KLŒ\šÎ˜›Ü™\‹]Ú]KÌLX›HÛ\ÜÓ˜[YOHËY[Z[‹]ËVÍH^[Y^\ÛHXYÛ\ÜÓ˜[YOH˜™Ë\Û]KML^^È\\˜Ø\ÙH˜XÚÚ[™Ë]ÚYH^\Û]KML\šÎ˜™Ë]Ú]KÍHÛ\ÜÓ˜[YOHœMKLÈ”YØ]ØZOİÛ\ÜÓ˜[YOHœMKLÈ”ÛH[ˆ\šOİÛ\ÜÓ˜[YOHœMKLÈ”\š[ÙOİÛ\ÜÓ˜[YOHœMKLÈ”İ]\ÏİÛ\ÜÓ˜[YOHœMKLÈİİİXY›ÙHÛ\ÜÓ˜[YOH™]šYK^H]šYK\Û]KLL\šÎ™]šYK]Ú]KÍHÜØÚY[K˜\ÜÚYÛ›Y[Ë›X\
+function Metric({ label, value }: { label: string; value: number }) {
+  return <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50"><div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div><div className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{value}</div></div>;
+}
+function EmptyState({ text }: { text: string }) {
+  return <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500 dark:border-white/15"><Users className="mx-auto mb-3 h-7 w-7 text-slate-300" />{text}</div>;
+}
 
-\ÜÚYÛ›Y[
-HOˆÈÛÛœİ[\]HH[\]PRY™Ù]
-\ÜÚYÛ›Y[œÚY[\]RY
-NÈÛÛœİ[\ŞYYHH[\ŞYYPRY™Ù]
-\ÜÚYÛ›Y[™[\ŞYYRY
-NÈ™]\›ˆˆÙ^O^Ø\ÜÚYÛ›Y[šYOÛ\ÜÓ˜[YOHœMKLÈ›Û[YY][H^\Û]KNL\šÎ^]Ú]HÙ[\ŞYYOË™[˜[YH”YØ]ØZHYZÈ\œÙYXHŸO]ˆÛ\ÜÓ˜[YOH^^È^\Û]KMÙ[\ŞYYOË™[\ŞYYS[X™\ˆˆŸOÙ]İÛ\ÜÓ˜[YOHœMKLÈİ[\]OË›˜[YH”ÛHÚYYZÈ\œÙYXHŸO]ˆÛ\ÜÓ˜[YOH^^È^\Û]KMLİ[\]HÈ	ÜÚYÙYZÙ^\Ê[\]KÙYZÙ^SX\ÚÊ_H0­È	İ[\]Kœİ\Ğ]x $Éİ[\]K™[™Ğ]XˆˆŸOÙ]İÛ\ÜÓ˜[YOHœMKLÈØ\ÜÚYÛ›Y[œİ\ÓÛŸH8 $ÈØ\ÜÚYÛ›Y[™[™ÓÛŸOİÛ\ÜÓ˜[YOHœMKLÈØ\ÜÚYÛ›Y[œİ]\ÈOOH˜Xİ]™HˆÈZİYˆˆˆ‘X˜][Ø[ˆŸOİÛ\ÜÓ˜[YOHœMKLÈ^\šYÚØ\ÜÚYÛ›Y[œİ]\ÈOOH˜Xİ]™Hˆ	‰ˆ]Ûˆ\OH˜]Ûˆˆ\ØX›Y^ÜØ]š[™ßHÛÛXÚÏ^Ê
-HOˆ›ÚYØ[˜Ù[\ÜÚYÛ›Y[
-\ÜÚYÛ›Y[
-_HÛ\ÜÓ˜[YOHœ›İ[™Y[È›Ü™\ˆ›Ü™\‹\›ÜÙKLŒLÈKLKH^^È›Û\Ù[ZX›Û^\›ÜÙKMÌ\ØX›Y›ÜXÚ]KML\šÎ˜›Ü™\‹\›ÜÙKNLÍL\šÎ^\›ÜÙKLÌ˜][Ø[Ø]ÛŸOİİÈJ_Oİ›ÙOİX›OÙ]ŸCBˆÙ]ƒBˆÜÙXİ[ÛÃBŸCB
+const SHIFT_DAYS = [
+  { label: "Senin", short: "Sen", bit: 1 }, { label: "Selasa", short: "Sel", bit: 2 },
+  { label: "Rabu", short: "Rab", bit: 4 }, { label: "Kamis", short: "Kam", bit: 8 },
+  { label: "Jumat", short: "Jum", bit: 16 }, { label: "Sabtu", short: "Sab", bit: 32 },
+  { label: "Minggu", short: "Min", bit: 64 },
+];
+
+function addCalendarDays(date: string, amount: number) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + amount);
+  return value.toISOString().slice(0, 10);
+}
+
+function mondayOfWeek(date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  return addCalendarDays(date, -((day + 6) % 7));
+}
+
+function shiftWeekdays(mask: number) {
+  return SHIFT_DAYS.filter((day) => (mask & day.bit) !== 0).map((day) => day.short).join(", ");
+}
+
+function ShiftSchedulingView({ employees, tenantId, actorId, tenantTimeZone }: { employees: Employee[]; tenantId: string; actorId: string; tenantTimeZone?: string }) {
+  const [weekStart, setWeekStart] = useState(() => mondayOfWeek(today(tenantTimeZone)));
+  const weekEnd = addCalendarDays(weekStart, 6);
+  const [schedule, setSchedule] = useState<ShiftSchedule>({ templates: [], assignments: [], truncated: false });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [templateDraft, setTemplateDraft] = useState({ name: "", weekdayMask: 31, startsAt: "08:00", endsAt: "16:00", breakMinutes: "0" });
+  const [assignmentDraft, setAssignmentDraft] = useState({
+    employeeId: employees.find((item) => item.employmentStatus === "active")?.id || "",
+    shiftTemplateId: "", startsOn: weekStart, endsOn: weekEnd,
+  });
+
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    const query = new URLSearchParams({ from: weekStart, to: weekEnd });
+    const result = await hrisRequest<ShiftSchedule>(`/api/hris/shifts/snapshot?${query}`, { signal });
+    setSchedule({
+      templates: Array.isArray(result.templates) ? result.templates : [],
+      assignments: Array.isArray(result.assignments) ? result.assignments : [],
+      truncated: Boolean(result.truncated),
+    });
+  }, [weekStart, weekEnd]);
+
+  useEffect(() => {
+    if (!SHIFT_SCHEDULING_ENABLED) return;
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+    void refresh(controller.signal).catch((loadError: any) => {
+      if (!controller.signal.aborted) setError(toERPUserMessage(loadError, "Jadwal shift belum dapat dimuat."));
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => { controller.abort(); };
+  }, [refresh]);
+
+  useEffect(() => {
+    setAssignmentDraft((current) => ({ ...current, startsOn: weekStart, endsOn: weekEnd }));
+  }, [weekStart, weekEnd]);
+
+  const activeEmployees = employees.filter((item) => item.employmentStatus === "active");
+  const activeTemplates = schedule.templates.filter((item) => item.status === "active");
+  const templateById = useMemo(() => new Map(schedule.templates.map((item) => [item.id, item])), [schedule.templates]);
+  const employeeById = useMemo(() => new Map(employees.map((item) => [item.id, item])), [employees]);
+
+  const refreshAfterSave = async (message: string) => {
+    setError("");
+    setNotice("");
+    setSaving(true);
+    try {
+      await refresh();
+      setNotice(message);
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Perubahan tersimpan, tetapi jadwal terbaru belum dapat dimuat. Muat ulang halaman."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveTemplate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!templateDraft.weekdayMask) { setError("Pilih setidaknya satu hari kerja."); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const payload = { tenantId, actorId, name: templateDraft.name.trim(), weekdayMask: templateDraft.weekdayMask,
+        startsAt: templateDraft.startsAt, endsAt: templateDraft.endsAt, breakMinutes: Number(templateDraft.breakMinutes) };
+      const lease = await pendingMutationIds.acquire(`hris-shift-template:${tenantId}:${actorId}`, payload);
+      await hrisRequest("/api/hris/shifts/templates", {
+        method: "POST",
+        body: JSON.stringify({ template: {
+          id: lease.requestId, clientRequestId: lease.requestId, name: payload.name,
+          weekdayMask: payload.weekdayMask, startsAt: payload.startsAt, endsAt: payload.endsAt,
+          breakMinutes: payload.breakMinutes,
+        } }),
+      });
+      lease.clear();
+      setTemplateDraft({ name: "", weekdayMask: 31, startsAt: "08:00", endsAt: "16:00", breakMinutes: "0" });
+      await refreshAfterSave("Pola shift berhasil disimpan.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Pola shift belum dapat disimpan."));
+      setSaving(false);
+    }
+  };
+
+  const assignShift = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!assignmentDraft.employeeId || !assignmentDraft.shiftTemplateId) { setError("Pilih pegawai dan pola shift."); return; }
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const payload = { tenantId, actorId, ...assignmentDraft };
+      const lease = await pendingMutationIds.acquire(`hris-shift-assignment:${tenantId}:${actorId}`, payload);
+      await hrisRequest("/api/hris/shifts/assignments", {
+        method: "POST",
+        body: JSON.stringify({ assignment: {
+          id: lease.requestId, clientRequestId: lease.requestId, ...assignmentDraft,
+        } }),
+      });
+      lease.clear();
+      await refreshAfterSave("Jadwal berhasil ditetapkan. Bentrok waktu diperiksa sebelum tersimpan.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Jadwal shift belum dapat ditetapkan."));
+      setSaving(false);
+    }
+  };
+
+  const deactivateTemplate = async (template: ShiftTemplate) => {
+    if (!window.confirm(`Nonaktifkan pola â€œ${template.name}â€? Penugasan yang sudah tersimpan tetap berlaku.`)) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const lease = await pendingMutationIds.acquire(`hris-shift-template-deactivate:${tenantId}:${actorId}`, {
+        tenantId, actorId, shiftTemplateId: template.id,
+      });
+      await hrisRequest(`/api/hris/shifts/templates/${encodeURIComponent(template.id)}/deactivate`, {
+        method: "POST", body: JSON.stringify({ clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      await refreshAfterSave("Pola dinonaktifkan untuk penugasan baru.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Pola shift belum dapat dinonaktifkan."));
+      setSaving(false);
+    }
+  };
+
+  const cancelAssignment = async (assignment: ShiftAssignment) => {
+    if (!window.confirm("Batalkan penugasan shift ini? Riwayatnya tetap tersimpan.")) return;
+    setSaving(true); setError(""); setNotice("");
+    try {
+      const lease = await pendingMutationIds.acquire(`hris-shift-assignment-cancel:${tenantId}:${actorId}`, {
+        tenantId, actorId, shiftAssignmentId: assignment.id,
+      });
+      await hrisRequest(`/api/hris/shifts/assignments/${encodeURIComponent(assignment.id)}/cancel`, {
+        method: "POST", body: JSON.stringify({ clientRequestId: lease.requestId }),
+      });
+      lease.clear();
+      await refreshAfterSave("Penugasan shift dibatalkan dan tercatat.");
+    } catch (saveError: any) {
+      setError(toERPUserMessage(saveError, "Penugasan shift belum dapat dibatalkan."));
+      setSaving(false);
+    }
+  };
+
+  if (!SHIFT_SCHEDULING_ENABLED) {
+    return <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal shift belum tersedia</h2>
+      <p className="mt-1 text-sm text-slate-500">Bagian ini belum diaktifkan untuk pesantren Anda.</p>
+    </section>;
+  }
+
+  return <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900 md:p-5">
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div><h2 className="text-lg font-semibold text-slate-900 dark:text-white">Jadwal shift pegawai</h2><p className="mt-1 text-sm text-slate-500">Pola berulang mingguan dan penugasan tanggal. Sistem menolak jadwal yang bertabrakan.</p></div>
+      <div className="flex items-end gap-2">
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Pekan mulai<input type="date" value={weekStart} onChange={(event) => setWeekStart(mondayOfWeek(event.target.value))} className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label>
+        <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Jadwal shift belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading || saving} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-white/10"><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
+      </div>
+    </header>
+    {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
+    {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">{notice}</div>}
+
+    <form onSubmit={(event) => void saveTemplate(event)} className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/50">
+      <div><h3 className="font-semibold text-slate-900 dark:text-white">Pola shift mingguan</h3><p className="text-xs text-slate-500">Waktu selesai sebelum waktu mulai berarti shift melewati tengah malam.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300 lg:col-span-2">Nama pola<input required minLength={2} maxLength={80} value={templateDraft.name} onChange={(event) => setTemplateDraft({ ...templateDraft, name: event.target.value })} placeholder="Contoh: Piket malam" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Mulai<input required type="time" value={templateDraft.startsAt} onChange={(event) => setTemplateDraft({ ...templateDraft, startsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Selesai<input required type="time" value={templateDraft.endsAt} onChange={(event) => setTemplateDraft({ ...templateDraft, endsAt: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+        <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Istirahat (menit)<input required type="number" min={0} max={240} step={1} value={templateDraft.breakMinutes} onChange={(event) => setTemplateDraft({ ...templateDraft, breakMinutes: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900" /></label>
+      </div>
+      <fieldset><legend className="mb-2 text-xs font-medium text-slate-600 dark:text-slate-300">Hari kerja</legend><div className="flex flex-wrap gap-2">{SHIFT_DAYS.map((day) => <label key={day.bit} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-900"><input type="checkbox" checked={(templateDraft.weekdayMask & day.bit) !== 0} onChange={(event) => setTemplateDraft({ ...templateDraft, weekdayMask: event.target.checked ? templateDraft.weekdayMask | day.bit : templateDraft.weekdayMask & ~day.bit })} />{day.label}</label>)}</div></fieldset>
+      <div className="flex justify-end"><button type="submit" disabled={saving || loading || !templateDraft.weekdayMask} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" />Simpan pola</button></div>
+    </form>
+
+    <div className="grid gap-4 xl:grid-cols-2">
+      <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <div><h3 className="font-semibold text-slate-900 dark:text-white">Pola tersedia</h3><p className="text-xs text-slate-500">Menonaktifkan pola hanya mencegah penugasan baru.</p></div>
+        {loading ? <div role="status" className="py-6 text-center text-sm text-slate-500">Memuat pola shiftâ€¦</div>
+          : schedule.templates.length === 0 ? <EmptyState text="Belum ada pola shift. Buat pola mingguan untuk memulai." />
+            : <div className="space-y-2">{schedule.templates.map((template) => <div key={template.id} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/10"><div><div className="font-medium text-slate-900 dark:text-white">{template.name}</div><div className="text-xs text-slate-500">{shiftWeekdays(template.weekdayMask)} Â· {template.startsAt}â€“{template.endsAt}{template.breakMinutes ? ` Â· istirahat ${template.breakMinutes} menit` : ""}</div></div>{template.status === "active" ? <button type="button" disabled={saving} onClick={() => void deactivateTemplate(template)} className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-800 disabled:opacity-50 dark:border-amber-800 dark:text-amber-300">Nonaktifkan</button> : <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-white/10 dark:text-slate-300">Nonaktif</span>}</div>)}</div>}
+      </div>
+
+      <form onSubmit={(event) => void assignShift(event)} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+        <div><h3 className="font-semibold text-slate-900 dark:text-white">Tetapkan jadwal</h3><p className="text-xs text-slate-500">Masa tugas maksimal satu tahun. Hari kerja mengikuti pola yang dipilih.</p></div>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pegawai<select required value={assignmentDraft.employeeId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, employeeId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih pegawai</option>{activeEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} Â· {employee.employeeNumber}</option>)}</select></label>
+        <label className="block text-xs font-medium text-slate-600 dark:text-slate-300">Pola shift<select required value={assignmentDraft.shiftTemplateId} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, shiftTemplateId: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"><option value="">Pilih pola</option>{activeTemplates.map((template) => <option key={template.id} value={template.id}>{template.name} Â· {shiftWeekdays(template.weekdayMask)} Â· {template.startsAt}â€“{template.endsAt}</option>)}</select></label>
+        <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Mulai tugas<input required type="date" value={assignmentDraft.startsOn} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, startsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Sampai<input required type="date" min={assignmentDraft.startsOn} value={assignmentDraft.endsOn} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, endsOn: event.target.value })} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950" /></label></div>
+        <div className="flex justify-end"><button type="submit" disabled={saving || loading || !activeEmployees.length || !activeTemplates.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Tetapkan shift</button></div>
+      </form>
+    </div>
+
+    <div className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-white/10">
+      <div><h3 className="font-semibold text-slate-900 dark:text-white">Penugasan {weekStart} â€“ {weekEnd}</h3><p className="text-xs text-slate-500">Daftar mencakup tugas yang rentang tanggalnya bersinggungan dengan pekan ini.</p></div>
+      {schedule.truncated && <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Daftar sangat panjang untuk periode ini. Pilih pekan yang lebih sempit atau hubungi administrator untuk penelusuran lanjutan.</div>}
+      {loading ? <div role="status" className="py-6 text-center text-sm text-slate-500">Memuat penugasanâ€¦</div>
+        : schedule.assignments.length === 0 ? <EmptyState text="Belum ada penugasan shift pada pekan ini." />
+          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-white/5"><tr><th className="px-4 py-3">Pegawai</th><th className="px-4 py-3">Pola dan hari</th><th className="px-4 py-3">Periode</th><th className="px-4 py-3">Status</th><th className="px-4 py-3"></th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{schedule.assignments.map((assignment) => { const template = templateById.get(assignment.shiftTemplateId); const employee = employeeById.get(assignment.employeeId); return <tr key={assignment.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{employee?.fullName || "Pegawai tidak tersedia"}<div className="text-xs text-slate-400">{employee?.employeeNumber || ""}</div></td><td className="px-4 py-3">{template?.name || "Pola shift tidak tersedia"}<div className="text-xs text-slate-500">{template ? `${shiftWeekdays(template.weekdayMask)} Â· ${template.startsAt}â€“${template.endsAt}` : ""}</div></td><td className="px-4 py-3">{assignment.startsOn} â€“ {assignment.endsOn}</td><td className="px-4 py-3">{assignment.status === "active" ? "Aktif" : "Dibatalkan"}</td><td className="px-4 py-3 text-right">{assignment.status === "active" && <button type="button" disabled={saving} onClick={() => void cancelAssignment(assignment)} className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-300">Batalkan</button>}</td></tr>; })}</tbody></table></div>}
+    </div>
+  </section>;
+}
