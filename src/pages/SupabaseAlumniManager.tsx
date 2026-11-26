@@ -151,7 +151,7 @@ export function SupabaseAlumniManager() {
         {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
           : alumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni untuk ditelusuri.</p>
           : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3 text-right">Jumlah alumni</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{Object.entries(alumni.reduce<Record<string, number>>((acc, item) => { const key = String(item.graduationYear); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => <tr key={year}><td className="px-4 py-3 font-medium">{year}</td><td className="px-4 py-3 text-right tabular-nums">{count}</td></tr>)}</tbody></table></div>}
-      </section> : tab === "community" ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} /> : <AlumniDonationsPanel />}
+      </section> : tab === "community" ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} members={filteredAlumni} /> : <AlumniDonationsPanel />}
     </div>
   );
 }
@@ -175,7 +175,7 @@ const COMMUNITY_EVENT_TYPES = [
   { value: "other", label: "Lainnya" },
 ];
 
-function AlumniCommunityPanel({ canManage, timeZone }: { canManage: boolean; timeZone: string }) {
+function AlumniCommunityPanel({ canManage, timeZone, members }: { canManage: boolean; timeZone: string; members: Alumni[] }) {
   const [events, setEvents] = useState<AlumniCommunityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -289,6 +289,11 @@ function AlumniCommunityPanel({ canManage, timeZone }: { canManage: boolean; tim
           {canManage && item.status === "scheduled" && <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800"><button type="button" onClick={() => void changeEventStatus(item, canComplete ? "completed" : "cancelled")} disabled={busyEventId === item.id} className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">{busyEventId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : canComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}{canComplete ? "Tandai selesai" : "Batalkan kegiatan"}</button></div>}
         </article>;
       })}</div>}
+    <div className="space-y-3 border-t border-slate-200 pt-4 dark:border-slate-800">
+      <div><h3 className="font-semibold text-slate-900 dark:text-white">Anggota komunitas alumni</h3><p className="mt-1 text-sm text-slate-500">Anggota mengikuti direktori kelulusan pesantren.</p></div>
+      {members.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500 dark:border-white/15">Belum ada anggota komunitas alumni.</p>
+        : <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{members.map((item) => <article key={item.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800"><h4 className="font-medium text-slate-900 dark:text-white">{item.name}</h4><p className="mt-1 text-xs text-slate-500">Angkatan {item.graduationYear}{item.nis ? ` · NIS ${item.nis}` : ""}</p></article>)}</div>}
+    </div>
     {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4" role="presentation"><form onSubmit={submitEvent} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h3 className="font-semibold text-slate-900 dark:text-white">Buat kegiatan komunitas</h3><p className="mt-1 text-xs text-slate-500">Data kegiatan disimpan untuk pesantren aktif.</p></div><button type="button" onClick={() => setModalOpen(false)} disabled={saving} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div>
       <div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Nama kegiatan<input autoFocus required maxLength={180} value={draft.title} onChange={(event) => setDraft((value) => ({ ...value, title: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label>
         <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Jenis kegiatan<select value={draft.eventType} onChange={(event) => setDraft((value) => ({ ...value, eventType: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700">{COMMUNITY_EVENT_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal dan waktu<input type="datetime-local" required value={draft.startsAt} onChange={(event) => setDraft((value) => ({ ...value, startsAt: event.target.value }))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label></div>
