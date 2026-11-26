@@ -25,6 +25,11 @@
 - Pemeriksaan visual pasca-merge di Hostinger staging pada Admin UAT: modul SDM terbuka, katalog Jabatan Pegawai (MUDIR dan UAT Pengelola Asrama) tampil, dan formulir Tambah Pegawai menawarkan kedua pilihan tersebut. Ringkasan Tahfidz terbuka dan leaderboard mengurutkan jumlah ayat hafalan unik (15 sebelum 10 pada fixture sintetis). Asrama menampilkan container gelap dan navigasi tab yang dapat digulir. Pemeriksaan navigasi ini tidak menyimpan perubahan data.
 - Pemeriksaan tersebut adalah spot check tiga layar; ini tidak membuktikan UAT semua modul, seluruh role, isolasi lintas-tenant pada UI, atau alur CRUD menyeluruh.
 
+
+- **Smoke test antarmuka tambahan, 27 November:** pada Hostinger staging/VQE, halaman PPDB, Keuangan & Tagihan, UKS, Koperasi & Kantin, Manajemen Multi-Unit, Keuangan & Anggaran, SDM, Sarana & Prasarana, Relasi Wali & Donatur, Donasi & Wakaf, dan Marketplace berhasil dibuka sebagai Admin UAT. Halaman menampilkan daftar, form, atau empty state sesuai modul; tidak terlihat pesan “Fitur ini belum tersedia saat ini” pada layar yang diperiksa. Ini pemeriksaan pembukaan layar, bukan pembuktian seluruh fungsi modul.
+- **Fixture UAT tambahan yang tersimpan di VQE, 27 November:** kontak CRM UAT Calon Wali 20261127-01; aset UAT Peralatan 20261127-01 (kode otomatis AST-00001, nilai Rp0); rancangan RKAT UAT RKAT November 2026 pada Unit UAT Pesantren (Rp100.000, status Rancangan, belum disetujui); kampanye UAT Kampanye Wakaf Perpustakaan 20261127 (target Rp5.000.000, status paused); dan profil UAT Donatur Masyarakat 20261127-01 (kontribusi Rp0). Semua terlihat kembali pada daftar/halaman detail sesudah penyimpanan. PTSAS Production tidak disentuh.
+- Tidak dibuat pendaftar PPDB karena formulir Admin memuat kolom NIK; tidak dibuat catatan medis, transaksi, pembayaran, atau pengiriman pesan. Data tersebut memerlukan fixture terencana agar tidak menyerupai identitas atau kejadian nyata.
+
 ## Database dan deployment
 
 - Migrasi PR #269 dan #270 diterapkan hanya pada VQE staging `vqemuyzveuirlkvdggjd`. Snapshot yang tercatat memuat 169 versi hingga `20270407000000`.
