@@ -95,8 +95,11 @@ SELECT ok((SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid
  'table enforces row-level security');
 SELECT ok(NOT has_table_privilege('anon','public.alumni_community_events','SELECT')
   AND NOT has_table_privilege('authenticated','public.alumni_community_events','SELECT')
-  AND has_table_privilege('service_role','public.alumni_community_events','SELECT'),
- 'only the server service role can read event rows');
+  AND has_table_privilege('service_role','public.alumni_community_events','SELECT')
+  AND has_table_privilege('service_role','public.alumni_community_events','INSERT')
+  AND has_table_privilege('service_role','public.alumni_community_events','UPDATE')
+  AND NOT has_table_privilege('service_role','public.alumni_community_events','DELETE'),
+ 'the server role can read and manage rows without delete access');
 
 SELECT * FROM finish();
 ROLLBACK;

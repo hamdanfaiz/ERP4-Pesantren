@@ -26,8 +26,8 @@ CREATE INDEX alumni_community_events_tenant_schedule_idx
 
 ALTER TABLE public.alumni_community_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.alumni_community_events FORCE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.alumni_community_events FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.alumni_community_events TO service_role;
+REVOKE ALL ON TABLE public.alumni_community_events FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.alumni_community_events TO service_role;
 
 CREATE OR REPLACE FUNCTION public.create_alumni_community_event(
   p_tenant_id UUID,
