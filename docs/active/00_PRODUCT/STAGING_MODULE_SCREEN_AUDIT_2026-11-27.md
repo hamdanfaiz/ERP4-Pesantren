@@ -1,5 +1,15 @@
 # Audit menu dan tab staging — 27 November 2026
 
+## Pemeriksaan flag staging dan modul operasional — 27 November 2026, setelah PR #297
+
+Pemeriksaan baca-saja pada hPanel situs staging lightgreen-jay-425688.hostingersite.com memastikan SUPABASE_PROJECT_REF mengarah ke VQE (vqemuyzveuirlkvdggjd). Sebelas flag server yang diperiksa berstatus true: PPDB, Keuangan, Anggaran, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi/Wakaf, dan Marketplace. Nilai variabel hanya dibuka satu per satu untuk pemeriksaan, lalu dimask kembali; secret dan nilai koneksi tidak dibaca atau dicatat. Tidak ada konfigurasi yang diubah.
+
+Dengan sesi Admin UAT yang sudah ada, menu PPDB, Keuangan & Tagihan, UKS, Koperasi & Kantin, Manajemen Multi-Unit, Keuangan & Anggaran, SDM, Sarana & Prasarana, Relasi Wali & Donatur (CRM), Donasi & Wakaf, dan Marketplace dibuka. Halaman masing-masing menampilkan konten utama; pada pemeriksaan layar ini tidak terlihat pesan “Fitur ini belum tersedia saat ini”, batas galat modul, atau pesan layanan tidak tersedia. Pemeriksaan ini hanya membuktikan navigasi dan render, bukan penyimpanan atau seluruh tindakan pada setiap modul.
+
+Tahfidz menampilkan **Peringkat Hafalan Santri**, dengan urutan berdasarkan jumlah ayat hafalan unik tersimpan. Ringkasan staging menunjukkan satu peserta dengan 20 ayat unik, dua setoran Ziyadah, dan dua hari aktif. Tidak ada data yang dibuat atau diubah. Asrama dikembalikan ke layar Penempatan Kamar setelah pemeriksaan.
+
+Seluruh pemeriksaan ini terbatas pada VQE staging dan data sintetis. Tidak ada perubahan atau pembacaan data aplikasi di Production PTSAS.
+
 ## Koreksi pemeriksaan UKS terbaru — 27 November 2026
 
 Pada pemeriksaan pertama, memilih **Kesehatan (UKS)** sempat menampilkan batas galat aplikasi: “Modul Kesehatan belum dapat ditampilkan”. Setelah navigasi ulang, UKS berhasil dimuat pada staging yang sama: ringkasan, tab, daftar pilihan santri, data sintetis, dan formulir kunjungan terlihat. Jadi kegagalan render **tidak terulang** dan saat ini UKS lulus pemeriksaan pemuatan layar dasar, tetapi penyebab gangguan awal masih belum diketahui. Tidak ada formulir yang dikirim atau data yang diubah.
@@ -95,3 +105,4 @@ Tab Perizinan menampilkan daftar permohonan, termasuk status. Tab Fasilitas mena
 Lanjutkan dengan skenario simpan-baca menggunakan data sintetis yang disetujui di staging, periksa relasi antarmodul dan hak akses berdasarkan role/tenant, kemudian dokumentasikan hasil per alur. Tim database masih perlu menyelesaikan review DDL aktual, urutan promosi, serta bukti backup dan restore PTSAS Production sebelum cutover.
 
 **Kesimpulan:** navigasi dan pemuatan halaman utama staging terverifikasi untuk 25 menu; ini belum berarti seluruh fungsi modul sudah teruji atau ERP siap Production/komersial.
+
