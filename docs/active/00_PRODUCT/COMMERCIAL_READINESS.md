@@ -1,3 +1,12 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #302
+
+- Sumber kode resmi berada di `main`, commit `32b687653adf8ecb553b8c26a3202b070289d865`. PR #302 di-squash-merge; PR mengubah satu file dokumentasi UAT dan tidak mengubah aplikasi, skema, environment, atau Production. Pemeriksaan daftar PR sesudah merge menunjukkan tidak ada PR terbuka.
+- CI pada head PR `5c8003f4cbcc4a2f9c073481553fc14b0e83cab6`, run [#45996413205 attempt 3](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45996413205), sukses untuk NPM pelanggan, frontend/build dan Firebase bundle guard, serta job database. Job database mereplay migrasi pada Supabase lokal terisolasi dan meluluskan tes API/auth/tenant, modul Tahfidz/Keuangan, Storage, dan backup-restore lokal. Supabase Preview dilewati karena branch tidak terkait dengan preview branch; ini bukan bukti database Production.
+- UAT VQE dengan data sintetis menambah bukti simpan-baca: Tahfidz menyimpan dua setoran dan leaderboard mengurutkan 25 ayat unik di atas 5; Asrama menyimpan status kehadiran, penyelesaian insiden rendah, dan tiket fasilitas prioritas rendah setelah muat ulang; peminjaman dan pengembalian Perpustakaan, SDM serta PPDB–Keuangan–Ringkasan juga tercatat pada audit staging. Penugasan lokasi Ustadz tidak dibuat karena dampaknya pada cakupan akses.
+- Fitur Perpustakaan Digital masih belum tersedia di staging. Matriks role/tenant penuh dan seluruh alur semua modul belum lulus UAT.
+- PTSAS Production tetap tidak diubah. Rekonsiliasi DDL aktual, urutan promosi, serta bukti backup/restore Production belum diverifikasi oleh pemilik/tim database. CI backup-restore hanya mencakup database lokal sintetis. Jangan jalankan migrasi massal ke Production sebelum gate tersebut diselesaikan.
+- Status keseluruhan tetap **belum 100%, belum siap Production/komersial** sampai seluruh alur yang dipasarkan dan gate Production terbukti. Rincian UAT: [audit modul staging 27 November](STAGING_MODULE_SCREEN_AUDIT_2026-11-27.md).
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #299 dan UAT SDM
 
 - PR #299 sudah merged ke `main` pada commit dokumentasi `baf90c9b54588ed842d711ee9f47608e69b047ce`. CI lulus untuk build frontend/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API-auth/pgTAP pada Supabase lokal terisolasi.
