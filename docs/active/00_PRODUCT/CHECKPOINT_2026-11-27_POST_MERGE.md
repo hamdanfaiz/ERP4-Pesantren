@@ -1,5 +1,13 @@
 # Checkpoint proyek — 27 November 2026, pasca-penggabungan PR #269–#277
 
+## Update setelah PR #281 — 27 November 2026
+
+- PR #281, Tracer Study Alumni berbasis kategori dengan persetujuan eksplisit, merged ke `main` sebagai `e1454ca5bc9bb192612a3ad067daaa36ecd5070f`. CI PR [#45935767719](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45935767719) sukses. Setelah merge, GitHub tidak mengembalikan PR terbuka.
+- Migration `20270408000000_alumni_tracer_study` diterapkan ke VQE staging saja dan ledger staging menampilkan versi serta nama yang cocok dengan source. Tabel baru tetap kosong; tidak ada jawaban alumni yang disalin atau dibuat.
+- Flag `SUPABASE_ALUMNI_TRACER_RUNTIME_ENABLED` dan `VITE_SUPABASE_ALUMNI_TRACER_RUNTIME_ENABLED` aktif hanya pada hPanel staging VQE. Hostinger menyelesaikan deployment `main` pada commit `e1454ca`; halaman Tracer Study menampilkan formulir, persetujuan, ringkasan kosong, dan tidak menunjukkan error baca.
+- UAT browser membuktikan tampilan dan baca ringkasan. UAT penyimpanan browser belum dijalankan karena itu akan mencatat persetujuan alumni; tombol simpan tetap nonaktif tanpa pilihan alumni dan persetujuan. CI telah menguji jalur RPC dan aturan tersebut dengan fixture sintetis.
+- PTSAS Production `ptsasgdvgrbdtgyqieie` tidak diubah. UAT lintas modul, role, dan tenant; rekonsiliasi DDL/urutan migrasi Production; serta bukti pemulihan backup Production tetap menjadi pekerjaan terbuka. Lihat [Commercial Readiness](COMMERCIAL_READINESS.md).
+
 ## Source kode dan PR
 
 - Snapshot pada checkpoint ini: PR #277 (refresh handoff) baru saja merged ke `main` sebagai `ec290c0f86b42b39499d80be0f06827f97585adb`. Gunakan HEAD `main` untuk source saat ini. Perubahan aplikasi terbaru tetap ada pada PR #270; PR #271–#277 dokumentasi saja.

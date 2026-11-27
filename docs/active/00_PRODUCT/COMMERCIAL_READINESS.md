@@ -1,4 +1,16 @@
-## Status handoff terbaru — 27 November 2026
+## Status handoff terbaru — 27 November 2026, setelah PR #281
+
+Sumber kode resmi tetap branch `main` di [hamdanfaiz/ERP4-Pesantren](https://github.com/hamdanfaiz/ERP4-Pesantren). PR #281, **Tracer Study Alumni dengan persetujuan eksplisit**, sudah merged pada commit `e1454ca5bc9bb192612a3ad067daaa36ecd5070f`. CI PR #281, run [#45935767719](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45935767719), selesai sukses. Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka.
+
+**VQE staging:** migration `20270408000000_alumni_tracer_study` telah diterapkan dan terdaftar pada ledger VQE. Kedua flag Tracer Study diaktifkan hanya di environment staging. Preview Hostinger PR dan situs staging utama menampilkan formulir baru; permintaan baca memuat ringkasan kosong tanpa pesan error. Tombol simpan tetap nonaktif sebelum alumni dipilih dan persetujuan dicentang. Tidak ada jawaban atau persetujuan yang direkam selama pemeriksaan.
+
+**Deployment staging:** Hostinger menyelesaikan deployment `main` pada commit `e1454ca` dan menandainya Current. VQE dan situs staging `lightgreen-jay-425688.hostingersite.com` yang diuji; PTSAS Production tidak disentuh.
+
+**Batas bukti dan pekerjaan berikutnya:** UAT baca dan tampilan Tracer Study berhasil, tetapi penyimpanan jawaban belum diuji di browser karena belum ada persetujuan alumni untuk dicatat. CI menguji aturan tulis, tenant, kategori, idempotensi, dan penolakan persetujuan kosong. UAT simpan-baca lintas modul/role/tenant tetap belum lengkap. Tim backend masih perlu menyelesaikan rekonsiliasi DDL dan urutan migrasi Production serta membuktikan backup/restore Production. Karena itu ERP belum dinyatakan siap Production atau siap komersial secara keseluruhan.
+
+Rincian per sesi ada di [checkpoint Tracer Study pasca-merge](CHECKPOINT_2026-11-27_POST_MERGE.md).
+
+## Snapshot sebelumnya — 27 November 2026, sebelum PR #281
 
 Sumber resmi ERP4 adalah branch `main` pada repositori [hamdanfaiz/ERP4-Pesantren](https://github.com/hamdanfaiz/ERP4-Pesantren). Gunakan HEAD branch terkini, bukan SHA lama yang tercantum pada snapshot bertanggal. PR #269–#270 mengubah aplikasi; PR #271–#277 mendokumentasikan hasil audit/UAT dan semuanya telah merged. Perubahan aplikasi terakhir yang tercatat ada pada PR #270; PR #274–#277 tidak mengubah kode runtime.
 
