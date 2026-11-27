@@ -13,6 +13,8 @@ Pemeriksaan staging berikutnya pada sesi Admin UAT:
 - UKS → Inventaris Obat terbuka dan menampilkan satu item sintetis, kategori serta satuan referensi, dan riwayat stok awal. Formulir tersedia; tidak ada stok yang dimutasi.
 - PPDB terbuka tanpa pesan gagal, tetapi belum ada calon santri di tenant uji. Tidak ada pendaftar yang dibuat.
 - Keuangan menampilkan satu tagihan sintetis Rp250.000. Tab Pengeluaran terbuka; formulir menampilkan pilihan unit organisasi dan kategori. Formulir ditutup dengan **Batal**, tanpa pengajuan atau transaksi baru.
+- SDM menampilkan tiga pegawai sintetis dan dua jabatan aktif. Tombol **Tambah** membuka formulir jabatan, dan pilihan jabatan/unit tersedia pada formulir pegawai. Kedua formulir ditutup dengan **Batal**; tidak ada pegawai atau jabatan baru yang disimpan.
+- Asrama menampilkan tiga santri pada dua kamar aktif beserta jumlah hunian. Tampilan container pada preview saat ini gelap dan konsisten dengan panel lain. Navigasi serta screenshot diperiksa; tidak ada penempatan yang diubah.
 
 Pemeriksaan ini menambah bukti navigasi dan render dasar saja. Alur submit simpan-baca, persetujuan, dan isolasi lintas role/tenant tetap belum dibuktikan oleh sesi ini.
 
