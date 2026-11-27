@@ -344,8 +344,10 @@ for (const feature of ['directory', 'tracer', 'community', 'donations']) {
 }
 assert.match(alumniSource, /tab === "directory"\s*\?\s*<>[\s\S]*?<section/,
   'Alumni directory must render its tenant-backed screen.');
-assert.match(alumniSource, /tab === "tracer"\s*\?\s*<section/,
-  'Alumni tracer study must render its module screen.');
+assert.match(alumniSource, /tab === "tracer"\s*\?\s*ALUMNI_TRACER_RUNTIME_ENABLED\s*\?\s*<AlumniTracerPanel/,
+  'Alumni tracer study must render its persisted panel only behind the dedicated runtime flag.');
+assert.match(alumniSource, /requestAlumni\("\/api\/alumni\/tracer"\)/,
+  'Alumni tracer study must load persisted answers from its authenticated backend route.');
 assert.match(alumniSource, /tab === "community"\s*&&\s*ALUMNI_EVENTS_RUNTIME_ENABLED\s*\?\s*<AlumniCommunityPanel/,
   'Alumni community must render its tenant-backed events and member panel only behind its dedicated runtime flag.');
 assert.match(alumniSource, /requestAlumni\("\/api\/alumni\/events"\)/,

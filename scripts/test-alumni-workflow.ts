@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createAlumniClientRequestId, getStableAlumniRequestIdentity, isAlumniGraduationCandidate, submitAlumniGraduation } from "../src/lib/alumniWorkflow";
 import { tenantDate, tenantLocalDateTimeToIso } from "../src/lib/tenantTimeZone";
-import { normalizeAlumniCommunityEventPayload, SupabaseAlumniError } from "../src/server/supabaseAlumni";
+import { normalizeAlumniCommunityEventPayload, normalizeAlumniTracerResponsePayload, SupabaseAlumniError } from "../src/server/supabaseAlumni";
 
 assert.equal(isAlumniGraduationCandidate("Active", false), true);
 assert.equal(isAlumniGraduationCandidate("Inactive", false), true);
@@ -83,5 +83,38 @@ assert.throws(() => normalizeAlumniCommunityEventPayload({
 }), (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
 "invalid event dates are rejected before persistence");
 
-console.log("Alumni workflow and community event validation tests passed.");
+const tracerResponse = normalizeAlumniTracerResponsePayload({
+  clientRequestId: "e7400000-0000-4000-8000-000000000201",
+  alumniProfileId: "e7400000-0000-4000-8000-000000000202",
+  surveyYear: 2026,
+  activityStatus: "working_and_studying",
+  educationLevel: "bachelor",
+  employmentSector: "education",
+  consentConfirmed: true,
+});
+assert.deepEqual(tracerResponse, {
+  clientRequestId: "e7400000-0000-4000-8000-000000000201",
+  alumniProfileId: "e7400000-0000-4000-8000-000000000202",
+  surveyYear: 2026,
+  activityStatus: "working_and_studying",
+  educationLevel: "bachelor",
+  employmentSector: "education",
+});
+assert.throws(() => normalizeAlumniTracerResponsePayload({ ...tracerResponse, activityStatus: "I work at Example Co" }),
+  (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+  "Tracer activity cannot be free-typed");
+assert.throws(() => normalizeAlumniTracerResponsePayload({ ...tracerResponse, consentConfirmed: false }),
+  (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+  "a response without confirmed consent is rejected");
+assert.throws(() => normalizeAlumniTracerResponsePayload({ ...tracerResponse, educationLevel: "not_applicable" }),
+  (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+  "study statuses require an education category");
+assert.throws(() => normalizeAlumniTracerResponsePayload({ ...tracerResponse, employmentSector: "not_applicable" }),
+  (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+  "work statuses require an employment sector");
+assert.throws(() => normalizeAlumniTracerResponsePayload({ ...tracerResponse, surveyYear: 1800 }),
+  (error: unknown) => error instanceof SupabaseAlumniError && error.status === 400,
+  "Tracer survey years are bounded before persistence");
+
+console.log("Alumni workflow, community event, and Tracer Study validation tests passed.");
 

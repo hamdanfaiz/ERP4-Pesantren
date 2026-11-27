@@ -111,7 +111,7 @@ const sourceMigrationsWithSql = listLocalMigrations(
   readdirSync(sourceMigrationsUrl),
   (fileName) => readFileSync(new URL(fileName, sourceMigrationsUrl), 'utf8')
 );
-assert.equal(sourceMigrationsWithSql.length, 169);
+assert.equal(sourceMigrationsWithSql.length, 170);
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270404010000_crm_broadcast_idempotency.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270308000000_academic_class_unit_admin_role_baseline.sql'));
 assert(sourceMigrationsWithSql.some(({ fileName }) => fileName === '20270403000000_tahfidz_unique_memorization_leaderboard.sql'));
@@ -130,6 +130,17 @@ assert.match(alumniEventsMigration.statements.join('\n'), /FORCE ROW LEVEL SECUR
 assert.match(alumniEventsMigration.statements.join('\n'), /GRANT EXECUTE ON FUNCTION public\.create_alumni_community_event[\s\S]*TO service_role/i);
 assert.match(alumniEventsMigration.statements.join('\n'), /p_actor_user_id[\s\S]*p_expected_role[\s\S]*p_tenant_id/);
 assert.match(alumniEventsMigration.statements.join('\n'), /pg_advisory_xact_lock[\s\S]*alumni-event:/);
+const alumniTracerMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270408000000_alumni_tracer_study.sql');
+assert(alumniTracerMigration, 'Alumni Tracer Study requires a forward-only tenant-scoped migration.');
+assert.match(alumniTracerMigration.statements.join('\n'), /CREATE TABLE public\.alumni_tracer_responses[\s\S]*tenant_id UUID NOT NULL[\s\S]*consent_confirmed_at TIMESTAMPTZ NOT NULL/i);
+assert.match(alumniTracerMigration.statements.join('\n'), /UNIQUE \(tenant_id, alumni_profile_id, survey_year\)/i);
+assert.match(alumniTracerMigration.statements.join('\n'), /FORCE ROW LEVEL SECURITY[\s\S]*REVOKE ALL ON TABLE public\.alumni_tracer_responses, public\.alumni_tracer_mutation_requests FROM PUBLIC, anon, authenticated, service_role/i);
+assert.match(alumniTracerMigration.statements.join('\n'), /p_consent_confirmed IS DISTINCT FROM TRUE[\s\S]*p_activity_status NOT IN/i);
+assert.match(alumniTracerMigration.statements.join('\n'), /v_permissions @> '\{"alumni": false\}'::jsonb/);
+assert.match(alumniTracerMigration.statements.join('\n'), /payload_fingerprint TEXT NOT NULL CHECK/);
+assert.match(alumniTracerMigration.statements.join('\n'), /v_payload_fingerprint := encode\(extensions\.digest/);
+assert.match(alumniTracerMigration.statements.join('\n'), /pg_advisory_xact_lock[\s\S]*alumni-tracer-request:[\s\S]*alumni-tracer-response:/);
+assert.match(alumniTracerMigration.statements.join('\n'), /GRANT EXECUTE ON FUNCTION public\.upsert_alumni_tracer_response[\s\S]*TO service_role/i);
 const quranCatalogMigration = sourceMigrationsWithSql.find(({ fileName }) => fileName === '20270320000000_tahfidz_quran_surah_catalog.sql');
 assert(quranCatalogMigration, 'Canonical Quran reference data and Tahfidz validation need a forward-only migration.');
 assert.match(quranCatalogMigration.statements.join('\n'), /CREATE TABLE IF NOT EXISTS public\.quran_surahs/i);
@@ -612,7 +623,7 @@ assert.equal(observedProductionMigrations.length, 47);
 const productionBaseline = compareMigrationVersions(sourceMigrationsWithSql, observedProductionMigrations);
 assert.equal(productionBaseline.appliedCount, 47);
 assert.equal(productionBaseline.latestAppliedVersion, '20261206000000');
-assert.equal(productionBaseline.pending.length, 122);
+assert.equal(productionBaseline.pending.length, 123);
 assert.deepEqual(
   productionBaseline.outOfOrderPending.map(({ version }) => version),
   [...productionMissingMigrationVersions],

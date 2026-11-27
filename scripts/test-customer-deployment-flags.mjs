@@ -237,6 +237,19 @@ assert.match(alumniUi, /publicRuntimeConfigValue\("VITE_SUPABASE_ALUMNI_EVENTS_R
   "The community-event UI must follow the dedicated public runtime flag");
 assert.match(alumniUi, /ALUMNI_EVENTS_RUNTIME_ENABLED \? \[\{ id: "community"/,
   "The community tab must stay hidden when its database migration is not released");
+assert.match(alumniUi, /publicRuntimeConfigValue\("VITE_SUPABASE_ALUMNI_TRACER_RUNTIME_ENABLED"\)/,
+  "Tracer Study UI must follow its dedicated public runtime flag");
+assert.match(alumniUi, /ALUMNI_TRACER_RUNTIME_ENABLED\s*\?\s*<AlumniTracerPanel/,
+  "Categorical tracer responses must remain behind the dedicated release flag");
+const alumniTracerRoutesStart = server.indexOf('app.get("/api/alumni/tracer"');
+const alumniTracerRoutesEnd = server.indexOf('app.get("/api/alumni/events"', alumniTracerRoutesStart);
+assert.ok(alumniTracerRoutesStart >= 0 && alumniTracerRoutesEnd > alumniTracerRoutesStart,
+  "Tracer Study API routes must be grouped before community-event routes");
+const alumniTracerRoutes = server.slice(alumniTracerRoutesStart, alumniTracerRoutesEnd);
+assert.equal([...alumniTracerRoutes.matchAll(/app\.(?:get|post)\("\/api\/alumni\/tracer/g)].length, 2,
+  "Tracer Study read and write endpoints must both exist");
+assert.equal([...alumniTracerRoutes.matchAll(/if \(!alumniRuntimeEnabled \|\| !alumniTracerRuntimeEnabled\)/g)].length, 2,
+  "Both Tracer Study endpoints must require the core Alumni and dedicated tracer flags");
 assert.match(hrisUi, /Saldo cuti dan jadwal kehadiran belum diperbarui otomatis/,
   "HRIS UI must clearly state the user-visible leave balance and attendance limitation");
 assert.match(hrisUi, /hindari mencantumkan rincian diagnosis kesehatan/,

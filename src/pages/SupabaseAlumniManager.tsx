@@ -12,12 +12,60 @@ type Alumni = { id: string; studentId: string; name: string; nis: string; grade:
 type EligibleStudent = { id: string; name: string; nis: string; grade: string; status: string };
 type AlumniTab = "directory" | "tracer" | "community" | "donations";
 const ALUMNI_EVENTS_RUNTIME_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED") === "true";
+const ALUMNI_TRACER_RUNTIME_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_ALUMNI_TRACER_RUNTIME_ENABLED") === "true";
 const ALUMNI_TABS: Array<{ id: AlumniTab; label: string; icon: React.ReactNode }> = [
   { id: "directory", label: "Direktori", icon: <GraduationCap className="h-4 w-4" /> },
   { id: "tracer", label: "Tracer Study", icon: <Search className="h-4 w-4" /> },
   ...(ALUMNI_EVENTS_RUNTIME_ENABLED ? [{ id: "community" as const, label: "Komunitas", icon: <Users className="h-4 w-4" /> }] : []),
   { id: "donations", label: "Donasi Alumni", icon: <HeartHandshake className="h-4 w-4" /> },
 ];
+
+type AlumniTracerResponse = {
+  id: string;
+  alumniProfileId: string;
+  surveyYear: number;
+  activityStatus: string;
+  educationLevel: string;
+  employmentSector: string;
+  updatedAt: string;
+};
+
+const TRACER_ACTIVITY_OPTIONS = [
+  { value: "studying", label: "Melanjutkan pendidikan" },
+  { value: "employed", label: "Bekerja" },
+  { value: "self_employed", label: "Wirausaha" },
+  { value: "working_and_studying", label: "Bekerja sambil belajar" },
+  { value: "seeking_work", label: "Sedang mencari pekerjaan" },
+  { value: "not_working", label: "Belum bekerja" },
+  { value: "other", label: "Kegiatan lainnya" },
+];
+
+const TRACER_EDUCATION_OPTIONS = [
+  { value: "secondary", label: "Menengah" },
+  { value: "diploma", label: "Diploma" },
+  { value: "bachelor", label: "Sarjana" },
+  { value: "master", label: "Magister" },
+  { value: "doctorate", label: "Doktor" },
+  { value: "nonformal", label: "Pendidikan nonformal" },
+  { value: "other", label: "Lainnya" },
+];
+
+const TRACER_SECTOR_OPTIONS = [
+  { value: "education", label: "Pendidikan" },
+  { value: "government", label: "Pemerintahan" },
+  { value: "healthcare", label: "Kesehatan" },
+  { value: "business", label: "Perdagangan dan jasa" },
+  { value: "industry", label: "Industri" },
+  { value: "agriculture", label: "Pertanian" },
+  { value: "technology", label: "Teknologi" },
+  { value: "religious", label: "Keagamaan" },
+  { value: "nonprofit", label: "Sosial dan nirlaba" },
+  { value: "other", label: "Bidang lainnya" },
+];
+
+const TRACER_ACTIVITY_LABELS = new Map(TRACER_ACTIVITY_OPTIONS.map(({ value, label }) => [value, label]));
+const TRACER_EDUCATION_LABELS = new Map(TRACER_EDUCATION_OPTIONS.map(({ value, label }) => [value, label]));
+const TRACER_SECTOR_LABELS = new Map(TRACER_SECTOR_OPTIONS.map(({ value, label }) => [value, label]));
 
 async function requestAlumni(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -148,14 +196,142 @@ export function SupabaseAlumniManager() {
       </section>
 
       {modalOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation"><form onSubmit={handleGraduate} className="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900"><div className="flex items-center justify-between border-b border-slate-200 p-5 dark:border-slate-800"><div><h2 className="font-semibold text-slate-900 dark:text-white">Catat Kelulusan</h2><p className="mt-1 text-xs text-slate-500">Status santri dan data kelulusan akan tersimpan bersamaan.</p></div><button type="button" onClick={() => setModalOpen(false)} aria-label="Tutup" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-5 w-5" /></button></div><div className="space-y-4 p-5"><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Santri<select required value={studentId} onChange={(event) => setStudentId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih santri tanpa profil Alumni</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.nis ? ` · ${student.nis}` : ""} · {student.status}</option>)}</select><span className="mt-1.5 block text-xs font-normal text-slate-500">Status lama Alumni tetap dapat dipilih jika profil kelulusannya belum tercatat.</span></label><label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Tanggal kelulusan<input type="date" required value={graduatedAt} onChange={(event) => setGraduatedAt(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label><p className="text-xs text-slate-500">Pilih tanggal berdasarkan dokumen kelulusan. Tahun angkatan diambil dari tanggal tersebut; data status lama tidak digunakan untuk menebak tanggal.</p></div><div className="flex justify-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"><button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">Batal</button><button type="submit" disabled={!studentId || saving} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving && <Loader2 className="h-4 w-4 animate-spin" />}Simpan Kelulusan</button></div></form></div>}
-      </> : tab === "tracer" ? <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <div><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan angkatan</h2><p className="mt-1 text-sm text-slate-500">Jumlah alumni dihitung berdasarkan tahun kelulusan yang tercatat.</p></div>
-        {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
-          : alumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni untuk ditelusuri.</p>
-          : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3 text-right">Jumlah alumni</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{Object.entries(alumni.reduce<Record<string, number>>((acc, item) => { const key = String(item.graduationYear); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => <tr key={year}><td className="px-4 py-3 font-medium">{year}</td><td className="px-4 py-3 text-right tabular-nums">{count}</td></tr>)}</tbody></table></div>}
-      </section> : tab === "community" && ALUMNI_EVENTS_RUNTIME_ENABLED ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} members={filteredAlumni} /> : <AlumniDonationsPanel />}
+      </> : tab === "tracer" ? ALUMNI_TRACER_RUNTIME_ENABLED
+        ? <AlumniTracerPanel canManage={canManage} alumni={alumni} timeZone={timeZone} />
+        : <section className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div><h2 className="font-semibold text-slate-900 dark:text-white">Ringkasan angkatan</h2><p className="mt-1 text-sm text-slate-500">Jumlah alumni dihitung berdasarkan tahun kelulusan yang tercatat.</p></div>
+          {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat…</div>
+            : alumni.length === 0 ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni untuk ditelusuri.</p>
+            : <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800"><table className="w-full min-w-[480px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3 text-right">Jumlah alumni</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{Object.entries(alumni.reduce<Record<string, number>>((acc, item) => { const key = String(item.graduationYear); acc[key] = (acc[key] || 0) + 1; return acc; }, {})).sort((a, b) => Number(b[0]) - Number(a[0])).map(([year, count]) => <tr key={year}><td className="px-4 py-3 font-medium">{year}</td><td className="px-4 py-3 text-right tabular-nums">{count}</td></tr>)}</tbody></table></div>}
+        </section>
+        : tab === "community" && ALUMNI_EVENTS_RUNTIME_ENABLED ? <AlumniCommunityPanel canManage={canManage} timeZone={timeZone} members={filteredAlumni} /> : <AlumniDonationsPanel />}
     </div>
   );
+}
+
+function AlumniTracerPanel({ canManage, alumni, timeZone }: { canManage: boolean; alumni: Alumni[]; timeZone: string }) {
+  const currentYear = Number(tenantDate(new Date(), timeZone).slice(0, 4));
+  const [responses, setResponses] = useState<AlumniTracerResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [alumniProfileId, setAlumniProfileId] = useState("");
+  const [surveyYear, setSurveyYear] = useState(currentYear);
+  const [activityStatus, setActivityStatus] = useState("seeking_work");
+  const [educationLevel, setEducationLevel] = useState("not_applicable");
+  const [employmentSector, setEmploymentSector] = useState("not_applicable");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const requestIdentity = useRef<AlumniRequestIdentity | null>(null);
+  const selectedResponse = responses.find((item) => item.alumniProfileId === alumniProfileId && item.surveyYear === surveyYear);
+  const requiresStudy = activityStatus === "studying" || activityStatus === "working_and_studying";
+  const requiresWork = activityStatus === "employed" || activityStatus === "self_employed" || activityStatus === "working_and_studying";
+
+  const refresh = useCallback(async () => {
+    const payload = await requestAlumni("/api/alumni/tracer");
+    setResponses(Array.isArray(payload.responses) ? payload.responses : []);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    requestAlumni("/api/alumni/tracer")
+      .then((payload) => { if (active) setResponses(Array.isArray(payload.responses) ? payload.responses : []); })
+      .catch((cause: unknown) => { if (active) setError(toERPUserMessage(cause, "Data Tracer Study belum dapat dimuat.")); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    setActivityStatus(selectedResponse?.activityStatus || "seeking_work");
+    setEducationLevel(selectedResponse?.educationLevel || "not_applicable");
+    setEmploymentSector(selectedResponse?.employmentSector || "not_applicable");
+    setConsentConfirmed(false);
+    requestIdentity.current = null;
+  }, [alumniProfileId, surveyYear, selectedResponse?.id, selectedResponse?.updatedAt]);
+
+  const handleActivityChange = (value: string) => {
+    setActivityStatus(value);
+    if (!(["studying", "working_and_studying"].includes(value))) setEducationLevel("not_applicable");
+    if (!(["employed", "self_employed", "working_and_studying"].includes(value))) setEmploymentSector("not_applicable");
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canManage || !alumniProfileId || !consentConfirmed || saving) return;
+    const payload = {
+      alumniProfileId,
+      surveyYear,
+      activityStatus,
+      educationLevel: requiresStudy ? educationLevel : "not_applicable",
+      employmentSector: requiresWork ? employmentSector : "not_applicable",
+    };
+    const identity = getStableAlumniRequestIdentity(requestIdentity.current, JSON.stringify(payload), createAlumniClientRequestId);
+    requestIdentity.current = identity;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    let saved = false;
+    try {
+      await requestAlumni("/api/alumni/tracer", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, consentConfirmed: true, clientRequestId: identity.requestId }),
+      });
+      saved = true;
+      requestIdentity.current = null;
+      setConsentConfirmed(false);
+      try {
+        await refresh();
+        setNotice("Jawaban Tracer Study berhasil disimpan.");
+      } catch {
+        setNotice("Jawaban berhasil disimpan, tetapi daftar belum dapat diperbarui. Muat ulang untuk melihat hasil terbaru.");
+      }
+    } catch (cause: unknown) {
+      setError(toERPUserMessage(cause, saved ? "Jawaban tersimpan, tetapi daftar belum dapat diperbarui." : "Jawaban Tracer Study belum dapat disimpan."));
+    } finally { setSaving(false); }
+  };
+
+  const workCount = responses.filter((item) => ["employed", "self_employed", "working_and_studying"].includes(item.activityStatus)).length;
+  const studyCount = responses.filter((item) => ["studying", "working_and_studying"].includes(item.activityStatus)).length;
+  const seekingCount = responses.filter((item) => item.activityStatus === "seeking_work").length;
+  const alumniById = new Map(alumni.map((item) => [item.id, item]));
+
+  return <div className="space-y-5">
+    {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
+    {notice && <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">{notice}</div>}
+    <section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mb-5"><h2 className="font-semibold text-slate-900 dark:text-white">Tracer Study Alumni</h2><p className="mt-1 text-sm text-slate-500">Catat pendidikan dan kegiatan alumni dengan kategori yang tersedia. Jawaban hanya dicatat setelah persetujuan alumni dikonfirmasi.</p></div>
+      {canManage ? alumni.length === 0
+        ? <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-white/15">Belum ada alumni terdaftar untuk mengisi Tracer Study.</p>
+        : <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Alumni<select required value={alumniProfileId} onChange={(event) => setAlumniProfileId(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih alumni</option>{alumni.map((item) => <option key={item.id} value={item.id}>{item.name}{item.nis ? ` · NIS ${item.nis}` : ""} · Angkatan ${item.graduationYear}</option>)}</select></label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Tahun survei<input type="number" required min="2000" max="2200" value={surveyYear} onChange={(event) => setSurveyYear(Number(event.target.value))} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700" /></label>
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Kegiatan utama<select required value={activityStatus} onChange={(event) => handleActivityChange(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700">{TRACER_ACTIVITY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+          {requiresStudy && <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Jenjang pendidikan<select required value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih jenjang</option>{TRACER_EDUCATION_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>}
+          {requiresWork && <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Bidang pekerjaan<select required value={employmentSector} onChange={(event) => setEmploymentSector(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700"><option value="">Pilih bidang</option>{TRACER_SECTOR_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>}
+          <label className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200 md:col-span-2 xl:col-span-3"><input type="checkbox" required checked={consentConfirmed} onChange={(event) => setConsentConfirmed(event.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" /><span>Alumni telah menyetujui pencatatan jawaban ini untuk evaluasi dan pengembangan layanan pendidikan.</span></label>
+          <div className="flex flex-wrap items-center justify-between gap-3 md:col-span-2 xl:col-span-3"><p className="text-xs text-slate-500">Jika jawaban untuk alumni dan tahun ini sudah ada, penyimpanan akan memperbarui jawaban tersebut.</p><button type="submit" disabled={!alumniProfileId || !consentConfirmed || saving || (requiresStudy && !educationLevel) || (requiresWork && !employmentSector)} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}{saving ? "Menyimpan…" : selectedResponse ? "Perbarui jawaban" : "Simpan jawaban"}</button></div>
+        </form>
+        : <p className="rounded-lg border border-slate-200 p-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">Bagian ini hanya dapat dikelola oleh Admin pesantren.</p>}
+    </section>
+
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {[
+        { label: "Jawaban tercatat", value: responses.length },
+        { label: "Melanjutkan pendidikan", value: studyCount },
+        { label: "Bekerja atau berwirausaha", value: workCount },
+        { label: "Mencari pekerjaan", value: seekingCount },
+      ].map((item) => <article key={item.label} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"><p className="text-sm text-slate-500">{item.label}</p><p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">{loading ? "—" : item.value}</p></article>)}
+    </section>
+
+    <section className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="border-b border-slate-200 p-4 dark:border-slate-800"><h2 className="font-semibold text-slate-900 dark:text-white">Jawaban alumni</h2><p className="mt-1 text-sm text-slate-500">Ringkasan tersimpan berdasarkan angkatan dan tahun survei.</p></div>
+      {loading ? <div className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Memuat jawaban…</div>
+        : responses.length === 0 ? <p className="p-10 text-center text-sm text-slate-500">Belum ada jawaban Tracer Study.</p>
+        : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950/50"><tr><th className="px-4 py-3">Alumni</th><th className="px-4 py-3">Angkatan</th><th className="px-4 py-3">Tahun survei</th><th className="px-4 py-3">Kegiatan</th><th className="px-4 py-3">Pendidikan</th><th className="px-4 py-3">Bidang</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-slate-800">{responses.map((item) => { const member = alumniById.get(item.alumniProfileId); return <tr key={item.id}><td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{member?.name || "Alumni tidak lagi terdaftar"}</td><td className="px-4 py-3">{member?.graduationYear || "—"}</td><td className="px-4 py-3">{item.surveyYear}</td><td className="px-4 py-3">{TRACER_ACTIVITY_LABELS.get(item.activityStatus) || "Lainnya"}</td><td className="px-4 py-3">{TRACER_EDUCATION_LABELS.get(item.educationLevel) || "—"}</td><td className="px-4 py-3">{TRACER_SECTOR_LABELS.get(item.employmentSector) || "—"}</td></tr>; })}</tbody></table></div>}
+    </section>
+  </div>;
 }
 
 type AlumniCommunityEvent = {
