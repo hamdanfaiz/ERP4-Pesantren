@@ -19,7 +19,6 @@
 
 ## Langkah berikut
 1. Lanjutkan UAT per modul, role, dan tenant; catat alur baca serta simpan yang memang disetujui memakai data sintetis.
-2. Lanjutkan UAT bertahap per modul/role/tenant, mencatat alur baca dan simpan yang memang disetujui untuk data sintetis.
 3. Tahan klaim siap Production sampai rekonsiliasi DDL, urutan promosi, dan bukti pemulihan Production tersedia.
 
 ---
