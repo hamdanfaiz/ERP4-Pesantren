@@ -1,3 +1,12 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #283
+
+- PR #283, perapian pesan UKS dan terjemahan status stok, telah di-squash-merge ke `main` pada commit `8dc2f59cdce3329d82a5daa91d4598704cc295ce`. CI lulus untuk pemeriksaan build, instalasi npm, API, dan pgTAP; pemeriksaan Supabase Preview dilewati karena branch database otomatis dinonaktifkan. Perubahan ini tidak mengubah skema.
+- Hostinger staging `lightgreen-jay-425688.hostingersite.com` menampilkan deployment branch `main`, commit `8dc2f59`, dengan status **Completed / Current**.
+- UAT setelah deployment belum lulus: Dasbor sempat tampil saat Admin UAT aktif, tetapi indikator masih berstatus memuat. Membuka Data Alumni dua kali menampilkan “Modul Data Alumni belum dapat ditampilkan”; tombol **Coba lagi** tidak memulihkan tampilan. Pemeriksaan sebelumnya juga mendapati kegagalan saat membuka UKS. Setelah **Muat ulang aplikasi**, browser kembali ke halaman publik dan sesi Admin tidak lagi aktif.
+- Pembacaan log browser tidak menghasilkan rincian error, jadi penyebabnya belum terkonfirmasi. Perubahan label UKS dari PR #283 belum dapat diverifikasi secara visual setelah deployment. Tidak ada data yang dibuat atau diubah saat pemeriksaan.
+- Langkah berikutnya: setelah sesi Admin staging dibuka kembali, periksa UKS dan Data Alumni; bila error berulang, tim teknis perlu menangkap stack trace/log server yang sesuai untuk mengidentifikasi penyebab sebelum UAT dinyatakan lulus.
+- PTSAS Production tidak disentuh. Rekonsiliasi DDL dan urutan migrasi serta bukti pemulihan Production tetap menjadi gerbang terpisah untuk tim backend.
+
 ## Status handoff terbaru — 27 November 2026, setelah PR #281
 
 Sumber kode resmi tetap branch `main` di [hamdanfaiz/ERP4-Pesantren](https://github.com/hamdanfaiz/ERP4-Pesantren). PR #281, **Tracer Study Alumni dengan persetujuan eksplisit**, sudah merged pada commit `e1454ca5bc9bb192612a3ad067daaa36ecd5070f`. CI PR #281, run [#45935767719](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45935767719), selesai sukses. Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka.
