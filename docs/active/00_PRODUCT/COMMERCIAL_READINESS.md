@@ -1,8 +1,12 @@
 ## Status handoff terbaru — 27 November 2026
 
-Ringkasan terkini ada pada [handoff tim backend](BACKEND_TEAM_START_HERE.md) dan [checkpoint pasca-merge 27 November](CHECKPOINT_2026-11-27_POST_MERGE.md). `main` berada pada `9295420e26af0b462c42382ff96091fc59ca9817`. PR #269 (Kegiatan Komunitas Alumni) dan #270 (Jadwal Shift HRIS) sudah digabung; tidak ada PR terbuka. CI PR #270 run #2530 dan CI pasca-merge `main` run #2532 lulus. CI mencakup replay migrasi terisolasi, tes auth/tenant, pgTAP, Storage, build/Docker, instalasi NPM, dan pemulihan database lokal. UAT Admin VQE untuk dua fitur tersebut lulus pada alur yang dicatat; fixture sintetis tetap berada di staging.
+Sumber resmi ERP4 adalah GitHub `hamdanfaiz/ERP4-Pesantren`, branch `main`, pada commit `f7bd1924cff42a14fc648821c8b69570a7543dfc`. PR #274 (catatan UAT Tahfidz), #275 (handoff dan UAT Dokumen Digital), serta #276 (koreksi panduan kemampuan Dokumen Digital dan penandaan dokumentasi prototipe) sudah merged. Tidak ada PR terbuka saat checkpoint ini. CI tiga job pada PR #276 dan CI pasca-merge `main` lulus; pemeriksaannya mencakup build frontend/Docker, instalasi NPM pelanggan, replay migrasi lokal terisolasi, pengujian Auth/tenant, pgTAP, dan Storage.
 
-Kode Production belum diterapkan melalui hPanel yang terverifikasi, dan Production PTSAS tidak diubah. Fitur baru tetap mati secara bawaan. Rekonsiliasi DDL/urutan migrasi PTSAS dan bukti backup/restore Production belum tersedia. Karena itu produk belum dinyatakan siap Production atau siap komersial secara keseluruhan.
+**UAT staging VQE, 27 November:** setoran sintetis Santri 02 untuk Al-Kahf ayat 16–20 tersimpan dan tampil setelah pemuatan ulang. Setelah peringkat dimuat ulang, jumlah ayat uniknya berubah dari 15 menjadi 20 dan tetap di atas Santri 01 dengan 10 ayat. Dokumen internal sintetis `DOC/2026/00004` tersimpan, bertahan setelah muat ulang, melewati status Terdaftar → Dalam telaah → Disetujui → Diarsipkan, dan terlihat di Arsip Digital. Ini membuktikan alur terbatas pada akun/tenant UAT; tidak membuktikan seluruh modul, seluruh role, atau pemulihan file. Fixture sintetis tetap berada di VQE.
+
+**Batas Dokumen Digital:** tab Pemindai OCR hanya menampilkan PDF untuk telaah/unduh manual; ekstraksi teks/metadata otomatis belum tersedia. Tanda tangan digital kriptografis dan stempel QR juga belum diverifikasi. Status workflow “Disetujui” bukan bukti tanda tangan digital.
+
+**Production belum dinyatakan siap.** Tidak ada perubahan database atau deployment Production pada pekerjaan ini. Identitas build/deployment hosting terbaru belum dikonfirmasi. Tim backend masih perlu menuntaskan rekonsiliasi DDL dan ledger Production, meninjau urutan promosi migrasi, serta membuktikan backup dan restore Production. UAT lintas modul, role, tenant, dan alur data juga belum lengkap; karena itu produk belum dinyatakan siap Production maupun siap komersial secara keseluruhan.
 
 ## Riwayat UAT — 25 November 2026
 
