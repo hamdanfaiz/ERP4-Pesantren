@@ -4,7 +4,7 @@
 
 - Repositori resmi: `hamdanfaiz/ERP4-Pesantren`, branch `main`.
 - Head GitHub yang diverifikasi: `8af522e821783867a341e07d4d2b22bf2c951e6b`. Commit ini hanya memperbarui dokumentasi; kode aplikasi terakhir berubah pada `42d3d32ebd19ca07151e3b478382834574afb0b6` (PR #305), lalu PR #306 dan #307 menambahkan catatan.
-- Pencarian PR terbuka mengembalikan nol.
+- Sebelum PR handoff ini dibuat, pencarian GitHub menemukan nol PR terbuka.
 - hPanel staging `lightgreen-jay-425688.hostingersite.com` menampilkan branch `main`, commit `8af522e`, deployment terakhir **Completed**, dan auto-deployment aktif. Ini membuktikan build staging mengikuti head repositori yang diperiksa. Tidak ada setting hosting yang diubah.
 
 ## CBT dari sisi peserta
@@ -28,6 +28,6 @@ Halaman peserta `Ujian Saya` hanya menampilkan ujian yang ditugaskan kepada sant
 
 ## Status dan batas
 
-Semua pemeriksaan pada dokumen ini bersifat baca-saja. Tidak ada data aplikasi yang dibaca, tidak ada assignment/attempt dibuat, dan Production tidak diubah.
+Semua pemeriksaan pada dokumen ini bersifat baca-saja. Kueri CBT hanya menghasilkan jumlah record, tanpa membaca isi baris atau identitas. Tidak ada penugasan/percobaan dibuat dan Production tidak diubah.
 
 ERP4 **belum dinyatakan siap Production/komersial**. Sebelum migrasi Production, tim backend masih perlu merekonsiliasi DDL aktual terhadap 170 file source, mengklasifikasikan 70 versi yang belum tercatat dan tiga nama kosong, meninjau urutan/dependensi migrasi, serta membuktikan backup dapat dipulihkan. UAT baca-simpan-baca lintas modul/role/tenant juga belum lengkap.
