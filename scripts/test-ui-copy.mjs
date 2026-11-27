@@ -83,7 +83,7 @@ assert.match(landingSource, /id="program"/);
 assert.match(landingSource, /id=\{f\.title === 'Donasi' \? 'donasi' : undefined\}/);
 assert.doesNotMatch(landingSource, /Video Profil/);
 const lmsSource = fs.readFileSync(path.join(root, "src/pages/SupabaseLMSManager.tsx"), "utf8");
-assert.doesNotMatch(lmsSource, /LMS pesantren aktif\\./,
+assert.doesNotMatch(lmsSource, /LMS pesantren aktif/,
   "The LMS page must not show an internal activation banner to users.");
 console.log("Customer-facing UI copy check passed.");
 
