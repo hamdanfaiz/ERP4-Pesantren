@@ -59,5 +59,3 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
     );
   }
 }
-
-
