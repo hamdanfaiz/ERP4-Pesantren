@@ -1,4 +1,30 @@
-# Pembaruan checkpoint UAT staging — 27 November 2026
+# Checkpoint UAT staging — 27 November 2026, setelah PR #287
+
+## Source dan pemeriksaan CI
+- Source resmi: `main`, commit `9e1b688aaeb8a95b4a63cdae8ef3277e91419691`.
+- PR #287 merged dan closed; diff final tiga file, 21 penambahan, 7 penghapusan. CI run [#45951479988](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45951479988) lulus pada build, paket instalasi npm, replay migrasi lokal, tes API/otorisasi tenant, dan pgTAP.
+- Pencarian pull request repository menghasilkan 0 PR terbuka.
+- Deployment Hostinger setelah merge belum dikonfirmasi SHA-nya. Build terbaru tidak boleh dianggap sudah terpasang sebelum hPanel membuktikannya.
+
+## UAT staging setelah Admin login
+- Modul UKS terbuka tanpa pesan gagal; ringkasan dan navigasi tab tampil. Formulir kunjungan memuat pilihan santri dari tenant aktif.
+- Log browser tidak mencatat galat baru pada pemeriksaan tersebut. Formulir tidak dikirim dan tidak ada data yang ditambah atau diubah.
+- Bukti ini terbatas pada pembukaan layar UKS. Simpan-baca, relasi klinis, validasi, role/tenant lain, unggah, dan alur UKS menyeluruh belum dibuktikan.
+
+## Migrasi Supabase: metadata saja
+- Source repository: 170 migration files. VQE staging: 170 versi; seluruh versi cocok dengan source.
+- PTSAS Production: 100 entri ledger, 70 versi source tidak tercatat, 3 entri bernama kosong, tanpa versi Production-only.
+- Pemeriksaan hanya membaca versi/nama migration ledger; tidak membuktikan definisi DDL, trigger, policy, function, atau data Production sesuai source. PTSAS tidak diubah.
+- Gerbang backend Production tetap mencakup rekonsiliasi DDL/ledger, rencana urutan migrasi, dan latihan backup/restore yang dapat dibuktikan. Jangan menerapkan seluruh selisih secara massal.
+
+## Langkah berikut
+1. Verifikasi SHA deployment Hostinger staging setelah merge.
+2. Lanjutkan UAT bertahap per modul/role/tenant, mencatat alur baca dan simpan yang memang disetujui untuk data sintetis.
+3. Tahan klaim siap Production sampai rekonsiliasi DDL, urutan promosi, dan bukti pemulihan Production tersedia.
+
+---
+
+## Snapshot sebelumnya — 27 November 2026, sebelum PR #287
 
 ## Source dan deployment
 

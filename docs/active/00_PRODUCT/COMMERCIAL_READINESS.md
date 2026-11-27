@@ -1,4 +1,16 @@
-## Pembaruan handoff — 27 November 2026, setelah PR #283
+## Pembaruan handoff — 27 November 2026, setelah PR #287
+
+- Sumber kode resmi tetap branch `main` pada commit `9e1b688aaeb8a95b4a63cdae8ef3277e91419691`. PR #287 sudah di-squash-merge dan ditutup. CI run [#45951479988](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45951479988) lulus untuk build/runtime guard, instalasi npm bagi environment pelanggan, dan suite migrasi/API/pgTAP pada Supabase lokal terisolasi. PR memperbaiki pemuatan nama santri yang diarsipkan pada riwayat Tahfidz dengan lookup yang tetap dibatasi tenant dan ID pada record; layar memberi label “Diarsipkan”.
+- Pencarian pull request repository pada 27 November mengembalikan nol PR terbuka.
+- UAT baca UKS di VQE staging setelah Admin masuk berhasil memuat ringkasan, tab, daftar santri, dan formulir kunjungan. Tidak ada galat console baru dan tidak ada data yang disimpan. Ini hanya membuktikan layar UKS termuat pada sesi tersebut, bukan seluruh alur UKS.
+- Audit metadata migrasi: repo dan VQE memiliki 170 versi yang sama. PTSAS Production memiliki 100 entri; 70 versi source belum tercatat, 3 entri ledger tidak memiliki nama, dan tidak ditemukan versi tambahan yang hanya ada di Production. Ini hanya perbandingan metadata ledger, bukan bukti DDL Production sama atau berbeda. Tidak ada perubahan Production.
+- Deployment Hostinger yang menyajikan commit setelah merge PR #287 belum diverifikasi. Jangan menyamakan merge ke GitHub `main` dengan deployment berhasil.
+- Gerbang Production tetap: rekonsiliasi DDL/ledger per migrasi, tinjauan urutan promosi, dan bukti backup serta restore Production oleh pemilik database. Jangan menjalankan `db push` massal untuk menutup selisih 70 versi.
+- Perkiraan pengembangan yang disampaikan kepada pemilik adalah sekitar 85%; ini estimasi kasar pekerjaan source, bukan hasil perhitungan fitur berbobot atau status siap Production/komersial.
+
+---
+
+## Snapshot historis — 27 November 2026, setelah PR #283
 
 - PR #283, perapian pesan UKS dan terjemahan status stok, telah di-squash-merge ke `main` pada commit `8dc2f59cdce3329d82a5daa91d4598704cc295ce`. CI lulus untuk pemeriksaan build, instalasi npm, API, dan pgTAP; pemeriksaan Supabase Preview dilewati karena branch database otomatis dinonaktifkan. Perubahan ini tidak mengubah skema.
 - Hostinger staging `lightgreen-jay-425688.hostingersite.com` menampilkan deployment branch `main`, commit `8dc2f59`, dengan status **Completed / Current**.
