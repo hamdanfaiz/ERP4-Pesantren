@@ -11,7 +11,6 @@ import {
   Plus,
   Mic,
   Settings2,
-  MoreVertical,
   Play,
   CheckCircle2,
   AlertTriangle,
@@ -1765,15 +1764,6 @@ export function TahfidzManager() {
                             >
                               <Mic className="w-4 h-4" />
                             </button>}
-                            <button
-                              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-500/30 transition-colors shadow-sm"
-                              title="Listen to last setoran"
-                            >
-                              <Play className="w-4 h-4" />
-                            </button>
-                            <button className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:text-slate-200 rounded border border-transparent transition-colors shadow-sm">
-                              <MoreVertical className="w-4 h-4" />
-                            </button>
                           </div>
                         </td>
                       </tr>
