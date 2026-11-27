@@ -140,3 +140,10 @@ Pengujian dilakukan pada VQE staging dengan akun Admin UAT dan data sintetis:
 - **Penugasan:** terlihat satu Ustadz aktif dan belum ada penugasan. Tidak dibuat penugasan lokasi karena tindakan itu akan memperluas cakupan data yang dapat diakses akun Ustadz dan perlu ditinjau sebagai perubahan hak akses.
 
 Hasil ini membuktikan beberapa alur pembaruan dan pembacaan ulang Asrama di staging; bukan keseluruhan alur, role, tenant, maupun keamanan Production. Semua data yang disentuh adalah sintetis. Production PTSAS tidak diakses atau diubah.
+
+
+## Pembaruan pratinjau CBT sisi peserta — 28 November 2026
+
+PR #309 menambahkan pratinjau Admin tanpa memulai percobaan ujian. Lokasinya CBT → Sesi Ujian → Pratinjau sisi peserta pada ujian yang telah tersimpan. Tampilan pratinjau memuat teks soal dan pilihan, tetapi API tidak mengirim kunci jawaban atau penjelasan. Pratinjau tidak menjalankan timer, menyimpan jawaban, atau membuat attempt.
+
+Untuk menguji alur ujian sebenarnya, masuk sebagai Santri yang memiliki penugasan dan buka CBT → Ujian Saya. Mulai ujian hanya untuk skenario UAT yang memang dimaksudkan menguji pembuatan attempt dan timer. Deployment staging main pada commit 5faadf01 telah ditandai Completed / Current di hPanel; belum ada bukti UAT ujian nyata oleh akun Santri setelah deployment. Production tidak disentuh.
