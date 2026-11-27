@@ -8,6 +8,14 @@ Pada pemeriksaan pertama, memilih **Kesehatan (UKS)** sempat menampilkan batas g
 
 Pemeriksaan `npm run lint` dan `npm run build` pada source lokal `main` commit `c48a46318c372c29829971cf623866584ee59936` lulus. Build hanya menunjukkan peringatan ukuran chunk PDF dan anotasi komentar dependency `zod`. Production PTSAS tidak disentuh.
 
+Pemeriksaan staging berikutnya pada sesi Admin UAT:
+
+- UKS → Inventaris Obat terbuka dan menampilkan satu item sintetis, kategori serta satuan referensi, dan riwayat stok awal. Formulir tersedia; tidak ada stok yang dimutasi.
+- PPDB terbuka tanpa pesan gagal, tetapi belum ada calon santri di tenant uji. Tidak ada pendaftar yang dibuat.
+- Keuangan menampilkan satu tagihan sintetis Rp250.000. Tab Pengeluaran terbuka; formulir menampilkan pilihan unit organisasi dan kategori. Formulir ditutup dengan **Batal**, tanpa pengajuan atau transaksi baru.
+
+Pemeriksaan ini menambah bukti navigasi dan render dasar saja. Alur submit simpan-baca, persetujuan, dan isolasi lintas role/tenant tetap belum dibuktikan oleh sesi ini.
+
 ## Lingkungan dan cara pemeriksaan
 
 Pemeriksaan dilakukan pada preview Hostinger staging `lightgreen-jay-425688.hostingersite.com` dengan sesi Admin UAT yang sudah terbuka. Saya membuka menu dan tab melalui antarmuka, menunggu indikator pemuatan selesai, lalu memeriksa konten layar dan pesan error. Tidak ada formulir disimpan, transaksi dibuat, atau data yang diubah. Production PTSAS tidak disentuh.
