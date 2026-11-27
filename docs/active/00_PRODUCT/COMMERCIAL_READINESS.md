@@ -1,3 +1,15 @@
+## Handoff terbaru — 28 November 2026, setelah PR #309
+
+- Sumber kode resmi main berada di commit 5faadf0148651b6aa4dba97704c92213e549697c. PR #309 (Pratinjau sisi peserta CBT) sudah digabung; pemeriksaan PR terbuka tidak menemukan PR yang masih terbuka.
+- CI PR #309 lulus untuk build frontend/Firebase bundle guard, instalasi NPM pelanggan, dan suite Supabase lokal terisolasi (API/auth/isolasi tenant/Storage/pgTAP). Supabase Preview tidak dijalankan karena branch PR tidak terhubung ke Supabase Preview Branch; ini bukan validasi terhadap database staging atau Production.
+- hPanel Hostinger staging lightgreen-jay-425688.hostingersite.com menunjukkan deployment main pada commit 5faadf01 berstatus Completed / Current. PTSAS Production tidak diubah.
+- Melihat pratinjau: sebagai Admin, buka CBT → Sesi Ujian, pilih ujian tersimpan, lalu Pratinjau sisi peserta. Pratinjau baca-saja menampilkan soal dan pilihan tanpa kunci jawaban/penjelasan; ia tidak membuat attempt, timer, atau menyimpan jawaban. Untuk ujian yang benar-benar ditugaskan, akun Santri membuka CBT → Ujian Saya; memulai ujian nyata membuat attempt dan menjalankan aturan waktu.
+- Perlu dibedakan: deployment staging dan CI belum membuktikan ujian Santri nyata bisa dimulai/diakhiri pada akun peserta yang mendapat penugasan. UAT CBT peserta pada alur nyata masih perlu dilakukan dengan fixture sintetis dan akun/tenant yang sesuai.
+- Gerbang Production tetap terbuka: selisih ledger metadata yang tercatat sebelumnya belum menjelaskan DDL aktual; urutan promosi migrasi dan bukti pemulihan Production belum diverifikasi oleh tim database. Jangan menerapkan migrasi massal untuk menutup selisih tersebut.
+- UAT simpan-baca lintas seluruh modul serta matriks role/tenant juga belum lengkap. Karena itu ERP belum dinyatakan 100% selesai atau siap Production/komersial.
+
+---
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #305
 
 - Sumber kode resmi berada di `main`, commit `42d3d32ebd19ca07151e3b478382834574afb0b6`. PR #305 sudah di-squash-merge; pemeriksaan GitHub terbaru menunjukkan tidak ada PR terbuka.
