@@ -1,11 +1,11 @@
-# Checkpoint proyek — 27 November 2026, pasca-penggabungan PR #269–#273
+# Checkpoint proyek — 27 November 2026, pasca-penggabungan PR #269–#274
 
 ## Source kode dan PR
 
-- Source resmi pada GitHub `main`: `65564fa9e3c7e09c82e326f158367971f757d871`.
+- Source resmi pada GitHub `main` saat UAT 27 November: merge PR #274, `d20e241db336fb1b5bf0128b0615a33329ae89a2`. Perubahan aplikasi terbaru ada pada PR #270 (`9295420e26af0b462c42382ff96091fc59ca9817`); PR #271–#274 adalah dokumentasi.
 - PR #269, Kegiatan Komunitas Alumni, sudah digabung pada `bd5c9a95d21f87e3dea932c3a300cfbbdb2d9b8f`.
-- PR #270, jadwal shift tenant-scoped HRIS, digabung sesudah #269 pada `9295420e26af0b462c42382ff96091fc59ca9817`; PR #271 memperbarui handoff, #272 mencatat UAT pasca-deploy, dan #273 mencatat fixture serta smoke test staging. Ketiganya dokumentasi saja; PR #273 menjadi commit `65564fa9e3c7e09c82e326f158367971f757d871`.
-- Pemeriksaan GitHub menunjukkan tidak ada PR terbuka.
+- PR #270, jadwal shift tenant-scoped HRIS, digabung sesudah #269 pada `9295420e26af0b462c42382ff96091fc59ca9817`; PR #271 memperbarui handoff, #272 mencatat UAT pasca-deploy, #273 mencatat fixture/smoke test staging, dan #274 memperbarui status serta bukti UAT. PR #271–#274 dokumentasi saja; #274 menjadi commit `d20e241db336fb1b5bf0128b0615a33329ae89a2`.
+- Setelah PR #274 tergabung dan sebelum pembukaan PR dokumentasi berikutnya, pemeriksaan GitHub menunjukkan tidak ada PR terbuka.
 - Dokumentasi handoff: [BACKEND_TEAM_START_HERE.md](BACKEND_TEAM_START_HERE.md) dan [COMMERCIAL_READINESS.md](COMMERCIAL_READINESS.md).
 
 ## Perubahan yang tergabung
@@ -19,12 +19,13 @@
 
 - CI PR #269 run [#2528](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45901949531) lulus seluruh tiga job.
 - CI PR #270 run [#2530](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45904519325) lulus seluruh tiga job. Rangkaian database mencakup 2.053 pemeriksaan, replay migrasi historis terisolasi, HRIS/API, pgTAP, auth/tenant, Storage, dan backup/restore lokal.
-- CI pasca-merge pada `main`, run [#2532](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45905618765), lulus seluruh tiga job.
+- CI pasca-merge pada `main`, run [#2532](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45905618765), lulus seluruh tiga job. CI dokumentasi PR #274, run [#2540](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45915558054), juga lulus seluruh tiga job.
 - Lokal pada branch PR #270 lulus: lint/typecheck, build, tes adapter HRIS shift, migration preflight, konfigurasi feature flag dan Compose, runtime-config HTTP, serta kebijakan autentikasi route. Build memberi peringatan chunk PDF besar; build tetap lulus.
 - **UAT Admin VQE:** kegiatan Alumni berhasil disimpan, dimuat ulang, lalu ditandai selesai. HRIS menguji pola malam, dini hari, dan siang; penugasan malam/siang tersimpan, konflik lintas tengah malam ditolak, dan pembatalan tetap tercatat setelah muat ulang. Data UAT sintetis masih ada di VQE.
 - Pemeriksaan visual pasca-merge di Hostinger staging pada Admin UAT: modul SDM terbuka, katalog Jabatan Pegawai (MUDIR dan UAT Pengelola Asrama) tampil, dan formulir Tambah Pegawai menawarkan kedua pilihan tersebut. Ringkasan Tahfidz terbuka dan leaderboard mengurutkan jumlah ayat hafalan unik (15 sebelum 10 pada fixture sintetis). Asrama menampilkan container gelap dan navigasi tab yang dapat digulir. Pemeriksaan navigasi ini tidak menyimpan perubahan data.
 - Pemeriksaan tersebut adalah spot check tiga layar; ini tidak membuktikan UAT semua modul, seluruh role, isolasi lintas-tenant pada UI, atau alur CRUD menyeluruh.
-- **UAT Tahfidz lanjutan, 27 November:** sebagai Admin UAT di Hostinger staging/VQE, setoran sintetis untuk Santri 02 (Al-Kahf ayat 16–20, nilai Hifzh A dan Tajwid A) tersimpan dan muncul sebagai catatan terbaru setelah form ditutup. Pada Riwayat Setoran, surah dan rentang ayat tampil sebagai pilihan katalog, bukan teks bebas. Setelah leaderboard dimuat ulang, jumlah hafalan unik Santri 02 naik dari 15 menjadi 20 dan tetap berada di atas Santri 01 dengan 10 ayat. Catatan diberi label UAT sintetis. Ini membuktikan satu alur simpan-baca dan pembaruan peringkat pada akun/tenant uji, bukan UAT seluruh Tahfidz atau isolasi lintas tenant.
+- **UAT Tahfidz lanjutan, 27 November:** sebagai Admin UAT di Hostinger staging/VQE, setoran sintetis Santri 02 (Al-Kahf 16–20, Hifzh A, Tajwid A) tersimpan dan muncul pada Riwayat Setoran dengan surah/rentang dari katalog. Leaderboard naik dari 15 menjadi 20 ayat unik dan tetap di atas Santri 01 dengan 10 ayat. Ini membuktikan satu alur simpan-baca dan pembaruan peringkat di tenant uji, bukan seluruh Tahfidz atau isolasi lintas tenant.
+- **UAT Dokumen Digital, 27 November:** dokumen internal sintetis `DOC/2026/00004` tersimpan dan tetap tampil setelah muat ulang. Perubahan status Terdaftar → Dalam telaah → Disetujui → Diarsipkan berhasil; dokumen tampil di Arsip Digital. Tidak ada lampiran PDF atau pengiriman eksternal. Tab OCR menyatakan ekstraksi otomatis belum tersedia dan saat ini hanya menampilkan berkas untuk ditelaah/diunduh manual; fitur OCR menjadi gap rilis komersial bila tetap ditawarkan sebagai pemindai.
 
 
 - **Smoke test antarmuka tambahan, 27 November:** pada Hostinger staging/VQE, halaman PPDB, Keuangan & Tagihan, UKS, Koperasi & Kantin, Manajemen Multi-Unit, Keuangan & Anggaran, SDM, Sarana & Prasarana, Relasi Wali & Donatur, Donasi & Wakaf, dan Marketplace berhasil dibuka sebagai Admin UAT. Halaman menampilkan daftar, form, atau empty state sesuai modul; tidak terlihat pesan “Fitur ini belum tersedia saat ini” pada layar yang diperiksa. Ini pemeriksaan pembukaan layar, bukan pembuktian seluruh fungsi modul.
@@ -36,7 +37,7 @@
 - Migrasi PR #269 dan #270 diterapkan hanya pada VQE staging `vqemuyzveuirlkvdggjd`. Snapshot yang tercatat memuat 169 versi hingga `20270407000000`.
 - PTSAS Production `ptsasgdvgrbdtgyqieie` tidak disentuh oleh pekerjaan ini. Snapshot ledger baca-saja terakhir yang tersedia memuat 100 versi hingga `20270316000000`; angka itu tidak membuktikan definisi DDL aktual cocok dengan source.
 - CI menjalankan backup/restore pada database sintetis terisolasi. Itu bukan bukti bahwa backup Production dapat dipulihkan.
-- Hostinger staging `lightgreen-jay-425688.hostingersite.com` terakhir tercatat berstatus Current pada commit aplikasi `dca570c` setelah redeploy 27 November sekitar 06.09 WIB. Admin UAT berhasil membuka SDM, Tahfidz, dan Asrama sesudahnya. PR #272 dan #273 hanya dokumentasi; redeploy aplikasi setelah commit tersebut belum diverifikasi. Runtime config yang diperiksa mengarah ke VQE; nilai rahasia server tidak dibaca.
+- Hostinger staging `lightgreen-jay-425688.hostingersite.com` terakhir tercatat Current pada commit aplikasi `dca570c` setelah redeploy 27 November sekitar 06.09 WIB. Admin UAT membuka SDM, Tahfidz, dan Asrama sesudahnya. PR #271–#274 hanya dokumentasi; redeploy aplikasi setelah commit itu belum diverifikasi. Runtime config mengarah ke VQE; nilai rahasia server tidak dibaca.
 - Merge kode ke `main` tidak sama dengan menjalankan migrasi Production atau mengaktifkan flag. PTSAS Production tidak disentuh.
 
 ## Langkah berikutnya untuk tim backend
