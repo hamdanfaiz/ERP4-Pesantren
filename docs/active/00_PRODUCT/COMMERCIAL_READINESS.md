@@ -1,3 +1,15 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #290 dan audit ledger
+
+- Source `main` saat ini berada pada commit `a9e682a2dd20bbceaa17e3a9ca682afe98c39dfb`; PR #289 (perbaikan pesan audit Asrama) dan PR #290 (checkpoint pasca-merge) telah di-merge. CI pasca-merge PR #289, termasuk Supabase Preview, selesai sukses. Deployment aplikasi staging Hostinger telah ditandai **Completed / Current** pada commit aplikasi `2da76d8`; PR #290 hanya mengubah dokumentasi.
+- Pencarian GitHub terbaru mengembalikan nol PR terbuka. Clone lokal telah diselaraskan ke `main` pada `a9e682a` dan bersih sebelum pembaruan dokumen ini.
+- Pembacaan hPanel staging secara baca-saja menemukan 11 flag runtime server modul yang diperiksa bernilai aktif dan flag UI `VITE_SUPABASE_PPDB_RUNTIME_ENABLED` aktif. Source hanya memerlukan flag `VITE_` tambahan untuk UI PPDB pada kelompok yang diperiksa; modul lain menggunakan gate server. Tidak ada environment variable yang diubah.
+- Audit ledger terbaru dihitung terhadap 170 file source pada commit `a9e682a`: VQE cocok 170/170; PTSAS Production memiliki 100 entri, 97 pasangan versi/nama cocok, 70 source version belum tercatat, tiga nama ledger kosong, dan tidak ada versi ekstra atau nama nonkosong yang berbeda. Rincian lengkap: [rekonsiliasi ledger 27 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-27.md). Pemeriksaan ini tidak membaca DDL atau data aplikasi dan tidak mengubah database.
+- UAT Admin staging pada PR #289 mengonfirmasi halaman Asrama dan alur simpan-baca satu audit sintetis. Ini bukan UAT semua modul/role/tenant. CI Supabase lokal juga bukan bukti restore Production.
+- Gate sebelum menyebut produk selesai: rekonsiliasi DDL aktual terhadap source, tinjauan urutan promosi, dan bukti backup/restore oleh pemilik Production; dilanjutkan UAT modul/role/tenant serta alur tulis-baca. Jangan menutup gap ledger dengan `db push` massal.
+- Perkiraan pekerjaan source terakhir sekitar 85% tetap perkiraan kasar, bukan persentase berbobot dan bukan kesiapan Production/komersial.
+
+---
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #287
 
 - Sumber kode resmi tetap branch `main` pada commit `9e1b688aaeb8a95b4a63cdae8ef3277e91419691`. PR #287 sudah di-squash-merge dan ditutup. CI run [#45951479988](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45951479988) lulus untuk build/runtime guard, instalasi npm bagi environment pelanggan, dan suite migrasi/API/pgTAP pada Supabase lokal terisolasi. PR memperbaiki pemuatan nama santri yang diarsipkan pada riwayat Tahfidz dengan lookup yang tetap dibatasi tenant dan ID pada record; layar memberi label “Diarsipkan”.
