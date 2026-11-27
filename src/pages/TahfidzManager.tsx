@@ -644,6 +644,7 @@ export function TahfidzManager() {
     return {
       id: record.id,
       studentId: record.studentId,
+      studentStatus: String(record.studentStatus || "").trim().toLowerCase(),
       halaqahId: record.halaqahId,
       date: Number.isNaN(performedAt.getTime()) ? "" : currentTenantDate(performedAt),
       time: Number.isNaN(performedAt.getTime()) ? "" : currentTenantTime(performedAt),
@@ -2127,7 +2128,10 @@ export function TahfidzManager() {
               {records.slice(0, 6).length ? records.slice(0, 6).map((record) => (
                 <div key={record.id} className="flex items-start justify-between gap-4 px-5 py-4">
                   <div>
-                    <p className="font-medium text-slate-800 dark:text-slate-200">{record.santriName}</p>
+                    <p className="flex flex-wrap items-center gap-2 font-medium text-slate-800 dark:text-slate-200">
+                      {record.santriName}
+                      {record.studentStatus === "archived" && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">Diarsipkan</span>}
+                    </p>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{record.surah} · ayat {record.ayat}</p>
                   </div>
                   <span className="shrink-0 text-xs text-slate-500">{record.date || "—"}</span>
@@ -2469,8 +2473,9 @@ export function TahfidzManager() {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="text-slate-800 dark:text-slate-200 font-bold">
+                    <span className="inline-flex flex-wrap items-center gap-2 text-slate-800 dark:text-slate-200 font-bold">
                       {r.santriName}
+                      {r.studentStatus === "archived" && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-white/10 dark:text-slate-300">Diarsipkan</span>}
                     </span>
                     <div className="text-xs text-slate-500 mt-0.5">{r.ust}</div>
                   </td>

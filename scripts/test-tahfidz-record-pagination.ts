@@ -106,7 +106,7 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
       recorded_by_name: "Ustadz",
     }];
     else if (table === "students") rows = [{
-      id: student, name: "Santri Uji", nis: "NIS-1", status: "Active",
+      id: student, name: "Santri Uji Arsip", nis: "NIS-1", status: "Archived",
     }];
     else throw new Error(`Unexpected table request: ${table}`);
     return new Response(JSON.stringify(rows), { status: 200, headers: { "Content-Type": "application/json" } });
@@ -119,7 +119,8 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
       to: reportTo,
     });
     assert.equal(page.records.length, 1);
-    assert.equal(page.records[0].studentName, "Santri Uji");
+    assert.equal(page.records[0].studentName, "Santri Uji Arsip", "riwayat tetap menampilkan nama santri yang sudah diarsipkan");
+    assert.equal(page.records[0].studentStatus, "Archived", "status arsip diteruskan agar UI memberi penanda yang jelas");
     assert.equal(page.hasMore, false);
 
     const tableNames = requests.map((url) => url.pathname.split("/").pop());
@@ -134,6 +135,10 @@ async function testRecordPageDoesNotLoadFullSnapshot() {
     assert.equal(recordsQuery?.searchParams.get("halaqah_id"), `in.(${halaqah})`);
     assert.equal(recordsQuery?.searchParams.get("limit"), "501");
     assert.equal(recordsQuery?.searchParams.get("and"), `(performed_at.gte.${reportFrom},performed_at.lt.${reportTo})`);
+    const studentQuery = requests.find((url) => url.pathname.endsWith("/students"));
+    assert.equal(studentQuery?.searchParams.get("tenant_id"), `eq.${tenant}`);
+    assert.equal(studentQuery?.searchParams.get("id"), `in.(${student})`);
+    assert.equal(studentQuery?.searchParams.get("status"), null, "lookup riwayat tidak menghilangkan nama santri arsip");
   } finally {
     globalThis.fetch = originalFetch;
     if (originalUrl === undefined) delete process.env.SUPABASE_URL;

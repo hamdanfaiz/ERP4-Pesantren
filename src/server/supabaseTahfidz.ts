@@ -145,6 +145,7 @@ function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[]) {
       id: String(record.id),
       studentId: String(record.student_id),
       studentName: String(student?.name || "Santri tidak tersedia"),
+      studentStatus: student?.status ? String(student.status) : null,
       nis: String(student?.nis || ""),
       halaqahId: String(record.halaqah_id),
       activityType: String(record.activity_type),
@@ -213,13 +214,16 @@ async function fetchTahfidzRecordPage(
       select: "id,nis,name,status",
       tenant_id: "eq." + tenantId,
       id: "in.(" + missingStudentIds.join(",") + ")",
-      status: "neq.Archived",
       limit: String(missingStudentIds.length + 1),
     });
     const students = await supabaseRequest("/rest/v1/students?" + studentParams.toString());
     if (!Array.isArray(students)) throw new SupabaseTahfidzError(503, "Nama santri pada riwayat Tahfidz belum dapat dimuat.");
-    const activeStudents = students.filter((student) => String(student.status || "").toLowerCase() !== "archived");
-    recordRoster = [...scope.roster, ...activeStudents];
+    if (students.length > missingStudentIds.length) {
+      throw new SupabaseTahfidzError(503, "Referensi santri pada riwayat Tahfidz tidak konsisten.");
+    }
+    const requestedIds = new Set(missingStudentIds);
+    const matchedStudents = students.filter((student) => requestedIds.has(String(student.id || "")));
+    recordRoster = [...scope.roster, ...matchedStudents];
   }
 
   return {
