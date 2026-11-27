@@ -1,5 +1,14 @@
 # Checkpoint proyek — 27 November 2026, pasca-penggabungan PR #269–#277
 
+## Pembaruan checkpoint setelah PR #302 — 27 November 2026
+
+- Source of truth `main` berada di commit `32b687653adf8ecb553b8c26a3202b070289d865`; PR #302 telah squash-merged dan tidak mengubah kode runtime atau database. Pemeriksaan GitHub setelah merge menunjukkan nol PR terbuka.
+- CI commit PR #302 `5c8003f894fc7c23accc62ed65c16dff775e4b75` sukses pada NPM pelanggan, frontend/build dan Firebase bundle guard, serta job database. Job database mencakup migration replay pada Supabase lokal terisolasi, API auth/tenant, modul, Storage dan backup-restore lokal. Supabase Preview dilewati karena PR tidak terhubung ke preview branch.
+- UAT VQE Admin dengan data sintetis: Tahfidz menunjukkan leaderboard berdasarkan ayat unik (25 di atas 5) setelah dua setoran; Asrama mempertahankan kehadiran, penyelesaian satu insiden prioritas rendah, dan penyelesaian tiket fasilitas prioritas rendah setelah muat ulang. Permohonan izin tetap tidak diubah. Tidak dibuat penugasan lokasi Ustadz karena perubahan tersebut memperluas cakupan akses.
+- Detail lintas modul di [audit staging 27 November](STAGING_MODULE_SCREEN_AUDIT_2026-11-27.md). Perpustakaan Digital belum tersedia; UAT menyeluruh seluruh modul dan matriks role/tenant belum selesai.
+- PTSAS Production tidak diubah. Rekonsiliasi DDL, urutan promosi, dan bukti backup/restore Production masih belum tersedia. CI backup/restore hanya berlaku untuk database lokal sintetis.
+- PR #302 hanya memperbarui dokumentasi UAT; tidak ada deployment aplikasi atau migrasi yang dilakukan.
+
 ## Update setelah PR #281 — 27 November 2026
 
 - PR #281, Tracer Study Alumni berbasis kategori dengan persetujuan eksplisit, merged ke `main` sebagai `e1454ca5bc9bb192612a3ad067daaa36ecd5070f`. CI PR [#45935767719](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45935767719) sukses. Setelah merge, GitHub tidak mengembalikan PR terbuka.
