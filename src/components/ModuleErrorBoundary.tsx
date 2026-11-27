@@ -18,10 +18,13 @@ export class ModuleErrorBoundary extends React.Component<ModuleErrorBoundaryProp
     return { hasError: true };
   }
 
-  componentDidCatch(_error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Keep technical details in developer tools only; never show them in the user interface.
     console.error("Modul ERP gagal ditampilkan.", {
       module: this.props.moduleName,
+      errorName: error?.name || "Error",
+      errorMessage: String(error?.message || "Unknown render error").slice(0, 500),
+      errorStack: typeof error?.stack === "string" ? error.stack.slice(0, 5000) : undefined,
       componentStack: errorInfo.componentStack,
     });
   }
