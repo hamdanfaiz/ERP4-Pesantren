@@ -232,6 +232,95 @@ export async function updateSupabaseAlumniEventStatus(
   return result as Row;
 }
 
+const ALUMNI_TRACER_ACTIVITY_STATUSES = new Set([
+  "studying", "employed", "self_employed", "working_and_studying", "seeking_work", "not_working", "other",
+]);
+const ALUMNI_TRACER_EDUCATION_LEVELS = new Set([
+  "not_applicable", "secondary", "diploma", "bachelor", "master", "doctorate", "nonformal", "other",
+]);
+const ALUMNI_TRACER_EMPLOYMENT_SECTORS = new Set([
+  "not_applicable", "education", "government", "healthcare", "business", "industry",
+  "agriculture", "technology", "religious", "nonprofit", "other",
+]);
+
+export function normalizeAlumniTracerResponsePayload(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new SupabaseAlumniError(400, "Jawaban Tracer Study tidak valid.");
+  }
+  const payload = value as Row;
+  const clientRequestId = String(payload.clientRequestId || "").trim();
+  const alumniProfileId = String(payload.alumniProfileId || "").trim();
+  const surveyYear = Number(payload.surveyYear);
+  const activityStatus = String(payload.activityStatus || "").trim();
+  const educationLevel = String(payload.educationLevel || "").trim();
+  const employmentSector = String(payload.employmentSector || "").trim();
+  const requiresStudy = ["studying", "working_and_studying"].includes(activityStatus);
+  const requiresWork = ["employed", "self_employed", "working_and_studying"].includes(activityStatus);
+  if (!isUuid(clientRequestId) || !isUuid(alumniProfileId) || !Number.isInteger(surveyYear) || surveyYear < 2000 || surveyYear > 2200
+    || !ALUMNI_TRACER_ACTIVITY_STATUSES.has(activityStatus)
+    || !ALUMNI_TRACER_EDUCATION_LEVELS.has(educationLevel)
+    || !ALUMNI_TRACER_EMPLOYMENT_SECTORS.has(employmentSector)
+    || (requiresStudy ? educationLevel === "not_applicable" : educationLevel !== "not_applicable")
+    || (requiresWork ? employmentSector === "not_applicable" : employmentSector !== "not_applicable")
+    || payload.consentConfirmed !== true) {
+    throw new SupabaseAlumniError(400, "Pilih alumni, tahun survei, status, kategori yang sesuai, dan konfirmasi persetujuan alumni.");
+  }
+  return { clientRequestId, alumniProfileId, surveyYear, activityStatus, educationLevel, employmentSector };
+}
+
+export async function listSupabaseAlumniTracerSnapshot(tenantIdentifier: string) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  const responses = await listTenantRows(
+    "alumni_tracer_responses",
+    tenantId,
+    "id,alumni_profile_id,survey_year,activity_status,education_level,employment_sector,updated_at",
+    "survey_year.desc,updated_at.desc,id.asc",
+  );
+  return {
+    responses: responses.map((row) => ({
+      id: String(row.id),
+      alumniProfileId: String(row.alumni_profile_id),
+      surveyYear: Number(row.survey_year),
+      activityStatus: String(row.activity_status),
+      educationLevel: String(row.education_level),
+      employmentSector: String(row.employment_sector),
+      updatedAt: String(row.updated_at),
+    })),
+  };
+}
+
+export async function upsertSupabaseAlumniTracerResponse(
+  tenantIdentifier: string,
+  actorId: string,
+  role: string,
+  payloadValue: unknown,
+) {
+  const tenantId = await resolveTenantId(tenantIdentifier);
+  if (!["Admin", "SuperAdmin"].includes(role)) {
+    throw new SupabaseAlumniError(403, "Hanya Admin pesantren yang dapat mencatat Tracer Study Alumni.");
+  }
+  const payload = normalizeAlumniTracerResponsePayload(payloadValue);
+  const result = await request("/rest/v1/rpc/upsert_alumni_tracer_response", {
+    method: "POST",
+    body: JSON.stringify({
+      p_tenant_id: tenantId,
+      p_actor_user_id: actorId,
+      p_expected_role: role === "SuperAdmin" ? "super_admin" : "admin",
+      p_client_request_id: payload.clientRequestId,
+      p_alumni_profile_id: payload.alumniProfileId,
+      p_survey_year: payload.surveyYear,
+      p_activity_status: payload.activityStatus,
+      p_education_level: payload.educationLevel,
+      p_employment_sector: payload.employmentSector,
+      p_consent_confirmed: true,
+    }),
+  });
+  if (!result || typeof result !== "object" || result.success !== true || !isUuid(String(result.responseId || ""))) {
+    throw new SupabaseAlumniError(503, "Backend belum mengonfirmasi penyimpanan jawaban Tracer Study.");
+  }
+  return result as Row;
+}
+
 export async function graduateSupabaseStudent(tenantIdentifier: string, actorId: string, role: string, payloadValue: unknown) {
   const tenantId = await resolveTenantId(tenantIdentifier);
   if (!["Admin", "SuperAdmin"].includes(role)) throw new SupabaseAlumniError(403, "Hanya Admin pesantren yang dapat memproses kelulusan.");
