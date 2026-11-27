@@ -126,3 +126,17 @@ Lanjutkan dengan skenario simpan-baca menggunakan data sintetis yang disetujui d
 
 **Kesimpulan:** navigasi dan pemuatan halaman utama staging terverifikasi untuk 25 menu; ini belum berarti seluruh fungsi modul sudah teruji atau ERP siap Production/komersial.
 
+
+
+## UAT simpan-baca tambahan — Asrama, 27 November 2026
+
+Pengujian dilakukan pada VQE staging dengan akun Admin UAT dan data sintetis:
+
+- **Kehadiran:** santri sintetis ditandai hadir; status tetap tersimpan setelah halaman dimuat ulang.
+- **Kedisiplinan:** insiden sintetis berprioritas rendah yang memang dibuat untuk pelatihan ditandai selesai; perubahan bertahan setelah muat ulang. Satu insiden simulasi lain tetap terbuka dan tidak diubah.
+- **Fasilitas:** tiket sintetis berprioritas rendah ditandai selesai; perubahan bertahan setelah muat ulang. Tiket simulasi dengan prioritas lebih tinggi tetap terbuka.
+- **Perizinan:** daftar permohonan tampil, tetapi tidak ada permohonan yang disetujui atau ditolak.
+- **Penempatan kamar:** tiga santri sintetis dan dua kamar tampil. Tidak ada penempatan yang diubah.
+- **Penugasan:** terlihat satu Ustadz aktif dan belum ada penugasan. Tidak dibuat penugasan lokasi karena tindakan itu akan memperluas cakupan data yang dapat diakses akun Ustadz dan perlu ditinjau sebagai perubahan hak akses.
+
+Hasil ini membuktikan beberapa alur pembaruan dan pembacaan ulang Asrama di staging; bukan keseluruhan alur, role, tenant, maupun keamanan Production. Semua data yang disentuh adalah sintetis. Production PTSAS tidak diakses atau diubah.
