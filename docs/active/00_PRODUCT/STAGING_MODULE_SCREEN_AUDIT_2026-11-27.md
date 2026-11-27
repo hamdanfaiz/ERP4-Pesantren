@@ -1,5 +1,19 @@
 # Audit menu dan tab staging — 27 November 2026
 
+
+## UAT simpan-baca dan relasi lintas modul — 27 November 2026
+
+Pengujian dilakukan pada VQE staging melalui preview Hostinger dengan akun Admin UAT dan catatan sintetis. Production PTSAS tidak dibaca maupun diubah.
+
+- **PPDB → Keuangan → Ringkasan:** calon sintetis dibuat dengan nomor pendaftaran otomatis. Perubahan tahap dan nilai ujian/keagamaan disimpan, lalu bertahan setelah daftar dimuat ulang; ringkasan nilai 87/100. Tagihan biaya pendaftaran Rp1.000 kemudian diterbitkan untuk calon yang sama. Modul Keuangan menampilkan tagihan terbuka yang terkait dengan nomor pendaftaran, dan Ringkasan memperbarui jumlah calon serta total tagihan terbuka. Tidak ada pembayaran yang dicatat.
+- **UKS:** satu kunjungan sintetis berhasil disimpan dan tetap tampil setelah muat ulang. Tidak ada data medis nyata.
+- **Perpustakaan:** peminjaman sintetis berhasil dicatat untuk santri uji dan sebuah buku. Pengembalian berhasil dicatat; setelah muat ulang, riwayat menunjukkan tanggal kembali, ketersediaan buku pulih menjadi 32 eksemplar, dan pinjaman aktif kembali menjadi satu. Tidak ada denda yang dihitung atau dibayar.
+- **SDM:** formulir pegawai memuat opsi jabatan dan unit kerja dari katalog. Jabatan uji yang sudah ada berhasil dipilih; tidak ada pegawai baru dibuat pada pemeriksaan ini.
+- **Tahfidz:** pilihan santri, juz, surah, dan rentang ayat tersedia sebagai pilihan terstruktur; rentang ayat berubah mengikuti surah yang dipilih. Dua setoran sintetis disimpan untuk dua santri dalam satu halaqah. Setelah menekan **Muat ulang** pada leaderboard, urutan menampilkan 25 ayat hafalan unik di atas 5 ayat. Ini memvalidasi urutan hafalan dan pembaruan leaderboard, bukan sekadar banyaknya setoran.
+- **Perpustakaan Digital** menampilkan status bahwa penyimpanan berkas digital belum tersedia. Fitur ini belum lulus UAT dan tidak dicatat sebagai selesai.
+
+Bukti ini mencakup beberapa alur simpan-baca dan relasi antarmodul, bukan seluruh modul, fungsi, role, atau tenant. Pengujian lintas role/tenant, unggah berkas, jalur publik PPDB, transaksi pembayaran nyata, rekonsiliasi DDL Production, serta bukti pemulihan Production masih belum dilakukan.
+
 ## UAT simpan-baca katalog jabatan SDM — 27 November 2026
 
 Dengan sesi Admin UAT pada situs VQE staging, formulir **Tambah pegawai** menampilkan jabatan dari katalog pesantren dan unit kerja. Jabatan **UAT Pengelola Asrama 20261124** serta unit **Unit UAT Pesantren** dipilih. Catatan sintetis **UAT Verifikasi Jabatan 20261127** berhasil disimpan dengan nomor otomatis **PEG-2026-00004**. Setelah daftar dimuat ulang, pegawai dan jabatan terkait tetap terlihat.
