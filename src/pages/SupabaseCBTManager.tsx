@@ -73,6 +73,25 @@ const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
 
+function displayCbtQuestionText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  if (!/<[a-z][^>]*>/i.test(value)) return value;
+  return value
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|div|li|ul|ol|h[1-6]|blockquote)\s*>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
   if (!token) throw new Error("Sesi Anda telah berakhir. Silakan masuk kembali.");
@@ -834,7 +853,7 @@ export function SupabaseCBTManager() {
     setForm({
       subjectReferenceId: question.subjectReferenceId, gradeLevelReferenceId: question.gradeLevelReferenceId,
       templateReferenceId: question.templateReferenceId,
-      text: question.text, options: [...question.options, "", "", "", ""].slice(0, 8),
+      text: displayCbtQuestionText(question.text), options: [...question.options, "", "", "", ""].slice(0, 8),
       correctAnswer: String(question.correctAnswer), explanation: question.explanation || "",
       difficulty: question.difficulty || "Medium", tags: question.tags.join(", "),
     });
@@ -1054,7 +1073,7 @@ export function SupabaseCBTManager() {
     {tab === "questions" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.8fr)]">
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="flex flex-col gap-3 border-b border-slate-200 p-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-semibold text-slate-900 dark:text-white">Bank soal pesantren</h2><input aria-label="Cari soal" className={FIELD + " mt-0 sm:max-w-xs"} placeholder="Cari soal, subjek, atau tag" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
-        {loading || questionPageLoading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : questionPageError ? <div role="alert" className="flex flex-col items-center gap-3 p-10 text-center text-sm text-rose-700 dark:text-rose-200"><span>{questionPageError}</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{question.text}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : questionListHasUnexpectedEmptyState ? <div role="status" className="flex flex-col items-center gap-3 p-10 text-center text-sm text-amber-800 dark:text-amber-100"><span>Ringkasan mencatat soal aktif, tetapi daftar belum menampilkan hasil. Muat ulang daftar soal.</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-amber-300 px-3 py-1.5 font-semibold text-amber-900 hover:bg-amber-50 dark:border-amber-400/30 dark:text-amber-100 dark:hover:bg-amber-400/10">Muat ulang daftar soal</button></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal untuk ditampilkan.</div>}
+        {loading || questionPageLoading ? <div role="status" className="flex justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat bank soal…</div> : questionPageError ? <div role="alert" className="flex flex-col items-center gap-3 p-10 text-center text-sm text-rose-700 dark:text-rose-200"><span>{questionPageError}</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">Coba lagi</button></div> : visibleQuestions.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{visibleQuestions.map((question) => <article key={question.id} className="p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex flex-wrap gap-2 text-xs text-slate-500"><span>{question.subject}</span><span>·</span><span>{question.grade}</span><span>·</span><span>{question.template}</span>{question.status !== "active" && <span className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-white/10">Arsip</span>}</div><p className="mt-2 whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200">{displayCbtQuestionText(question.text)}</p><ol className="mt-2 grid gap-1 text-xs text-slate-500 sm:grid-cols-2">{question.options.map((option, index) => <li key={index} className={index === question.correctAnswer ? "font-semibold text-emerald-700 dark:text-emerald-300" : ""}>{String.fromCharCode(65 + index)}. {option}</li>)}</ol></div><button type="button" disabled={question.status !== "active"} onClick={() => editQuestion(question)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:text-slate-200">Ubah</button></div></article>)}</div> : questionListHasUnexpectedEmptyState ? <div role="status" className="flex flex-col items-center gap-3 p-10 text-center text-sm text-amber-800 dark:text-amber-100"><span>Ringkasan mencatat soal aktif, tetapi daftar belum menampilkan hasil. Muat ulang daftar soal.</span><button type="button" onClick={() => void loadQuestionPage(null, false)} className="rounded-lg border border-amber-300 px-3 py-1.5 font-semibold text-amber-900 hover:bg-amber-50 dark:border-amber-400/30 dark:text-amber-100 dark:hover:bg-amber-400/10">Muat ulang daftar soal</button></div> : <div className="p-10 text-center text-sm text-slate-500">Belum ada soal untuk ditampilkan.</div>}
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="mb-4 flex items-center gap-2"><Plus className="h-4 w-4 text-indigo-700" /><h2 className="font-semibold text-slate-900 dark:text-white">{editingQuestionId ? "Ubah soal" : "Tambah soal"}</h2></div>
@@ -1090,7 +1109,7 @@ export function SupabaseCBTManager() {
           <fieldset className="space-y-2"><legend className={LABEL}>Soal ({selectedQuestionCount} dipilih)</legend>
             {builderQuestionPage.items.length > 0 && <p className="text-xs text-slate-500">Menampilkan {builderQuestionPage.items.length} soal aktif untuk mata pelajaran dan jenjang ini.</p>}
             <div className="max-h-40 space-y-1 overflow-auto rounded-xl border border-slate-200 p-2 dark:border-white/10">
-              {eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} disabled={!selectedQuestions.includes(question.id) && selectedQuestions.length >= 500} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{question.text}</label>)}
+              {eligibleQuestions.map((question) => <label key={question.id} className="flex items-start gap-2 p-1.5 text-xs text-slate-700 dark:text-slate-300"><input type="checkbox" checked={selectedQuestions.includes(question.id)} disabled={!selectedQuestions.includes(question.id) && selectedQuestions.length >= 500} onChange={(e) => setSelectedQuestions((current) => e.target.checked ? [...current, question.id] : current.filter((id) => id !== question.id))} />{displayCbtQuestionText(question.text)}</label>)}
               {builderQuestionPageLoading && !eligibleQuestions.length && <p role="status" className="p-2 text-xs text-slate-500">Memuat soal yang sesuai…</p>}
               {builderQuestionPageError && <p role="alert" className="p-2 text-xs text-rose-700 dark:text-rose-300">{builderQuestionPageError}</p>}
               {!builderQuestionPageLoading && !builderQuestionPageError && !eligibleQuestions.length && <p className="p-2 text-xs text-slate-500">Belum ada soal aktif dengan mata pelajaran dan jenjang ini.</p>}
