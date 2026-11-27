@@ -2,11 +2,11 @@
 
 ## Koreksi pemeriksaan UKS terbaru — 27 November 2026
 
-Pada pemeriksaan lanjutan terhadap staging yang sama, sesi Admin UAT dan Ringkasan berhasil dimuat, tetapi memilih **Kesehatan (UKS)** menampilkan batas galat aplikasi: “Modul Kesehatan belum dapat ditampilkan”. Ini bertentangan dengan hasil penelusuran menu yang dicatat di bawah; status terbaru UKS adalah **gagal dimuat dan belum lulus UAT**. Tidak ada formulir yang dikirim atau data yang diubah.
+Pada pemeriksaan pertama, memilih **Kesehatan (UKS)** sempat menampilkan batas galat aplikasi: “Modul Kesehatan belum dapat ditampilkan”. Setelah navigasi ulang, UKS berhasil dimuat pada staging yang sama: ringkasan, tab, daftar pilihan santri, data sintetis, dan formulir kunjungan terlihat. Jadi kegagalan render **tidak terulang** dan saat ini UKS lulus pemeriksaan pemuatan layar dasar, tetapi penyebab gangguan awal masih belum diketahui. Tidak ada formulir yang dikirim atau data yang diubah.
 
-Penyebab belum dapat dipastikan. `ModuleErrorBoundary` mencatat nama error, pesan, stack, dan component stack di konsol browser; rincian itulah yang diperlukan untuk membedakan kegagalan chunk, render React, atau sumber lainnya. Upaya menekan **Coba lagi** terhenti karena input manual terdeteksi di browser, jadi tombol tersebut belum diuji ulang. Perlu tangkap log browser saat UKS dibuka kembali sebelum mengubah kode secara spekulatif.
+`ModuleErrorBoundary` mencatat nama error, pesan, stack, dan component stack di konsol browser. Perlu menangkap rincian itu jika kegagalan muncul kembali; tanpa log tersebut akar masalah belum bisa dibuktikan. Pemeriksaan ini hanya memastikan pemuatan ulang berhasil, bukan alur simpan-baca UKS.
 
-Pemeriksaan `npm run lint` dan `npm run build` pada source lokal `main` commit `c48a46318c372c29829971cf623866584ee59936` lulus. Build hanya menunjukkan peringatan ukuran chunk PDF dan anotasi komentar dependency `zod`. Kelulusan build tidak menjelaskan kegagalan runtime staging ini. Production PTSAS tidak disentuh.
+Pemeriksaan `npm run lint` dan `npm run build` pada source lokal `main` commit `c48a46318c372c29829971cf623866584ee59936` lulus. Build hanya menunjukkan peringatan ukuran chunk PDF dan anotasi komentar dependency `zod`. Production PTSAS tidak disentuh.
 
 ## Lingkungan dan cara pemeriksaan
 
