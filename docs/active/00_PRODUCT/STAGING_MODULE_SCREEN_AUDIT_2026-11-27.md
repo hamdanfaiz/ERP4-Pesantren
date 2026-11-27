@@ -1,5 +1,13 @@
 # Audit menu dan tab staging — 27 November 2026
 
+## Koreksi pemeriksaan UKS terbaru — 27 November 2026
+
+Pada pemeriksaan lanjutan terhadap staging yang sama, sesi Admin UAT dan Ringkasan berhasil dimuat, tetapi memilih **Kesehatan (UKS)** menampilkan batas galat aplikasi: “Modul Kesehatan belum dapat ditampilkan”. Ini bertentangan dengan hasil penelusuran menu yang dicatat di bawah; status terbaru UKS adalah **gagal dimuat dan belum lulus UAT**. Tidak ada formulir yang dikirim atau data yang diubah.
+
+Penyebab belum dapat dipastikan. `ModuleErrorBoundary` mencatat nama error, pesan, stack, dan component stack di konsol browser; rincian itulah yang diperlukan untuk membedakan kegagalan chunk, render React, atau sumber lainnya. Upaya menekan **Coba lagi** terhenti karena input manual terdeteksi di browser, jadi tombol tersebut belum diuji ulang. Perlu tangkap log browser saat UKS dibuka kembali sebelum mengubah kode secara spekulatif.
+
+Pemeriksaan `npm run lint` dan `npm run build` pada source lokal `main` commit `c48a46318c372c29829971cf623866584ee59936` lulus. Build hanya menunjukkan peringatan ukuran chunk PDF dan anotasi komentar dependency `zod`. Kelulusan build tidak menjelaskan kegagalan runtime staging ini. Production PTSAS tidak disentuh.
+
 ## Lingkungan dan cara pemeriksaan
 
 Pemeriksaan dilakukan pada preview Hostinger staging `lightgreen-jay-425688.hostingersite.com` dengan sesi Admin UAT yang sudah terbuka. Saya membuka menu dan tab melalui antarmuka, menunggu indikator pemuatan selesai, lalu memeriksa konten layar dan pesan error. Tidak ada formulir disimpan, transaksi dibuat, atau data yang diubah. Production PTSAS tidak disentuh.
