@@ -4,7 +4,7 @@
 - Source resmi: `main`, commit `9e1b688aaeb8a95b4a63cdae8ef3277e91419691`.
 - PR #287 merged dan closed; diff final tiga file, 21 penambahan, 7 penghapusan. CI run [#45951479988](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/45951479988) lulus pada build, paket instalasi npm, replay migrasi lokal, tes API/otorisasi tenant, dan pgTAP.
 - Pencarian pull request repository menghasilkan 0 PR terbuka.
-- Deployment Hostinger setelah merge belum dikonfirmasi SHA-nya. Build terbaru tidak boleh dianggap sudah terpasang sebelum hPanel membuktikannya.
+- hPanel mengonfirmasi deployment staging Hostinger berstatus **Completed / Current** pada branch `main`, commit `9e1b688`. Build log mencatat chunk `SupabasePpdbManager-BtsOS9-d.js`. Tab preview yang sudah lama terbuka masih memuat `index-CVW1-7wn.js` dan gagal mengimpor chunk PPDB dari build sebelumnya; setelah halaman dimuat ulang, browser memuat `index-QDGIiid8.js`, membuka PPDB, lalu menampilkan keadaan kosong tanpa galat baru. Tidak ada redeploy atau perubahan Production.
 
 ## UAT staging setelah Admin login
 - Modul UKS terbuka tanpa pesan gagal; ringkasan dan navigasi tab tampil. Formulir kunjungan memuat pilihan santri dari tenant aktif.
@@ -18,7 +18,7 @@
 - Gerbang backend Production tetap mencakup rekonsiliasi DDL/ledger, rencana urutan migrasi, dan latihan backup/restore yang dapat dibuktikan. Jangan menerapkan seluruh selisih secara massal.
 
 ## Langkah berikut
-1. Verifikasi SHA deployment Hostinger staging setelah merge.
+1. Lanjutkan UAT per modul, role, dan tenant; catat alur baca serta simpan yang memang disetujui memakai data sintetis.
 2. Lanjutkan UAT bertahap per modul/role/tenant, mencatat alur baca dan simpan yang memang disetujui untuk data sintetis.
 3. Tahan klaim siap Production sampai rekonsiliasi DDL, urutan promosi, dan bukti pemulihan Production tersedia.
 
