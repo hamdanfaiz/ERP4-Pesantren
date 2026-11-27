@@ -1,4 +1,13 @@
-## Pembaruan handoff — 27 November 2026, setelah PR #294
+## Pembaruan handoff — 27 November 2026, setelah PR #297 dan pemeriksaan staging
+
+- Sumber kode resmi main berada pada commit 71582104668b66bffc6b22678c216df07076a2f7. PR #296 (perbaikan workflow CI) dan PR #297 (snapshot flag UI staging) sudah merged; pemeriksaan GitHub setelah PR #297 tidak menemukan PR terbuka.
+- Pemeriksaan PR #297 lulus pada tiga job utama: frontend/Firebase bundle guard, instalasi npm pelanggan, dan migrasi/API-auth/pgTAP. Supabase Preview dilewati karena pembuatan branch preview nonaktif. PR #297 hanya mengubah dokumentasi, sehingga tidak memerlukan deployment aplikasi.
+- hPanel staging memastikan project ref adalah VQE. Sebelas flag server untuk PPDB, Keuangan, Anggaran, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi/Wakaf, dan Marketplace terbaca aktif. Tidak ada konfigurasi yang diubah dan Production tidak disentuh.
+- Smoke check Admin UAT membuka 11 menu tersebut tanpa pesan umum fitur/layanan tidak tersedia atau batas galat. Tahfidz menampilkan peringkat berdasarkan ayat hafalan unik. Ini bukti pemuatan dan navigasi layar; belum menguji CRUD, transaksi, unggah berkas, atau isolasi semua role/tenant. Rincian: [audit menu dan tab staging](./STAGING_MODULE_SCREEN_AUDIT_2026-11-27.md).
+- Gerbang Production tetap belum lulus: ledger metadata yang terakhir dicatat memiliki 170 migrasi source dan 100 entri Production (70 belum tercatat, tiga nama kosong), tanpa rekonsiliasi DDL aktual. Bukti restore Production dan tinjauan urutan promosi juga belum tersedia. Jangan menjalankan db push massal atau migration repair untuk menutup selisih.
+- Pekerjaan source masih diperkirakan sekitar 85% secara kasar; ini bukan hitungan fitur berbobot. Karena CRUD lintas modul/role/tenant dan gerbang Production belum terbukti, sistem belum dinyatakan siap Production atau komersial.
+
+## Snapshot historis — 27 November 2026, setelah PR #294
 
 - Source of truth berada di `main`, commit `d2d1b8c7cf14b4ce36b19d467c0d3e095cce3c25`. PR #294 memperbaiki teks yang salah pada formulir tambah/ubah Halaqah dan telah merged. Pemeriksaan GitHub mengonfirmasi **0 PR terbuka**.
 - Lint dan build produksi lokal lulus. CI PR #294 lulus untuk frontend/Firebase bundle guard, instalasi npm pelanggan, dan suite migrasi, API-auth/isolasi tenant, pgTAP, penyimpanan berkas, serta backup-restore pada Supabase lokal terisolasi. Pemeriksaan Supabase Preview **dilewati**, karena pembuatan branch preview dinonaktifkan.
@@ -752,3 +761,4 @@ UAT baca-simpan-baca dilakukan pada preview staging Hostinger yang terhubung ke 
 - Staging kini menyimpan satu pegawai, satu catatan kehadiran, dan satu permohonan cuti sintetis untuk melanjutkan UAT. Jangan menyalin fixture ini ke Production.
 
 Tidak ada perubahan source aplikasi, flag hosting, migrasi, atau database Production pada checkpoint ini.
+
