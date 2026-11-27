@@ -44,7 +44,7 @@
 
 - Pada hPanel situs `lightgreen-jay-425688.hostingersite.com`, dua gerbang fitur Komunitas Alumni yang sebelumnya belum ada ditambahkan hanya untuk VQE: `SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED=true` dan `VITE_SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED=true`. Tidak ada secret yang diubah.
 - Redeploy Hostinger selesai pada commit `1dbb556562c0bf77eec40850c5501e253a73d3a1`. `/runtime-config.json` mengonfirmasi flag UI aktif dan URL proyek staging mengarah ke VQE (`vqemuyzveuirlkvdggjd`). Setelah aplikasi dimuat ulang, tab Komunitas muncul dan kegiatan sintetis `[UAT] Reuni Alumni ERP4` terbaca. Ini membuktikan konfigurasi, visibilitas, dan baca daftar di staging; bukan bukti perubahan Production.
-- Pemeriksaan sumber menemukan keterangan direktori Alumni yang menjelaskan bahwa beberapa tab memakai daftar yang sama. Teks tersebut diganti dengan panduan pengguna yang berfokus pada direktori dan tujuan tiap tab. Perubahan antarmuka ini diajukan pada PR #279 dan belum ada di deployment staging.
+- Pemeriksaan sumber menemukan keterangan direktori Alumni yang menjelaskan bahwa beberapa tab memakai daftar yang sama. Teks tersebut diganti dengan panduan pengguna yang berfokus pada direktori dan tujuan tiap tab. Perubahan antarmuka diajukan pada PR #279 dan di-squash-merge sebagai `0873c7a`. Deployment Hostinger staging untuk commit ini berstatus **Completed / Current**; setelah muat ulang, teks direktori baru dan tab Komunitas tampil pada sesi Admin UAT.
 - Pemeriksaan lokal setelah perubahan: `npm run lint`, `npm run build`, dan `npm run test:alumni-workflow` lulus. Build menampilkan peringatan ukuran chunk PDF besar dan anotasi komentar dependensi yang diabaikan Rollup; tidak ada kegagalan build.
 
 ## Langkah berikutnya untuk tim backend
@@ -57,4 +57,3 @@
 6. Lanjutkan UAT menyeluruh seluruh modul: alur CRUD, relasi, validasi, role/tenant, transaksi, Storage, kondisi kosong/error, dan instalasi VPS/on-premise.
 
 **Status:** pekerjaan aplikasi #269–#270 dan dokumentasi #271 sudah berada di `main`; produk ERP secara keseluruhan belum terbukti siap Production atau siap komersial. Gate Production dan UAT lintas-modul tetap terbuka.
-
