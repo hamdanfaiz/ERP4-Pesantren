@@ -173,6 +173,9 @@ jobs:
       - name: Verify tenant CBT exam pagination and cursor validation
         run: npm run test:cbt-exam-pagination
 
+      - name: Verify secure read-only CBT participant preview
+        run: npm run test:cbt-participant-preview
+
       - name: Verify tenant CBT settings validation
         run: npm run test:cbt-settings-write
 

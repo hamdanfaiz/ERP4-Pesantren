@@ -1,6 +1,6 @@
 import { legacyArchiveImportEnabled } from "../runtimeBackend";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users } from "lucide-react";
+import { Activity, AlertCircle, BookOpen, Boxes, CalendarClock, CalendarDays, Check, ChevronLeft, ChevronRight, ClipboardList, Eye, Loader2, Plus, Radio, RefreshCw, ShieldCheck, SlidersHorizontal, Users, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
 import { ERPTabs } from "../components/ERPDesignSystem";
@@ -37,6 +37,9 @@ type QuestionPage = { items: Question[]; hasMore: boolean; nextCursor: string | 
 type StudentPage = { items: Student[]; hasMore: boolean; nextCursor: string | null };
 type AssignmentPage = { items: Result[]; hasMore: boolean; nextCursor: string | null };
 type ExamPage = { items: Exam[]; hasMore: boolean; nextCursor: string | null };
+type ParticipantPreview = Pick<Exam, "id" | "title" | "subject" | "grade" | "startsAt" | "endsAt" | "durationMinutes" | "status"> & {
+  shuffleQuestions: boolean; questions: Array<{ id: string; text: string; options: string[] }>;
+};
 type DashboardSummary = {
   activeQuestions: number; totalExams: number; ongoingSessions: number; upcomingSessions: number;
   totalAssignments: number; completedAssignments: number; completionRate: number | null;
@@ -159,6 +162,10 @@ export function SupabaseCBTManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [participantPreview, setParticipantPreview] = useState<ParticipantPreview | null>(null);
+  const [participantPreviewIndex, setParticipantPreviewIndex] = useState(0);
+  const [participantPreviewLoadingId, setParticipantPreviewLoadingId] = useState<string | null>(null);
+  const [participantPreviewError, setParticipantPreviewError] = useState("");
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [questionStatus, setQuestionStatus] = useState<"all" | "active" | "archived">("all");
@@ -863,6 +870,27 @@ export function SupabaseCBTManager() {
     finally { setSaving(false); }
   };
 
+  const openParticipantPreview = async (examId: string) => {
+    setParticipantPreview(null);
+    setParticipantPreviewError("");
+    setParticipantPreviewLoadingId(examId);
+    try {
+      const result = await requestCbt("/api/cbt/admin/exams/" + encodeURIComponent(examId) + "/participant-preview");
+      if (!Array.isArray(result.questions) || result.questions.length < 1 || result.questions.length > 500
+        || result.questions.some((question: any) => typeof question?.id !== "string"
+          || typeof question?.text !== "string" || !Array.isArray(question.options)
+          || question.options.length < 2 || question.options.some((option: unknown) => typeof option !== "string"))) {
+        throw new Error("Pratinjau soal belum dapat diverifikasi.");
+      }
+      setParticipantPreview(result as ParticipantPreview);
+      setParticipantPreviewIndex(0);
+    } catch (cause: any) {
+      setParticipantPreviewError(toERPUserMessage(cause, "Pratinjau peserta belum dapat dimuat."));
+    } finally {
+      setParticipantPreviewLoadingId(null);
+    }
+  };
+
   if (role !== "Admin" && role !== "SuperAdmin") {
     return <section className="mx-auto max-w-4xl rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">Pengelolaan bank soal dan jadwal ujian hanya tersedia untuk Admin pesantren.</section>;
   }
@@ -1075,7 +1103,7 @@ export function SupabaseCBTManager() {
     {tab === "exams" && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
       <section className="rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-white">Ujian tersimpan</h2></div>
-        {examPageLoading && !examPage.items.length ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar ujian…</div> : examPage.items.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{examPage.items.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p></article>)}</div> : examPageError ? null : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
+        {examPageLoading && !examPage.items.length ? <div role="status" className="flex items-center justify-center gap-2 p-10 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Memuat daftar ujian…</div> : examPage.items.length ? <div className="divide-y divide-slate-100 dark:divide-white/5">{examPage.items.map((item) => <article key={item.id} className="p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-slate-900 dark:text-white">{item.title}</h3><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{cbtStatusLabel(item.status)}</span></div><p className="mt-1 text-sm text-slate-500">{item.subject} · {item.grade} · {item.durationMinutes} menit</p><p className="mt-1 text-xs text-slate-500">{formatTenantDateTime(item.startsAt, tenantTimeZone)} · {item.assignedCount} peserta · {item.completedCount} selesai</p><button type="button" onClick={() => void openParticipantPreview(item.id)} disabled={Boolean(participantPreviewLoadingId)} className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5">{participantPreviewLoadingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}Pratinjau sisi peserta</button></article>)}</div> : examPageError ? null : <div className="p-10 text-center text-sm text-slate-500">Belum ada sesi ujian.</div>}
         {examPageError && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 border-t border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200"><span>{examPageError}</span><button type="button" onClick={() => void loadExamPage(null, false)} className="rounded-lg border border-rose-300 px-3 py-1.5 font-semibold dark:border-rose-300/30">Coba lagi</button></div>}
         {examPageLoading && examPage.items.length > 0 && <p role="status" className="border-t border-slate-200 p-3 text-center text-xs text-slate-500 dark:border-white/10">Memuat ujian berikutnya…</p>}
         {examPage.hasMore && <div className="border-t border-slate-200 p-4 text-center dark:border-white/10"><button type="button" onClick={() => void loadExamPage(examPage.nextCursor, true)} disabled={examPageLoading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-slate-200">{examPageLoading ? "Memuat…" : "Muat ujian berikutnya"}</button></div>}
@@ -1142,6 +1170,26 @@ export function SupabaseCBTManager() {
         <div className="flex flex-wrap gap-2"><button type="button" disabled={saving} onClick={() => void runLegacySettingsImport("preview")} className={BUTTON}><RefreshCw className={saving ? "h-4 w-4 animate-spin" : "h-4 w-4"} />Pratinjau konfigurasi</button><button type="button" disabled={saving || !settingsImportPreview?.canApply} onClick={() => void runLegacySettingsImport("apply")} className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Check className="h-4 w-4" />Terapkan konfigurasi</button></div>
         <ImportPreviewDetails preview={settingsImportPreview} />
       </section>
+    </div>}
+    {participantPreviewError && !participantPreview && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">{participantPreviewError}</div>}
+    {participantPreview && <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-50 font-sans dark:bg-slate-950" role="dialog" aria-modal="true" aria-label="Pratinjau ujian sisi peserta">
+      <header className="sticky top-0 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-white/10 dark:bg-slate-900 sm:px-7">
+        <div><div className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Pratinjau sisi peserta</div><h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">{participantPreview.title}</h2><p className="text-xs text-slate-500">{participantPreview.subject} · {participantPreview.grade} · {participantPreview.durationMinutes} menit</p></div>
+        <button type="button" onClick={() => { setParticipantPreview(null); setParticipantPreviewError(""); }} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5"><X className="h-4 w-4" />Tutup pratinjau</button>
+      </header>
+      <div className="mx-auto max-w-4xl space-y-5 p-4 sm:p-8">
+        <div role="status" className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-100">Mode pratinjau. Jawaban tidak disimpan dan waktu ujian tidak berjalan.{participantPreview.shuffleQuestions ? " Urutan soal saat ujian dapat diacak." : ""}</div>
+        <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs text-slate-500">Jadwal: {formatTenantDateTime(participantPreview.startsAt, tenantTimeZone)}</p><p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Soal {participantPreviewIndex + 1} dari {participantPreview.questions.length}</p></div><span className="rounded-xl border border-slate-200 px-3 py-2 font-mono text-sm text-slate-500 dark:border-white/10">Pratinjau · tanpa hitung mundur</span></div>
+        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900 sm:p-8">
+          <div className="whitespace-pre-wrap text-base leading-7 text-slate-900 dark:text-white">{displayCbtQuestionText(participantPreview.questions[participantPreviewIndex].text)}</div>
+          <div className="mt-6 space-y-3">{participantPreview.questions[participantPreviewIndex].options.map((option, index) => <div key={index} className="flex items-start gap-3 rounded-xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-white/10 dark:text-slate-200"><input type="radio" disabled aria-label={"Pilihan " + String.fromCharCode(65 + index)} />{displayCbtQuestionText(option)}</div>)}</div>
+        </article>
+        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 dark:border-white/10">
+          <button type="button" onClick={() => setParticipantPreviewIndex((index) => Math.max(0, index - 1))} disabled={participantPreviewIndex === 0} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-40 dark:border-white/10 dark:text-slate-200"><ChevronLeft className="h-4 w-4" />Sebelumnya</button>
+          <div className="flex flex-wrap gap-2">{participantPreview.questions.map((question, index) => <button key={question.id} type="button" onClick={() => setParticipantPreviewIndex(index)} aria-label={"Pratinjau soal " + (index + 1)} aria-current={participantPreviewIndex === index ? "step" : undefined} className={"h-8 w-8 rounded-lg text-xs font-bold " + (participantPreviewIndex === index ? "bg-indigo-700 text-white" : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200")}>{index + 1}</button>)}</div>
+          <button type="button" onClick={() => setParticipantPreviewIndex((index) => Math.min(participantPreview.questions.length - 1, index + 1))} disabled={participantPreviewIndex + 1 >= participantPreview.questions.length} className="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-40">Berikutnya<ChevronRight className="h-4 w-4" /></button>
+        </footer>
+      </div>
     </div>}
   </main>;
 }
