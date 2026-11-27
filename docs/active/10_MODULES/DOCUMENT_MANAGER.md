@@ -1,32 +1,43 @@
-# Modul Document Manager (Sistem Pengarsipan & E-Office)
+# Modul Dokumen Digital (E-Office)
 
 ## Tujuan
-Sistem Persuratan Elektronik (E-Office) terpadu untuk digitalisasi dokumen resmi sekolah/pesantren. Memfasilitasi penyimpanan surat masuk, surat keluar, e-approval (tanda tangan digital), arsip, serta OCR scanning sertifikat dan dokumen santri dengan efisien dan berbasis artificial intelligence.
 
-## Fitur Utama
+Mengelola surat masuk, surat keluar, dan dokumen internal pesantren, termasuk pencatatan metadata, penelaahan, persetujuan, lampiran PDF, serta pengarsipan. Implementasi aktif menggunakan API backend tenant dan Supabase.
 
-1. **AI OCR Scanner**
-   - Menggunakan model *Generative AI (Gemini)* dari Google untuk ekstrasi metadata secara cerdas dari gambar dokumen berbasis hard-copy.
-   - Ekstraksi difokuskan untuk mengenali tipe dokumen (KTP, Ijazah, Invoice, Dokumen Santri), mengidentifikasi NIK/NIS, nama, dan tanggal penerbitan.
-   - Diimplementasikan sepenuhnya memanfaatkan `server.ts` API Endpoint `/api/ocr` untuk proxy call sehingga key credential AI terlindungi dari runtime browser.
+## Fungsi yang tersedia di implementasi saat ini
 
-2. **Surat Masuk (Incoming Letters)**
-   - Dashboard pengelolaan surat masuk dari institusi luar dengan sistem registrasi manual.
-   - Kolom status tracking (misalnya: *Needs Disposition* atau *Disposed*) lengkap dengan fitur pencarian dan reka data real-time ke tabel dashboard.
-   - Modul registrasi yang user-friendly dengan input pengirim, subjek, kategori, beserta attachment (upload form).
+1. **Pencatatan dokumen**
+   - Jenis dokumen: masuk, keluar, atau internal.
+   - Informasi utama: perihal, pengirim, penerima, tanggal dokumen, dan ringkasan.
+   - Nomor dokumen diterbitkan otomatis oleh backend sesuai aturan penomoran yang aktif.
 
-3. **Surat Keluar (Outgoing Letters)**
-   - Terminal "Drafting" untuk membuat rancangan surat keluar secara sistematis.
-   - Memonitor status operasional surat dari *Draft* > *Waiting Approval* > *Sent*.
-   - Filter parameter (recipients & subjects) untuk mempermudah monitoring output administrasi.
+2. **Daftar dan pencarian**
+   - Daftar dokumen dapat dicari dan disaring menurut jenis serta kelompok status.
+   - Daftar dimuat bertahap agar pencarian dan penelusuran tidak bergantung pada pemuatan seluruh catatan sekaligus.
 
-4. **E-Approval & Digital Signature**
-   - Workflow persetujuan bagi Kepala Sekolah / Pimpinan Pesantren untuk me-review surat-surat krusial yang bersifat *Waiting Approval*.
-   - Memberikan pengalaman *preview layout* dengan validasi terintegrasi untuk "Reject" atau "Sign & Approve" di mana setiap entitas akan mendapatkan penempatan ID QR unik sebagai penanda stempel *Digital Signature*.
+3. **Alur status**
+   - Status yang digunakan: Terdaftar, Dalam telaah, Disetujui, Perlu perbaikan, dan Diarsipkan.
+   - Perubahan status dicatat sebagai peristiwa alur dokumen.
 
-5. **Arsip Digital (Unified Repository)**
-   - Repositori permanen untuk memelihara riwayat kontrak, MoU, SK (Surat Keputusan), Laporan Audit Keuangan, maupun direktori kebijakan lainnya secara aman dengan kapasitas file metrik yang terukur.
+4. **Lampiran PDF**
+   - Lampiran PDF disimpan pada bucket privat.
+   - Aplikasi meminta tautan unggah/unduh melalui backend; tautan unduh bersifat sementara.
+   - Batas berkas pada implementasi saat ini adalah 25 MB per lampiran.
 
-## Rencana Pengembangan Lanjutan (Firebase Migration)
-- Mengintegrasikan hasil parsing AI OCR (JSON Extracted Metadata) agar bisa di-*save* ke Firebase Firestore (sebagai struktur E-Office).
-- Integrasi ke Google Cloud Storage / Firebase Storage untuk menyimpan raw PDF / Image assets sebelum dan sesudah diproses AI OCR.
+5. **Arsip Digital**
+   - Dokumen berstatus arsip dapat ditelusuri melalui tab Arsip Digital.
+
+## Hasil UAT staging
+
+Pada 27 November 2026, Admin UAT membuat satu dokumen internal sintetis dengan nomor otomatis `DOC/2026/00004`. Catatan tetap muncul setelah daftar dimuat ulang. Alur Terdaftar → Dalam telaah → Disetujui → Diarsipkan berhasil dijalankan dan dokumen terlihat pada tab Arsip Digital.
+
+UAT tersebut membuktikan satu alur dokumen sintetis pada tenant staging. UAT ini tidak membuktikan semua role, seluruh kemungkinan status, pemulihan berkas, atau perilaku Production. Tidak ada perubahan Production dalam UAT ini.
+
+## Batas fitur dan tindak lanjut
+
+- Tab **Pemindai OCR** saat ini hanya menampilkan lampiran PDF untuk ditelaah dan diunduh secara manual. Ekstraksi teks atau metadata otomatis belum tersedia. Tidak ada layanan Gemini atau endpoint OCR aktif yang dibuktikan oleh implementasi ini.
+- Alur persetujuan saat ini mencatat status workflow. Tanda tangan digital kriptografis dan stempel QR belum dibuktikan tersedia; status “Disetujui” tidak boleh dipasarkan sebagai tanda tangan digital.
+- Jika OCR otomatis akan dibuat, tim backend perlu menyepakati layanan pemrosesan, metadata hasil, persetujuan koreksi oleh operator, perlindungan berkas berisi identitas, serta retensi dan penghapusan hasil.
+- Jika tanda tangan digital/QR diperlukan, itu perlu menjadi fungsi tersendiri dengan identitas penanda tangan, bukti persetujuan, waktu, validasi, serta audit yang dapat diverifikasi.
+
+Dokumen ini menjelaskan implementasi ERP4 saat ini. Hindari mengacu pada rencana migrasi Firebase atau klaim OCR AI lama; runtime aktif untuk modul ini adalah backend Supabase.

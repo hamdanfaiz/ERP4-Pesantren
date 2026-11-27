@@ -1,5 +1,8 @@
 # Serene HRIS & School Management - Full System Changelog
 
+> **Catatan arsip:** changelog ini merekam klaim dan rancangan dari prototipe awal, bukan daftar kemampuan runtime Supabase yang tersedia saat ini dan bukan bukti UAT atau kesiapan komersial. Sejumlah tampilan historis dapat berupa simulasi atau belum tersambung ke backend. Gunakan [Kesiapan Komersial](docs/active/00_PRODUCT/COMMERCIAL_READINESS.md) dan dokumentasi modul aktif untuk status yang berlaku.
+
+
 ## System Architecture & Massive Module Rollout (June 2026)
 This application has undergone a massive architectural scale-up to support a complete, end-to-end ERP and School Management Ecosystem. We have migrated from a simple dashboard to a 30+ module monolith with extensive UI/UX polishing.
 
