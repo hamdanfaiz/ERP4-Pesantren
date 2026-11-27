@@ -316,6 +316,12 @@ jobs:
 
       - name: Install PostgreSQL 17 client
         run: |
+          # GitHub's Ubuntu image can include a Microsoft apt source that returns
+          # 403 in hosted runners. It is not needed for this job; disable only
+          # that source so Ubuntu and PostgreSQL PGDG package indexes can update.
+          while IFS= read -r -d '' source; do
+            sudo mv -- "$source" "${source}.ci-disabled"
+          done < <(sudo grep --null -rl 'packages.microsoft.com' /etc/apt/sources.list.d 2>/dev/null || true)
           sudo apt-get update
           sudo apt-get install --yes ca-certificates curl
           sudo install -d /usr/share/postgresql-common/pgdg

@@ -1,5 +1,23 @@
 # Audit menu dan tab staging — 27 November 2026
 
+## Koreksi pemeriksaan UKS terbaru — 27 November 2026
+
+Pada pemeriksaan pertama, memilih **Kesehatan (UKS)** sempat menampilkan batas galat aplikasi: “Modul Kesehatan belum dapat ditampilkan”. Setelah navigasi ulang, UKS berhasil dimuat pada staging yang sama: ringkasan, tab, daftar pilihan santri, data sintetis, dan formulir kunjungan terlihat. Jadi kegagalan render **tidak terulang** dan saat ini UKS lulus pemeriksaan pemuatan layar dasar, tetapi penyebab gangguan awal masih belum diketahui. Tidak ada formulir yang dikirim atau data yang diubah.
+
+`ModuleErrorBoundary` mencatat nama error, pesan, stack, dan component stack di konsol browser. Perlu menangkap rincian itu jika kegagalan muncul kembali; tanpa log tersebut akar masalah belum bisa dibuktikan. Pemeriksaan ini hanya memastikan pemuatan ulang berhasil, bukan alur simpan-baca UKS.
+
+Pemeriksaan `npm run lint` dan `npm run build` pada source lokal `main` commit `c48a46318c372c29829971cf623866584ee59936` lulus. Build hanya menunjukkan peringatan ukuran chunk PDF dan anotasi komentar dependency `zod`. Production PTSAS tidak disentuh.
+
+Pemeriksaan staging berikutnya pada sesi Admin UAT:
+
+- UKS → Inventaris Obat terbuka dan menampilkan satu item sintetis, kategori serta satuan referensi, dan riwayat stok awal. Formulir tersedia; tidak ada stok yang dimutasi.
+- PPDB terbuka tanpa pesan gagal, tetapi belum ada calon santri di tenant uji. Tidak ada pendaftar yang dibuat.
+- Keuangan menampilkan satu tagihan sintetis Rp250.000. Tab Pengeluaran terbuka; formulir menampilkan pilihan unit organisasi dan kategori. Formulir ditutup dengan **Batal**, tanpa pengajuan atau transaksi baru.
+- SDM menampilkan tiga pegawai sintetis dan dua jabatan aktif. Tombol **Tambah** membuka formulir jabatan, dan pilihan jabatan/unit tersedia pada formulir pegawai. Kedua formulir ditutup dengan **Batal**; tidak ada pegawai atau jabatan baru yang disimpan.
+- Asrama menampilkan tiga santri pada dua kamar aktif beserta jumlah hunian. Tampilan container pada preview saat ini gelap dan konsisten dengan panel lain. Navigasi serta screenshot diperiksa; tidak ada penempatan yang diubah.
+
+Pemeriksaan ini menambah bukti navigasi dan render dasar saja. Alur submit simpan-baca, persetujuan, dan isolasi lintas role/tenant tetap belum dibuktikan oleh sesi ini.
+
 ## Lingkungan dan cara pemeriksaan
 
 Pemeriksaan dilakukan pada preview Hostinger staging `lightgreen-jay-425688.hostingersite.com` dengan sesi Admin UAT yang sudah terbuka. Saya membuka menu dan tab melalui antarmuka, menunggu indikator pemuatan selesai, lalu memeriksa konten layar dan pesan error. Tidak ada formulir disimpan, transaksi dibuat, atau data yang diubah. Production PTSAS tidak disentuh.
