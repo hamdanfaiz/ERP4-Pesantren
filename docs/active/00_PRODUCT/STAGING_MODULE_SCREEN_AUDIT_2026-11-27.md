@@ -1,3 +1,17 @@
+## UAT pratinjau ujian CBT sisi peserta — 28 November 2026
+
+Pemeriksaan dilakukan pada preview Hostinger VQE staging `lightgreen-jay-425688.hostingersite.com` dengan sesi Admin UAT. Production PTSAS tidak disentuh.
+
+- Admin membuka `CBT → Sesi Ujian → Ujian Sampel Fiqih Semester Ganjil → Pratinjau sisi peserta`.
+- Dialog pratinjau menampilkan soal dan pilihan jawaban dalam tata letak peserta. Ada tiga soal yang dapat dijelajahi.
+- Banner menyatakan bahwa jawaban tidak disimpan dan timer tidak berjalan. Tidak ada percobaan atau jawaban ujian yang dibuat.
+- Kartu ujian menunjukkan status Terbit, **0 peserta ditugaskan**, dan **0 selesai**. Karena itu, alur ujian sebenarnya dari akun Santri pada menu **CBT → Ujian Saya** belum teruji.
+- Uji unit CBT mencakup pratinjau tenant-scoped, batching 205 soal, pengecualian kunci jawaban, validasi, dan ketiadaan attempt. Semua 13 skrip CBT yang diperiksa lulus di source yang identik dengan file terkait pada main.
+
+Agar UAT peserta nyata dapat dilakukan, Admin perlu menugaskan ujian sintetis ke akun Santri uji dan menguji mulai, penyimpanan jawaban, batas waktu, pengiriman, dan hasil. Jangan menggunakan ujian/data nyata. Pemeriksaan ini tidak membuat atau mengubah penugasan.
+
+---
+
 ## UAT Perpustakaan Digital — 28 November 2026
 
 Pemeriksaan dilakukan pada Hostinger preview VQE staging `lightgreen-jay-425688.hostingersite.com` menggunakan sesi Admin UAT. Production PTSAS tidak disentuh.
