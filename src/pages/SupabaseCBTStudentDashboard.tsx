@@ -1,4 +1,5 @@
 import { toERPUserMessage } from "../utils/userMessages";
+import { displayCbtQuestionText } from "../utils/cbtQuestionText";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Play, RefreshCw, ShieldCheck, Send } from "lucide-react";
 import { getAccessToken } from "../authSession";
@@ -161,8 +162,8 @@ export function SupabaseCBTStudentDashboard() {
     <section className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4 sm:p-8">
       <div className="mb-5 flex items-center justify-between text-xs text-slate-500"><span>{answeredCount} jawaban tersimpan sementara</span><span>{attempt.questions.length} soal</span></div>
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900 sm:p-8">
-        <div className="whitespace-pre-wrap text-base leading-7 text-slate-900 dark:text-white">{currentQuestion.text}</div>
-        <div className="mt-6 space-y-3">{currentQuestion.options.map((option, index) => <label key={index} className={"flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition " + (answers[currentQuestion.id] === index ? "border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-400/10 dark:text-indigo-100" : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5")}><input type="radio" name={currentQuestion.id} checked={answers[currentQuestion.id] === index} onChange={() => setAnswers((current) => ({ ...current, [currentQuestion.id]: index }))} />{option}</label>)}</div>
+        <div className="whitespace-pre-wrap text-base leading-7 text-slate-900 dark:text-white">{displayCbtQuestionText(currentQuestion.text)}</div>
+        <div className="mt-6 space-y-3">{currentQuestion.options.map((option, index) => <label key={index} className={"flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition " + (answers[currentQuestion.id] === index ? "border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-400/10 dark:text-indigo-100" : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5")}><input type="radio" name={currentQuestion.id} checked={answers[currentQuestion.id] === index} onChange={() => setAnswers((current) => ({ ...current, [currentQuestion.id]: index }))} />{displayCbtQuestionText(option)}</label>)}</div>
       </article>
     </section>
     <footer className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">

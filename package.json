@@ -41,6 +41,7 @@
     "test:cbt-monitor": "tsx scripts/test-cbt-monitor.ts",
     "test:cbt-settings-write": "tsx scripts/test-cbt-settings-write.ts",
     "test:cbt-question-pagination": "tsx scripts/test-cbt-question-pagination.ts",
+    "test:cbt-question-text": "tsx scripts/test-cbt-question-text.ts",
     "test:cbt-initial-question-load": "node scripts/test-cbt-initial-question-load.mjs",
     "test:cbt-student-roster-pagination": "tsx scripts/test-cbt-student-roster-pagination.ts",
     "test:cbt-assignment-pagination": "tsx scripts/test-cbt-assignment-pagination.ts",

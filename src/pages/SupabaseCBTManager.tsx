@@ -7,6 +7,7 @@ import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
 import { toERPUserMessage } from "../utils/userMessages";
+import { displayCbtQuestionText } from "../utils/cbtQuestionText";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
 type Question = {
@@ -72,25 +73,6 @@ const CBT_REFERENCE_TABS: Array<{ id: Tab; label: string; icon: React.ReactNode 
 const FIELD = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-white/10 dark:bg-slate-950 dark:text-slate-100";
 const BUTTON = "inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-800 disabled:cursor-not-allowed disabled:opacity-50";
 const LABEL = "block text-sm font-medium text-slate-700 dark:text-slate-300";
-
-function displayCbtQuestionText(value: unknown): string {
-  if (typeof value !== "string") return "";
-  if (!/<[a-z][^>]*>/i.test(value)) return value;
-  return value
-    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(?:p|div|li|ul|ol|h[1-6]|blockquote)\s*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;|&#160;|&#x0*a0;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
