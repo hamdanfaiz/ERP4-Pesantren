@@ -886,6 +886,72 @@ export async function listSupabaseCbtAdminExamPage(tenantIdentifier: string, inp
   };
 }
 
+/** Read-only, Admin-only source for the student-facing exam preview. It never creates an attempt. */
+export async function getSupabaseCbtAdminParticipantPreview(tenantIdentifier: string, examIdentifier: string) {
+  const tenantId = await tenantIdFrom(tenantIdentifier);
+  if (!isUuid(examIdentifier)) throw new SupabaseCbtError(400, "ID ujian tidak valid.");
+  const examRows = await request("/rest/v1/cbt_exams?" + new URLSearchParams({
+    select: "id,title,subject,grade,starts_at,ends_at,duration_minutes,status,shuffle_questions",
+    tenant_id: "eq." + tenantId, id: "eq." + examIdentifier, limit: "2",
+  }).toString());
+  if (!Array.isArray(examRows) || examRows.length !== 1) throw new SupabaseCbtError(404, "Sesi ujian tidak ditemukan.");
+  const exam = examRows[0] as Row;
+  const links = await readPostgrestRowsInPages<Row>({
+    request,
+    path: "/rest/v1/cbt_exam_questions?" + new URLSearchParams({
+      select: "question_id,display_order", tenant_id: "eq." + tenantId,
+      exam_id: "eq." + examIdentifier, order: "display_order.asc,question_id.asc",
+    }).toString(),
+    maxRows: 500,
+    uniqueOrderColumn: "question_id",
+    onIncomplete: () => new SupabaseCbtError(503, "Daftar soal ujian belum dapat diverifikasi."),
+  });
+  if (links.length < 1 || links.length > 500) throw new SupabaseCbtError(409, "Ujian tidak memiliki jumlah soal yang dapat dipratinjau.");
+  const questionIds = links.map((row) => String(row.question_id));
+  if (questionIds.some((id) => !isUuid(id)) || new Set(questionIds.map((id) => id.toLowerCase())).size !== questionIds.length) {
+    throw new SupabaseCbtError(503, "Relasi soal ujian belum dapat diverifikasi.");
+  }
+  const questionRows: Row[] = [];
+  for (let offset = 0; offset < questionIds.length; offset += 100) {
+    const batch = questionIds.slice(offset, offset + 100);
+    const rows = await request("/rest/v1/cbt_questions?" + new URLSearchParams({
+      select: "id,question_html,options", tenant_id: "eq." + tenantId,
+      id: "in.(" + batch.join(",") + ")", limit: String(batch.length + 1),
+    }).toString());
+    if (!Array.isArray(rows) || rows.length !== batch.length) {
+      throw new SupabaseCbtError(503, "Isi soal ujian belum dapat diverifikasi.");
+    }
+    questionRows.push(...rows as Row[]);
+  }
+  const questionsById = new Map<string, Row>();
+  for (const row of questionRows) {
+    const id = String(row.id || "").toLowerCase();
+    if (!isUuid(id) || questionsById.has(id) || !Array.isArray(row.options)
+      || row.options.length < 2 || row.options.length > 8
+      || row.options.some((option: unknown) => typeof option !== "string" || option.length > 1000)) {
+      throw new SupabaseCbtError(503, "Isi soal ujian belum dapat diverifikasi.");
+    }
+    questionsById.set(id, row);
+  }
+  const questions = questionIds.map((id) => {
+    const row = questionsById.get(id.toLowerCase());
+    if (!row) throw new SupabaseCbtError(503, "Sebagian soal ujian tidak dapat dimuat.");
+    return { id: String(row.id), text: summaryText(row.question_html, 12000), options: [...row.options] as string[] };
+  });
+  const startsAt = summaryText(exam.starts_at, 80);
+  const endsAt = summaryText(exam.ends_at, 80);
+  const status = summaryText(exam.status, 40);
+  if (!isUuid(exam.id) || !Number.isFinite(Date.parse(startsAt)) || !Number.isFinite(Date.parse(endsAt))
+    || Date.parse(endsAt) <= Date.parse(startsAt) || !["draft", "published", "closed"].includes(status)) {
+    throw new SupabaseCbtError(503, "Rincian sesi ujian belum dapat diverifikasi.");
+  }
+  return {
+    id: String(exam.id), title: summaryText(exam.title, 180), subject: summaryText(exam.subject, 150),
+    grade: summaryText(exam.grade, 40), startsAt, endsAt, durationMinutes: summaryCount(exam.duration_minutes),
+    status, shuffleQuestions: Boolean(exam.shuffle_questions), questions,
+  };
+}
+
 export async function listSupabaseCbtAdminSnapshot(tenantIdentifier: string) {
   const tenantId = await tenantIdFrom(tenantIdentifier);
   const referenceRows = (domain: string) => request("/rest/v1/tenant_reference_items?" + new URLSearchParams({

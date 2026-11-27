@@ -3043,6 +3043,28 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     });
     assert.equal(cbtExamCreate.status, 201, 'The Admin can persist an exam and its question/student relationships.');
     const cbtExam = await cbtExamCreate.json();
+    const cbtParticipantPreviewResponse = await fetch(`${referenceApiBase}/api/cbt/admin/exams/${encodeURIComponent(cbtExam.id)}/participant-preview`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    assert.equal(cbtParticipantPreviewResponse.status, 200, 'An authorized tenant Admin can preview an exam using the student-facing layout.');
+    const cbtParticipantPreview = await cbtParticipantPreviewResponse.json();
+    assert.equal(cbtParticipantPreview.questions.length, 1);
+    assert.deepEqual(cbtParticipantPreview.questions[0], {
+      id: cbtQuestion.id, text: cbtQuestionPayload.question.text, options: cbtQuestionPayload.question.options,
+    }, 'The participant preview returns question content and options only, without answer keys or explanations.');
+    assert.equal(Object.hasOwn(cbtParticipantPreview, 'attemptId'), false, 'The preview never creates or returns an exam attempt.');
+    const { count: previewAttemptCount, error: previewAttemptCountError } = await admin.from('cbt_attempts')
+      .select('id', { count: 'exact', head: true }).eq('tenant_id', tenantIds[0]).eq('exam_id', cbtExam.id);
+    assert.equal(previewAttemptCountError, null);
+    assert.equal(previewAttemptCount, 0, 'Previewing the student layout creates no persisted attempt.');
+    const cbtStudentPreviewDenied = await fetch(`${referenceApiBase}/api/cbt/admin/exams/${encodeURIComponent(cbtExam.id)}/participant-preview`, {
+      headers: { Authorization: `Bearer ${santriToken}` },
+    });
+    assert.equal(cbtStudentPreviewDenied.status, 403, 'The admin preview endpoint cannot be used by a student account.');
+    const cbtLimitedAdminPreviewDenied = await fetch(`${referenceApiBase}/api/cbt/admin/exams/${encodeURIComponent(cbtExam.id)}/participant-preview`, {
+      headers: { Authorization: `Bearer ${limitedAdminToken}` },
+    });
+    assert.equal(cbtLimitedAdminPreviewDenied.status, 403, 'An Admin without CBT permission cannot read participant previews.');
     const cbtExamRetry = await fetch(`${referenceApiBase}/api/cbt/exams`, {
       method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(cbtExamPayload),
@@ -3068,6 +3090,10 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
       method: 'POST', headers: { Authorization: `Bearer ${tenantBStudentToken}` },
     });
     assert.equal(crossTenantCbtStart.status, 404, 'A Santri in another tenant cannot start the foreign tenant exam.');
+    const crossTenantCbtPreview = await fetch(`${referenceApiBase}/api/cbt/admin/exams/${encodeURIComponent(cbtExam.id)}/participant-preview`, {
+      headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
+    });
+    assert.equal(crossTenantCbtPreview.status, 404, 'A different tenant Admin cannot preview a foreign tenant exam.');
 
     const studentCbtSnapshotResponse = await fetch(`${referenceApiBase}/api/cbt/student`, {
       headers: { Authorization: `Bearer ${santriToken}` },
