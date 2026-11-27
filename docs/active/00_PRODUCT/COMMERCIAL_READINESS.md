@@ -1,3 +1,14 @@
+## Handoff terbaru — 28 November 2026, UAT pratinjau CBT dan rekonsiliasi ledger
+
+- Source resmi yang diperiksa adalah `main` pada `45bcf83a1da7e969d2200dd299c3245c4edde764`. Keempat pemeriksaan CI pada commit ini berhasil: Supabase Preview, build frontend/Firebase bundle guard, migrasi/API auth/pgTAP, dan instalasi NPM untuk lingkungan pelanggan.
+- Guard `npm run test:ci-coverage` lulus: 81 skrip tes package dijadwalkan dalam workflow database. Sebanyak 13 tes CBT dan 9 tes unit/validasi tambahan dijalankan ulang di checkout lokal; semuanya lulus. File CBT dan workflow yang dibandingkan identik byte demi byte dengan source `main`.
+- UAT layar Admin di VQE staging `lightgreen-jay-425688.hostingersite.com` membuka `CBT → Sesi Ujian → Ujian Sampel Fiqih Semester Ganjil → Pratinjau sisi peserta`. Pratinjau menampilkan 3 soal; jawaban tidak disimpan dan timer tidak berjalan.
+- Ujian tersebut berstatus Terbit tetapi menunjukkan **0 peserta ditugaskan** dan **0 selesai**. Karena belum ada peserta Santri yang ditugaskan, alur ujian nyata melalui CBT → Ujian Saya—termasuk mulai, menjawab, mengirim, dan hasil—belum diuji.
+- Pemeriksaan baca-saja ledger terbaru: source mempunyai 170 file migrasi dan VQE mempunyai 170 versi dengan versi/nama yang cocok; PTSAS Production mempunyai 100 versi sampai `20270316000000`. Ada 70 versi source/VQE yang belum tercatat di Production, tanpa versi Production di luar VQE/source. Tiga baris Production belum memiliki nama: `20261205000000`, `20261206000000`, dan `20270118000000`.
+- Tidak ada migrasi atau data Production yang diubah. Selisih ledger bukan bukti kesetaraan atau perbedaan DDL. Tinjauan DDL aktual, urutan promosi 70 migrasi, serta bukti backup dan pemulihan Production tetap perlu dikerjakan tim database. UAT seluruh alur dan matriks role/tenant juga belum tuntas; ERP belum dinyatakan siap Production/komersial.
+
+---
+
 ## Handoff terbaru — 28 November 2026, setelah UAT Perpustakaan Digital VQE
 
 - Sumber kode utama memuat pratinjau CBT dari PR #309. PR #313 ditutup tanpa merge setelah perbandingan membuktikan isinya duplikat dari fitur di main. Pemeriksaan sesudah penutupan dan sebelum PR dokumentasi ini dibuat menemukan 0 PR terbuka.
