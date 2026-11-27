@@ -89,7 +89,7 @@ Berikut 70 migrasi yang ada pada source/VQE namun tidak tercatat di Production:
 20270408000000 alumni_tracer_study
 ```
 
-Nama tiga migrasi yang kosong di ledger Production dapat dipetakan ke nama file source/VQE, tetapi tim database tetap perlu membuktikan isi DDL aktual sebelum menyimpulkan bahwa ledger dapat direkonsiliasi aman.
+Nama tiga migrasi yang kosong dapat dipetakan ke source/VQE: `20261205000000_data_api_default_privilege_hardening`, `20261206000000_ppdb_legacy_candidate_import`, dan `20270118000000_crm_contact_management`. Tim database tetap perlu membuktikan isi DDL aktual sebelum menyimpulkan bahwa ledger dapat direkonsiliasi aman.
 
 ## Katalog akses Production
 
