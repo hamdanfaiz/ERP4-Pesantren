@@ -40,6 +40,13 @@
 - Hostinger staging `lightgreen-jay-425688.hostingersite.com` terakhir tercatat Current pada commit aplikasi `dca570c` setelah redeploy 27 November sekitar 06.09 WIB. Admin UAT membuka SDM, Tahfidz, dan Asrama sesudahnya. PR #271–#277 hanya dokumentasi; identitas runtime hosting terbaru belum dikonfirmasi.
 - Merge kode ke `main` tidak sama dengan menjalankan migrasi Production atau mengaktifkan flag. PTSAS Production tidak disentuh.
 
+## Catatan lanjutan staging — 27 November 2026
+
+- Pada hPanel situs `lightgreen-jay-425688.hostingersite.com`, dua gerbang fitur Komunitas Alumni yang sebelumnya belum ada ditambahkan hanya untuk VQE: `SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED=true` dan `VITE_SUPABASE_ALUMNI_EVENTS_RUNTIME_ENABLED=true`. Tidak ada secret yang diubah.
+- Redeploy Hostinger selesai pada commit `1dbb556562c0bf77eec40850c5501e253a73d3a1`. `/runtime-config.json` mengonfirmasi flag UI aktif dan URL proyek staging mengarah ke VQE (`vqemuyzveuirlkvdggjd`). Setelah aplikasi dimuat ulang, tab Komunitas muncul dan kegiatan sintetis `[UAT] Reuni Alumni ERP4` terbaca. Ini membuktikan konfigurasi, visibilitas, dan baca daftar di staging; bukan bukti perubahan Production.
+- Pemeriksaan sumber menemukan keterangan direktori Alumni yang menjelaskan bahwa beberapa tab memakai daftar yang sama. Teks tersebut diganti dengan panduan pengguna yang berfokus pada direktori dan tujuan tiap tab. Perubahan antarmuka ini diajukan pada PR #279 dan belum ada di deployment staging.
+- Pemeriksaan lokal setelah perubahan: `npm run lint`, `npm run build`, dan `npm run test:alumni-workflow` lulus. Build menampilkan peringatan ukuran chunk PDF besar dan anotasi komentar dependensi yang diabaikan Rollup; tidak ada kegagalan build.
+
 ## Langkah berikutnya untuk tim backend
 
 1. Lanjutkan smoke test serta alur tambah–simpan–muat ulang untuk seluruh modul di Hostinger staging/VQE, termasuk modul yang baru diaktifkan lewat feature flag. Pisahkan fitur yang memang belum tersedia dari kesalahan runtime.
@@ -50,3 +57,4 @@
 6. Lanjutkan UAT menyeluruh seluruh modul: alur CRUD, relasi, validasi, role/tenant, transaksi, Storage, kondisi kosong/error, dan instalasi VPS/on-premise.
 
 **Status:** pekerjaan aplikasi #269–#270 dan dokumentasi #271 sudah berada di `main`; produk ERP secara keseluruhan belum terbukti siap Production atau siap komersial. Gate Production dan UAT lintas-modul tetap terbuka.
+
