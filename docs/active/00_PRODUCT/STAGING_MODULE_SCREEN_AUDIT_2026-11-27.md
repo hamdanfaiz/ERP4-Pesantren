@@ -1,3 +1,18 @@
+## UAT Perpustakaan Digital — 28 November 2026
+
+Pemeriksaan dilakukan pada Hostinger preview VQE staging `lightgreen-jay-425688.hostingersite.com` menggunakan sesi Admin UAT. Production PTSAS tidak disentuh.
+
+- Runtime server Perpustakaan telah aktif. Flag `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED=true` ditambahkan khusus pada environment staging; Hostinger menyelesaikan deployment.
+- Tab **Perpustakaan Digital** menampilkan keadaan kosong yang benar, tombol **Unggah berkas**, dan keterangan PDF/EPUB/MP3/M4A dengan batas 25 MB serta penyimpanan privat.
+- Formulir unggah membuka kolom judul, keterangan opsional, dan pemilih berkas; batas dan jenis berkas ditampilkan. Formulir ditutup tanpa mengunggah data.
+- Uji integrasi HTTP yang sama menjalankan operasi nyata terhadap VQE: bucket privat, unggahan/unduhan bertanda tangan, isolasi role/tenant, idempotensi, hash dan pemeriksaan signature konten, serta pembersihan objek yang ditolak. Hasil lulus.
+- Pengujian memakai dua tenant sintetis dan akun Auth sintetis. Setelah tes, skrip menangguhkan tenant/profil dan memblokir akun. Pemeriksaan baca-saja pascates mendapatkan 0 tenant/profil test yang masih aktif dan 0 akun Auth test yang tidak diblokir.
+- `npm run test:library-assets` lulus. `npm run check:deployed-assets -- https://lightgreen-jay-425688.hostingersite.com/` memastikan 105 aset aplikasi berasal dari origin deployment.
+
+Cakupan ini membuktikan alur API dan ketersediaan UI pada staging, bukan UAT end-to-end menggunakan browser untuk memilih berkas lokal atau memverifikasi dokumen dari akun pengguna akhir. Data digital yang tersedia sebelum uji berjumlah 0; tidak ada contoh berkas yang ditambahkan. UAT role/tenant seluruh modul dan seluruh proses transaksi masih belum selesai. Tidak ada perubahan Production.
+
+---
+
 # Audit menu dan tab staging — 27 November 2026
 
 

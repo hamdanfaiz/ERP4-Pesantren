@@ -1,3 +1,14 @@
+## Handoff terbaru — 28 November 2026, setelah UAT Perpustakaan Digital VQE
+
+- Sumber kode utama memuat pratinjau CBT dari PR #309. PR #313 ditutup tanpa merge setelah perbandingan membuktikan isinya duplikat dari fitur di main. Pemeriksaan sesudah penutupan dan sebelum PR dokumentasi ini dibuat menemukan 0 PR terbuka.
+- **Perpustakaan Digital VQE staging**: runtime Perpustakaan sudah aktif; flag sisi server `SUPABASE_LIBRARY_DIGITAL_ASSETS_ENABLED=true` ditambahkan pada Hostinger staging dan deployment selesai. Sebagai Admin UAT, tab **Perpustakaan Digital** dan formulir unggah tampil. UI menyatakan PDF/EPUB/MP3/M4A, maksimal 25 MB, penyimpanan privat. Formulir ditutup tanpa mengunggah berkas.
+- Uji integrasi `npm run test:api:library-storage` lulus langsung terhadap VQE staging: bucket privat, unggah/unduh bertanda tangan, pembatasan tenant dan role, idempotensi, verifikasi hash/tanda berkas, serta pembersihan berkas ditolak. Fixture dua tenant dan akun sintetis ditangguhkan/diblokir setelah pengujian; pembacaan hitung-baca memastikan tidak ada fixture berstatus aktif atau akun uji yang tidak diblokir. Production tidak disentuh.
+- Pemeriksaan source lokal terkait juga lulus: `test:library-assets`, `test:cbt-participant-preview`, `test:supabase-runtime-no-firebase` (170 modul, 26 route Supabase, route Firebase lama tertutup), `test:customer-compose-env`, `test:ui-copy`, `lint`, dan `build`. Pemeriksaan graph aset deployment staging lulus untuk 105 aset same-origin.
+- Build tetap memberi peringatan ukuran chunk PDF besar dan anotasi komentar dependency Zod; build berhasil. Peringatan ini perlu dimasukkan pada optimasi performa, bukan penghalang fungsi.
+- **Belum berarti siap Production/komersial.** UAT simpan-baca seluruh modul dan matriks role/tenant belum tuntas. DDL Production, urutan promosi migrasi, serta bukti backup/restore Production tetap harus ditinjau tim database. Tidak ada migrasi, setting, atau data Production yang diubah.
+
+---
+
 ## Handoff terbaru — 28 November 2026, setelah PR #309
 
 - Sumber kode resmi main berada di commit 5faadf0148651b6aa4dba97704c92213e549697c. PR #309 (Pratinjau sisi peserta CBT) sudah digabung; pemeriksaan PR terbuka tidak menemukan PR yang masih terbuka.
