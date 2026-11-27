@@ -1,3 +1,11 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #299 dan UAT SDM
+
+- PR #299 sudah merged ke `main` pada commit dokumentasi `baf90c9b54588ed842d711ee9f47608e69b047ce`. CI lulus untuk build frontend/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API-auth/pgTAP pada Supabase lokal terisolasi.
+- UAT Admin di VQE membuktikan satu alur simpan-baca SDM: pilihan jabatan katalog dan unit tersimpan pada catatan pegawai sintetis, lalu tetap muncul setelah daftar dimuat ulang. Nomor pegawai otomatis `PEG-2026-00004`. Ini satu skenario pada staging, bukan cakupan seluruh fungsi atau matriks role/tenant.
+- Tidak ada konfigurasi hosting, database Production, atau data Production yang diubah.
+- Gerbang Production tetap belum lulus: ledger source/Production berbeda, DDL aktual belum direkonsiliasi, tinjauan urutan promosi belum tersedia, dan bukti backup-restore Production belum diserahkan. Jangan menutup selisih ledger dengan push massal atau repair.
+- Pekerjaan source diperkirakan sekitar 85% secara kasar; persentase ini bukan perhitungan fitur berbobot. Karena UAT tulis-baca lintas modul dan gerbang Production belum terbukti, sistem belum dinyatakan siap Production atau komersial.
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #297 dan pemeriksaan staging
 
 - Sumber kode resmi main berada pada commit 71582104668b66bffc6b22678c216df07076a2f7. PR #296 (perbaikan workflow CI) dan PR #297 (snapshot flag UI staging) sudah merged; pemeriksaan GitHub setelah PR #297 tidak menemukan PR terbuka.
