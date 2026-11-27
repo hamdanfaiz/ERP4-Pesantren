@@ -18,6 +18,12 @@ Pemeriksaan staging berikutnya pada sesi Admin UAT:
 
 Pemeriksaan ini menambah bukti navigasi dan render dasar saja. Alur submit simpan-baca, persetujuan, dan isolasi lintas role/tenant tetap belum dibuktikan oleh sesi ini.
 
+## Konfigurasi UI staging — 27 November 2026
+
+Pembacaan langsung endpoint publik `/runtime-config.json` pada staging mengonfirmasi **18 flag UI** bernilai `true`: Data Induk; PPDB admin, dokumen, tagihan kandidat, dan onboarding; Tahfidz umum dan target massal; Asrama beserta izin, kedisiplinan, kehadiran, penugasan, dan operasional fasilitas; pengumuman; kegiatan dan tracer alumni; jadwal shift SDM; serta pengaturan pesantren. Hanya nama dan status flag yang dicatat; nilai URL dan publishable key tidak disalin ke dokumen.
+
+Endpoint ini sengaja hanya menerbitkan allowlist konfigurasi browser. Ia **tidak** mengungkap atau membuktikan status flag `SUPABASE_*` sisi server. Catatan baca hPanel tanggal 25 November mencatat 13 flag server aktif, tetapi perlu pemeriksaan terbaru pada environment staging sebelum menyimpulkan status hari ini. Jangan mengaktifkan flag yang belum diverifikasi melalui endpoint publik ini.
+
 ## Lingkungan dan cara pemeriksaan
 
 Pemeriksaan dilakukan pada preview Hostinger staging `lightgreen-jay-425688.hostingersite.com` dengan sesi Admin UAT yang sudah terbuka. Saya membuka menu dan tab melalui antarmuka, menunggu indikator pemuatan selesai, lalu memeriksa konten layar dan pesan error. Tidak ada formulir disimpan, transaksi dibuat, atau data yang diubah. Production PTSAS tidak disentuh.
