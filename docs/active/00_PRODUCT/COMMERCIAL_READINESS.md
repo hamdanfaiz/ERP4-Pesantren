@@ -1,3 +1,17 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #291 dan audit layar staging
+
+- Source of truth berada di `main`, commit `ef9e506509cb29a6306478307fb6fc78f53a90d8`. PR #291 telah di-merge; seluruh 3 job CI sukses. Pemeriksaan GitHub setelah merge menemukan 0 PR terbuka.
+- Ledger migrasi dibaca ulang tanpa perubahan: source 170 file; VQE 170/170 cocok; PTSAS mencatat 100 versi sampai `20270316000000`, 70 versi source belum tercatat, dan tiga nama ledger kosong. Seluruh versi Production ditemukan di source; 97 nama cocok dan tidak ada perbedaan nama nonkosong. Ini hanya pemeriksaan ledger, bukan perbandingan DDL atau data aplikasi.
+- Di preview Hostinger staging, 25 menu utama dibuka dengan sesi Admin UAT. Layar utama masing-masing termuat tanpa pesan “Fitur ini belum tersedia saat ini” atau pesan gagal. Setelah panel selesai memuat, console browser mencatat 0 galat. Tidak ada tombol simpan yang dijalankan dan tidak ada data yang dibuat atau diubah pada sesi audit ini.
+- Sepuluh tab Tahfidz dan enam tab Asrama dapat dibuka tanpa pesan gagal. Ringkasan Tahfidz menampilkan peringkat hafalan berdasarkan ayat unik yang tersimpan. Beberapa tombol tampak nonaktif pada sesi ini: penilaian audio AI, pengingat Tahfidz, dan notifikasi umum; penyebab/status operasionalnya belum diverifikasi.
+- Bukti ini hanya mencakup pemuatan layar dan navigasi. Ini **bukan** UAT CRUD, pemeriksaan lengkap tiap tab/subfitur, tes matriks role/tenant, atau bukti deployment hosting terbaru. UAT simpan-baca, relasi lintas modul, dan batas akses masih perlu dicatat per alur.
+- PTSAS Production belum berubah. Gerbang yang tersisa mencakup tinjauan DDL aktual dan urutan promosi oleh tim database, bukti backup/restore Production, dan UAT menyeluruh lintas role/tenant. Jangan menerapkan 70 versi secara massal.
+- Estimasi pekerjaan source tetap sekitar 85% secara kasar; angka ini bukan persentase fitur berbobot dan bukan kesiapan Production/komersial.
+
+Rincian pemeriksaan layar dan cakupannya: [audit menu dan tab staging](./STAGING_MODULE_SCREEN_AUDIT_2026-11-27.md).
+
+---
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #290 dan audit ledger
 
 - Source `main` saat ini berada pada commit `a9e682a2dd20bbceaa17e3a9ca682afe98c39dfb`; PR #289 (perbaikan pesan audit Asrama) dan PR #290 (checkpoint pasca-merge) telah di-merge. CI pasca-merge PR #289, termasuk Supabase Preview, selesai sukses. Deployment aplikasi staging Hostinger telah ditandai **Completed / Current** pada commit aplikasi `2da76d8`; PR #290 hanya mengubah dokumentasi.
