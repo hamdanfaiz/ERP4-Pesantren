@@ -6,6 +6,10 @@ Pemeriksaan dilakukan pada preview Hostinger staging `lightgreen-jay-425688.host
 
 Pemeriksaan ini berjenis **UAT pemuatan layar dan navigasi**. Ia tidak membuktikan semua tombol, proses simpan-baca, kebijakan role/tenant, atau kelayakan deployment.
 
+## Verifikasi pasca-merge PR #294
+
+hPanel menampilkan deployment staging branch `main`, commit `d2d1b8c7cf14b4ce36b19d467c0d3e095cce3c25`, berstatus **Completed / Current**. Tab aplikasi yang terbuka masih menampilkan bundle lama sampai dimuat ulang. Setelah reload, sesi Admin UAT tetap aktif. Pada Tahfidz → Manajemen Halaqah → Tambah Halaqah, teks “Isi nama, pembimbing, jadwal, lokasi, dan target harian.” tampil sesuai konteks; formulir ditutup dengan **Batal** tanpa menyimpan. Ini memverifikasi satu perbaikan UI pasca-deploy, bukan simpan-baca halaqah.
+
 ## Hasil menu utama
 
 Semua 25 menu berikut dapat dibuka dan menampilkan halaman modul, tanpa pesan “Fitur ini belum tersedia saat ini” atau pesan gagal pada saat observasi:
