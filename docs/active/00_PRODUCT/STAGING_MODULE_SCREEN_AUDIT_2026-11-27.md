@@ -1,5 +1,11 @@
 # Audit menu dan tab staging — 27 November 2026
 
+## UAT simpan-baca katalog jabatan SDM — 27 November 2026
+
+Dengan sesi Admin UAT pada situs VQE staging, formulir **Tambah pegawai** menampilkan jabatan dari katalog pesantren dan unit kerja. Jabatan **UAT Pengelola Asrama 20261124** serta unit **Unit UAT Pesantren** dipilih. Catatan sintetis **UAT Verifikasi Jabatan 20261127** berhasil disimpan dengan nomor otomatis **PEG-2026-00004**. Setelah daftar dimuat ulang, pegawai dan jabatan terkait tetap terlihat.
+
+Pemeriksaan ini membuktikan satu alur simpan-baca dan relasi jabatan untuk data sintetis di VQE. Ini tidak membuktikan seluruh proses HRIS, kebijakan role/tenant, atau laporan. Tidak ada data Production yang dibaca atau diubah.
+
 ## Pemeriksaan flag staging dan modul operasional — 27 November 2026, setelah PR #297
 
 Pemeriksaan baca-saja pada hPanel situs staging lightgreen-jay-425688.hostingersite.com memastikan SUPABASE_PROJECT_REF mengarah ke VQE (vqemuyzveuirlkvdggjd). Sebelas flag server yang diperiksa berstatus true: PPDB, Keuangan, Anggaran, UKS, Koperasi, Multi-Unit, HRIS, Pemesanan Fasilitas, Aset GA, Donasi/Wakaf, dan Marketplace. Nilai variabel hanya dibuka satu per satu untuk pemeriksaan, lalu dimask kembali; secret dan nilai koneksi tidak dibaca atau dicatat. Tidak ada konfigurasi yang diubah.
