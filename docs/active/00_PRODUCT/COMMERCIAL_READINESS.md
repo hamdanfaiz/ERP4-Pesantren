@@ -1,3 +1,13 @@
+## Pembaruan handoff — 27 November 2026, setelah PR #305
+
+- Sumber kode resmi berada di `main`, commit `42d3d32ebd19ca07151e3b478382834574afb0b6`. PR #305 sudah di-squash-merge; pemeriksaan GitHub terbaru menunjukkan tidak ada PR terbuka.
+- Perbaikan CBT kini memakai formatter bersama untuk menampilkan teks soal dan pilihan jawaban legacy sebagai teks terbaca di sisi peserta, tanpa merender HTML. CI PR #305 lulus; CI pasca-merge [#46008734782](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/46008734782) juga lulus untuk build/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API-auth/isolasi tenant/Storage/pgTAP pada Supabase lokal terisolasi.
+- hPanel staging `lightgreen-jay-425688.hostingersite.com` menunjukkan branch `main`, commit `42d3d32`, status **Completed / Current**. Layar Admin staging saat pemeriksaan memuat 6 soal dan 1 ujian, tetapi **0 peserta ditugaskan**. Karena itu, tampilan peserta belum dapat diuji dengan ujian nyata. Untuk melihat soal dari akun Santri, ujian harus diterbitkan dan ditugaskan; memilih Mulai Ujian membuat percobaan ujian. Sistem belum menyediakan pratinjau peserta tanpa membuat percobaan.
+- Perubahan ini tidak mengubah skema, data, Storage, environment, atau Production. PTSAS Production tetap memiliki gate terdahulu: rekonsiliasi DDL aktual, tinjauan urutan migrasi, dan bukti pemulihan Production belum diverifikasi. Perbandingan ledger yang tercatat sebelumnya bukan bukti kesetaraan DDL. Jangan jalankan migrasi massal ke Production sebelum gate tersebut diselesaikan.
+- Status keseluruhan tetap **belum 100% dan belum dinyatakan siap Production/komersial**. CI lokal, deployment staging, dan perbaikan CBT tidak membuktikan UAT lintas modul/role/tenant atau kesiapan Production.
+
+---
+
 ## Pembaruan handoff — 27 November 2026, setelah PR #302
 
 - Sumber kode resmi berada di `main`, commit `32b687653adf8ecb553b8c26a3202b070289d865`. PR #302 di-squash-merge; PR mengubah satu file dokumentasi UAT dan tidak mengubah aplikasi, skema, environment, atau Production. Pemeriksaan daftar PR sesudah merge menunjukkan tidak ada PR terbuka.
