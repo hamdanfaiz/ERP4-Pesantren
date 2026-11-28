@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { passwordRecoveryErrorMessage } from "../src/utils/passwordRecoveryErrorMessage";
+import { isPasswordRecoveryCallback } from "../src/utils/passwordRecoveryRoute";
 
 assert.match(passwordRecoveryErrorMessage({ status: 429, code: "over_email_send_rate_limit" }), /Batas email pemulihan proyek.*Jangan kirim permintaan berulang\./);
 assert.match(
@@ -8,6 +9,12 @@ assert.match(
 );
 assert.match(passwordRecoveryErrorMessage({ status: 400, message: "Invalid redirect URL" }), /Alamat aplikasi belum diizinkan/);
 assert.match(passwordRecoveryErrorMessage({ status: 500, message: "SMTP unavailable" }), /Permintaan pemulihan belum dapat diproses/);
+
+assert.equal(isPasswordRecoveryCallback({ search: "?passwordRecovery=1", hash: "" }), true);
+assert.equal(isPasswordRecoveryCallback({ search: "", hash: "#access_token=synthetic&refresh_token=synthetic&type=recovery" }), true);
+assert.equal(isPasswordRecoveryCallback({ search: "?code=synthetic&type=recovery", hash: "" }), true);
+assert.equal(isPasswordRecoveryCallback({ search: "?type=recovery", hash: "" }), false);
+assert.equal(isPasswordRecoveryCallback({ search: "", hash: "#access_token=synthetic&type=invite" }), false);
 
 
 const originalValues = {
@@ -41,11 +48,11 @@ try {
   assert.equal(link, "https://supabase.test/auth/v1/verify?token=test&type=recovery");
   const requestUrl = new URL(capturedUrl);
   assert.equal(requestUrl.pathname, "/auth/v1/admin/generate_link");
-  assert.equal(requestUrl.searchParams.get("redirect_to"), "https://erp.example.test/");
+  assert.equal(requestUrl.searchParams.get("redirect_to"), "https://erp.example.test/?passwordRecovery=1");
   assert.equal(capturedBody?.type, "recovery");
   assert.equal(capturedBody?.email, "admin@example.test");
 
-  console.log("Auth recovery redirect passed: generateLink uses configured PUBLIC_APP_URL.");
+  console.log("Auth recovery redirect passed: Admin recovery links route to the reset form and callback detection covers PKCE and implicit flows.");
 } finally {
   globalThis.fetch = originalFetch;
   if (originalValues.supabaseUrl === undefined) delete process.env.SUPABASE_URL;
@@ -57,4 +64,5 @@ try {
   if (originalValues.publicAppUrl === undefined) delete process.env.PUBLIC_APP_URL;
   else process.env.PUBLIC_APP_URL = originalValues.publicAppUrl;
 }
+
 
