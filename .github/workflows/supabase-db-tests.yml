@@ -176,6 +176,12 @@ jobs:
       - name: Verify secure read-only CBT participant preview
         run: npm run test:cbt-participant-preview
 
+      - name: Verify ordered CBT answer autosave and deadline submission
+        run: npm run test:cbt-answer-sync
+
+      - name: Verify bounded CBT API request timeouts
+        run: npm run test:cbt-request-timeout
+
       - name: Verify tenant CBT settings validation
         run: npm run test:cbt-settings-write
 

@@ -47,6 +47,8 @@
     "test:cbt-assignment-pagination": "tsx scripts/test-cbt-assignment-pagination.ts",
     "test:cbt-exam-pagination": "tsx scripts/test-cbt-exam-pagination.ts",
     "test:cbt-participant-preview": "tsx scripts/test-cbt-participant-preview.ts",
+    "test:cbt-answer-sync": "tsx scripts/test-cbt-answer-sync.ts",
+    "test:cbt-request-timeout": "tsx scripts/test-cbt-request-timeout.ts",
     "test:customer-compose-env": "node scripts/test-customer-compose-env.mjs",
     "check:deployed-assets": "node scripts/check-deployed-asset-graph.mjs",
     "test:user-messages": "tsx scripts/test-user-messages.ts",

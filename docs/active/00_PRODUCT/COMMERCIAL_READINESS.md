@@ -1,3 +1,14 @@
+## Status kerja terbaru — 28 November 2026
+
+- GitHub mengonfirmasi `main` terbaru pada `45d9c0d670de0715e57154b043465e2a970c796e` dan tidak ada PR terbuka. Checkout lokal `erp4-main-clean-20261128` berada pada commit yang sama; pekerjaan CBT dalam checkout ini masih berupa perubahan lokal yang belum dikomit atau dipush.
+- Pada source lokal: `npm run build` dan `npm run lint` berhasil; 14 tes CBT serta guard cakupan CI (83/83 skrip tes terjadwal) lulus. Pemeriksaan global runtime mengonfirmasi 172 modul menggunakan alur Supabase-only, 26 route Supabase aktif, paket Firebase tidak ikut runtime, serta tidak ada penulisan aktif ke `localStorage`.
+- Validasi copy pengguna, keamanan pesan error, UI copy, contoh konfigurasi Compose pelanggan, dan aset build juga lulus. Pemeriksa aset baca-saja mengambil 105 aset JavaScript dari Hostinger staging `lightgreen-jay-425688.hostingersite.com` dan 107 dari `erp4-pesantren.tlusur.com`; ini hanya membuktikan aset publik dapat dimuat, bukan UAT fitur ataupun kesamaan commit deployment.
+- Admin UAT dapat membuka pratinjau sisi peserta CBT di staging. Pratinjau bersifat baca-saja; ujian yang terlihat belum memiliki peserta yang ditugaskan. UAT alur ujian sebenarnya oleh akun Santri belum dilakukan.
+- Tidak ada perubahan database, akun, file Storage, setting hosting, atau Production pada pemeriksaan ini. Perbaikan autosave/tenggat CBT dan catatan pemeriksaan masih lokal, belum sampai ke staging.
+- Produk tetap **belum dinyatakan siap Production atau komersial**. UAT tulis-baca lintas modul serta matriks role/tenant belum lengkap. Gate Production (rekonsiliasi DDL aktual, urutan migrasi, serta bukti backup dan pemulihan) belum dibuktikan oleh tim database. Jangan menjalankan promosi migrasi massal untuk menutup selisih ledger.
+
+---
+
 ## Handoff terbaru — 28 November 2026, UAT pratinjau CBT dan rekonsiliasi ledger
 
 - Source resmi yang diperiksa adalah `main` pada `45bcf83a1da7e969d2200dd299c3245c4edde764`. Keempat pemeriksaan CI pada commit ini berhasil: Supabase Preview, build frontend/Firebase bundle guard, migrasi/API auth/pgTAP, dan instalasi NPM untuk lingkungan pelanggan.
