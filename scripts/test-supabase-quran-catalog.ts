@@ -84,7 +84,7 @@ async function run() {
     assert.match(recordsUi, /ayah >= Number\(formData\.ayatStart\)/, "End ayah choices must not precede the start ayah");
     assert.doesNotMatch(tahfidzUi, /belum terhubung ke layanan backend dan tidak menjalankan aksi/i, "Operator-facing backend notes must not appear in the Tahfidz UI");
     assert.doesNotMatch(tahfidzUi, /backend Supabase|tenant (?:ini|pesantren)|snapshot tenant|API tenant Supabase|Catatan yang tersimpan di Supabase|backend belum menyimpan|Firestore ke tenant Supabase|Impor Legacy/i, "Tahfidz screens must not expose internal provider, tenant, or migration terminology");
-    assert.match(tahfidzUi, /aria-label="Penilaian audio AI belum tersedia"/);
+    assert.doesNotMatch(tahfidzUi, /aria-label="Penilaian audio AI belum tersedia"|title="Penilaian audio belum tersedia\."/, "Unimplemented audio assessment must not appear as a disabled product control.");
 
     console.log("Passed: Quran catalog validates server data and Tahfidz Supabase entry uses reference-backed Surah and bounded Ayah controls.");
   } finally {
@@ -99,4 +99,5 @@ async function run() {
 }
 
 void run();
+
 
