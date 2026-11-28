@@ -3700,7 +3700,8 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     const ustadzAnnouncements = (await ustadzAnnouncementList.json()).announcements;
     const deliveredAnnouncement = ustadzAnnouncements.find((item) => item.id === createdAnnouncement.id);
     assert.ok(deliveredAnnouncement, 'The canonical Guru & Musyrif audience relationship makes the announcement visible to its Ustadz recipient.');
-    assert.equal(deliveredAnnouncement.totalTarget, 1);
+    assert.equal('totalTarget' in deliveredAnnouncement, false,
+      'Audience reach statistics are not disclosed to a non-Admin announcement recipient.');
 
     const tenantBAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
