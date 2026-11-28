@@ -29,13 +29,13 @@ Tampilan peserta sebenarnya tersedia lewat **CBT → Ujian Saya** pada akun Sant
 
 Ini adalah bukti status data pada VQE saat pemeriksaan, bukan bukti UAT ujian nyata. PTSAS Production tidak diakses atau diubah. UAT sisi Santri tetap menunggu akun sintetis aktif dan penugasan yang sesuai.
 
-## Perbaikan sinkronisasi jawaban peserta — 28 November 2026
+## Riwayat perbaikan sinkronisasi jawaban peserta — snapshot head kode `f4367b7`, 28 November 2026
 
 Source lokal menambahkan antrean simpan berurutan agar snapshot jawaban lama tidak dapat menimpa pilihan terbaru. Status jawaban baru disebut tersimpan setelah permintaan API berhasil. Saat pengumpulan, antrean ditunggu terlebih dahulu, snapshot yang sama tidak ditulis ulang, dan tidak ada simpan baru yang dimulai setelah tenggat ujian. Pilihan jawaban dikunci selama pengumpulan berlangsung. Jika perubahan terakhir tidak tersinkron, hasil pengumpulan memberi peringatan. Permintaan CBT memiliki batas waktu 15 detik agar jaringan yang macet tidak menahan antrean tanpa batas.
 
 Verifikasi source CBT pada tree commit lokal `aff2296` dan tree PR `f4367b7` (identik): `npm run build`, `npm run lint`, 14 tes CBT, guard cakupan CI (83/83 skrip), dan `git diff --check` lulus. Build memberi peringatan ukuran chunk PDF (`react-pdf` sekitar 1,46 MB) dan anotasi komentar dependency Zod yang dilepas Rollup; build tetap berhasil. `npm ci --offline` di Windows gagal membuat direktori dependency (`EPERM`); pohon dependency dari checkout lain dengan SHA-256 lockfile yang sama dipakai hanya untuk build lokal. CI PR #316 lulus untuk build, migrasi/API auth/pgTAP, Storage, backup-restore lokal, dan instalasi NPM pelanggan. Supabase Preview dilewati karena pembuatan branch VQE dinonaktifkan.
 
-## Pratinjau sisi peserta di staging — 28 November 2026
+## Riwayat pratinjau sisi peserta di staging — snapshot preview `f4367b7`, 28 November 2026
 
 Pada situs staging Hostinger VQE, Admin UAT membuka **CBT → Sesi Ujian → Ujian Sampel Fiqih Semester Ganjil → Pratinjau sisi peserta**. Pratinjau menampilkan soal dan pilihan peserta (soal 1 dari 3); pilihan jawaban dinonaktifkan, timer tidak berjalan, dan tidak ada jawaban/percobaan yang disimpan. Dialog pratinjau dibiarkan terbuka untuk ditinjau.
 
@@ -43,18 +43,19 @@ Ini membuktikan tampilan pratinjau peserta dari sisi Admin, bukan alur ujian akt
 
 **Batas perubahan:** patch sudah ada di draft PR #316 dan preview Hostinger untuk commit `f4367b7`, tetapi belum digabung ke `main` atau diterapkan ke database mana pun. Belum ada akun/penugasan/percobaan sintetis yang dibuat dan alur peserta nyata belum diuji. UAT peserta tetap memerlukan akun Santri aktif VQE, penugasan ujian, lalu uji mulai–simpan–kumpul dan pembersihan fixture.
 
-## Konsistensi jadwal pada portal peserta — 28 November 2026
+## Riwayat konsistensi jadwal portal peserta — snapshot commit `63c6897`, 28 November 2026
 
 Daftar ujian peserta kini memformat waktu mulai dan batas sesi menurut zona waktu tenant pada profil, dengan zona waktu pesantren sebagai cadangan. Ini menghindari jam yang berbeda ketika perangkat peserta memakai zona waktu berbeda dari pesantren. `npm run test:cbt-calendar` lulus dengan 18 assertion, `npm run lint` lulus, dan `npm run build` lulus; build masih mencatat peringatan chunk PDF besar dan anotasi Zod yang dihapus Rollup. Perubahan ini tidak mengubah database atau aturan waktu server. Ketiga job CI wajib pada commit kode `63c6897` lulus. Supabase Preview dilewati karena branch PR tidak terhubung ke preview VQE.
 
-## Status CI dan pembacaan ulang VQE — 28 November 2026
+## Status CI dan pembacaan ulang VQE — pembaruan 28 November 2026
 
-- Head PR #316 `de8343e6ac0873b81ee57c1c9e96e0c17f50bbff`: tiga job CI wajib lulus (build/Firebase bundle guard, instalasi NPM pelanggan, migrasi/API auth/pgTAP). Supabase Preview dilewati karena branch tidak terkait dengan preview branch VQE.
-- Pembacaan agregat terbaru pada VQE menemukan 1 ujian `published`, 0 penugasan dan 0 percobaan; tabel siswa berisi 45 baris `Active` dan 2 `Archived`. Profil role Santri berjumlah 5 dan semuanya `suspended`; tidak ada akun Santri aktif yang dapat dipakai UAT.
-- Pembacaan hanya menghitung status; tidak mengambil identitas siswa, email, jawaban, atau isi data operasional dan tidak mengubah database.
-- Link preview Hostinger PR #316 saat ini menyajikan commit `de8343e`. UAT Admin pratinjau baca-saja tetap berbeda dari UAT peserta nyata. Untuk alur **CBT → Ujian Saya**, akun Santri aktif dan penugasan masih dibutuhkan; mulai–simpan–kumpulkan belum diuji.
+- PR #316 masih **open/draft**. Head saat catatan ini diperbarui adalah `bed3c4d40631f08b02319a206f278255375b8067`; perubahan aplikasi CBT berada pada `1dbb305aedf9825b606e0a51badbbcc6799d41f2`, sedangkan commit setelahnya hanya memperbarui dokumentasi.
+- Workflow CI [run 46096335918](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/46096335918) pada head tersebut menyelesaikan tiga job wajib dengan hasil lulus: build/Firebase bundle guard, instalasi NPM pelanggan, dan migrasi/API auth/pgTAP pada Supabase lokal terisolasi. Supabase Preview dilewati karena branch tidak terhubung ke preview branch VQE.
+- Pemeriksaan lokal lulus: `npm run test:cbt-participant-preview`, `npm run test:cbt-answer-sync`, `npm run lint`, dan `npm run build`. Build tetap memperingatkan chunk PDF besar serta anotasi komentar dependensi Zod yang dilewati Rollup.
+- Pembacaan agregat VQE yang terakhir dicatat pada pemeriksaan 28 November menemukan 1 ujian `published`, 0 penugasan dan 0 percobaan; tabel siswa berisi 45 baris `Active` dan 2 `Archived`. Lima profil role Santri berstatus `suspended`; belum ada akun Santri aktif untuk UAT. Angka ini adalah snapshot baca-saja dan perlu diperbarui sebelum fixture atau penugasan dibuat.
+- Pembacaan hanya menghitung status; tidak mengambil identitas siswa, email, jawaban, atau isi data operasional dan tidak mengubah database. Pratinjau Admin tetap berbeda dari UAT peserta nyata. Alur **CBT → Ujian Saya**—mulai, simpan jawaban, timer, kumpulkan, dan lihat hasil—belum diuji.
 
-## Pemeriksaan lintas-sistem — 28 November 2026
+## Riwayat pemeriksaan lintas-sistem — snapshot commit `63c6897`, 28 November 2026
 
 - GitHub mengonfirmasi `main` pada `45d9c0d670de0715e57154b043465e2a970c796e`; PR #316 adalah draft dengan head kode `63c6897`. CI build, instalasi NPM, dan migrasi/API auth/pgTAP lulus; Supabase Preview dilewati.
 - Pemeriksaan source global lulus: Supabase-only runtime (172 modul, 26 route Supabase, tanpa paket Firebase dalam graph runtime), kebijakan persistensi browser, pesan error pengguna (16 assertion + 14 skenario keamanan), UI copy, dan contoh environment Compose (73 variabel).
