@@ -1,5 +1,13 @@
-Warning: truncated output (original token count: 28361)
-Total output lines: 838
+## Catatan lanjutan — 28 November 2026, verifikasi head PR #316
+
+- Checkout `codex/cbt-answer-sync-20261128` berada pada head PR #316 `a8b44177f53a11ae339e618cfc27cb313516fa75`. Working tree bersih sebelum pemeriksaan lokal. CI head PR lulus 3/3 job; review belum ada dan PR masih draft.
+- Verifikasi lokal pada head yang sama lulus: 11 skrip CBT (`test:cbt-participant-preview`, `test:cbt-answer-sync`, `test:cbt-calendar`, `test:cbt-settings-import`, `test:cbt-settings-write`, `test:cbt-question-pagination`, `test:cbt-student-roster-pagination`, `test:cbt-assignment-pagination`, `test:cbt-exam-pagination`, `test:cbt-request-timeout`, dan `test:cbt-question-text`), ditambah `test:supabase-runtime-no-firebase`, `test:customer-deployment-flags`, `test:user-messages`, lint, dan build. Guard memeriksa 172 modul dari `src/main.tsx` dan `server.ts`, tidak menemukan paket Firebase aktif, dan memvalidasi 26 route Supabase. Tidak ada berkas tes baru dibuat.
+- Pemeriksaan graph aset deployment melalui terminal belum dapat menyelesaikan permintaan: DNS workspace mengembalikan `ENOTFOUND` untuk host staging. Ini hambatan jaringan pemeriksa lokal, bukan hasil yang menunjukkan kegagalan aset aplikasi; tampilan staging tetap dapat diperiksa lewat browser.
+- Build berhasil. Peringatan tersisa berasal dari komentar dependensi Zod dan chunk `react-pdf.browser` 1.458,94 kB; PDF diimpor melalui jalur lazy, tetapi ukuran asetnya tetap perlu dipantau.
+- Pemeriksaan Admin pada staging VQE `lightgreen-jay-425688.hostingersite.com` menunjukkan 6 soal, satu ujian terbit, dan nol peserta ditugaskan. Jadwal yang ada bertanggal 19 November 2026 sehingga sudah lewat. Pratinjau sisi peserta menampilkan 3 soal dalam mode baca-saja; timer tidak berjalan dan jawaban tidak disimpan. Belum ada attempt atau perubahan data pada sesi ini.
+- UAT nyata Santri masih memerlukan jadwal aktif yang ditugaskan ke akun Santri sintetis, lalu login peserta untuk mulai, menjawab, mengumpulkan, dan melihat hasil. PR #316 tetap draft hingga alur ini dibuktikan. Tidak ada migrasi, perubahan PTSAS Production, atau deployment pada sesi ini.
+
+---
 
 ## Status kerja terbaru — 28 November 2026
 
@@ -712,5 +720,6 @@ UAT baca-simpan-baca dilakukan pada preview staging Hostinger yang terhubung ke 
 - Staging kini menyimpan satu pegawai, satu catatan kehadiran, dan satu permohonan cuti sintetis untuk melanjutkan UAT. Jangan menyalin fixture ini ke Production.
 
 Tidak ada perubahan source aplikasi, flag hosting, migrasi, atau database Production pada checkpoint ini.
+
 
 
