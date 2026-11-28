@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Play, RefreshCw, ShieldCheck, Send } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime } from "../lib/tenantTimeZone";
 
 type AssignedExam = {
   assignmentId: string; id: string; title: string; subject: string; grade: string; startsAt: string; endsAt: string;
@@ -37,6 +38,7 @@ async function requestCbt(path: string, init: RequestInit = {}) {
 
 export function SupabaseCBTStudentDashboard() {
   const { role, user } = useAuth();
+  const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
   const [exams, setExams] = useState<AssignedExam[]>([]);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -226,7 +228,7 @@ export function SupabaseCBTStudentDashboard() {
       const statusText = isSubmitted ? "Selesai" : exam.status === "in_progress" ? "Sedang dikerjakan" : exam.status === "completed" ? "Selesai" : now < start ? "Terjadwal" : now >= end ? "Jendela berakhir" : "Tersedia";
       return <article key={exam.assignmentId} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">{exam.title}</h2><p className="mt-1 text-sm text-slate-500">{exam.subject} · {exam.grade}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{statusText}</span></div>
-        <div className="mt-4 space-y-1 text-xs text-slate-500"><p>Mulai: {new Date(exam.startsAt).toLocaleString("id-ID")}</p><p>Batas sesi: {new Date(exam.endsAt).toLocaleString("id-ID")}</p><p>Durasi: {exam.durationMinutes} menit</p></div>
+        <div className="mt-4 space-y-1 text-xs text-slate-500"><p>Mulai: {formatTenantDateTime(exam.startsAt, tenantTimeZone)}</p><p>Batas sesi: {formatTenantDateTime(exam.endsAt, tenantTimeZone)}</p><p>Durasi: {exam.durationMinutes} menit</p></div>
         {isSubmitted && <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm dark:bg-white/5">Nilai: <strong>{exam.score}</strong> · {exam.passed ? "Lulus" : "Belum lulus"}</div>}
         <button type="button" onClick={() => void startExam(exam.id)} disabled={busy || !available} className={"mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (available ? "bg-indigo-700 text-white hover:bg-indigo-800" : "border border-slate-200 text-slate-500 dark:border-white/10")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}{exam.attemptId ? "Lanjutkan / kumpulkan" : "Mulai ujian"}</button>
       </article>;

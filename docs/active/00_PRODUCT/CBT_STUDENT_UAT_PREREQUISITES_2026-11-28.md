@@ -43,6 +43,10 @@ Ini membuktikan tampilan pratinjau peserta dari sisi Admin, bukan alur ujian akt
 
 **Batas perubahan:** patch sudah ada di draft PR #316 dan preview Hostinger untuk commit `f4367b7`, tetapi belum digabung ke `main` atau diterapkan ke database mana pun. Belum ada akun/penugasan/percobaan sintetis yang dibuat dan alur peserta nyata belum diuji. UAT peserta tetap memerlukan akun Santri aktif VQE, penugasan ujian, lalu uji mulai–simpan–kumpul dan pembersihan fixture.
 
+## Konsistensi jadwal pada portal peserta — 28 November 2026
+
+Daftar ujian peserta kini memformat waktu mulai dan batas sesi menurut zona waktu tenant pada profil, dengan zona waktu pesantren sebagai cadangan. Ini menghindari jam yang berbeda ketika perangkat peserta memakai zona waktu berbeda dari pesantren. `npm run test:cbt-calendar` lulus dengan 18 assertion, `npm run lint` lulus, dan `npm run build` lulus; build masih mencatat peringatan chunk PDF besar dan anotasi Zod yang dihapus Rollup. Perubahan ini tidak mengubah database atau aturan waktu server. CI remote harus diperiksa pada revision PR terbaru setelah push.
+
 ## Pemeriksaan lintas-sistem — 28 November 2026
 
 - GitHub mengonfirmasi `main` pada `45d9c0d670de0715e57154b043465e2a970c796e`; PR #316 adalah draft yang memuat perubahan CBT. CI build, instalasi NPM, dan migrasi/API auth/pgTAP lulus; Supabase Preview dilewati.
