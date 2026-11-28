@@ -186,7 +186,7 @@ export function RoleFeaturePermissionEditor({
     <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-800 marker:hidden dark:text-slate-100">
       <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-600" />Hak akses rinci: bagian, tindakan, dan data</span>
       <span className="mt-1 block pl-6 text-xs font-normal leading-5 text-slate-500 dark:text-slate-400">
-        Role menetapkan batas maksimum. Centang izin untuk membatasinya pada akun ini. Hanya izin yang sudah ditegakkan oleh API yang dapat diatur di sini.
+        Peran menentukan batas akses. Centang izin untuk membatasi fitur yang dapat digunakan akun ini.
       </span>
     </summary>
     <div className="max-h-80 space-y-3 overflow-y-auto border-t border-slate-200 p-3 dark:border-white/10">
