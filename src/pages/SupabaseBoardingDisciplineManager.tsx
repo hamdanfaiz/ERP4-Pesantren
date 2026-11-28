@@ -4,6 +4,7 @@ import React, { FormEvent, useCallback, useEffect, useMemo, useRef, useState } f
 import { AlertCircle, CheckCircle2, ClipboardCheck, LoaderCircle, Plus, RotateCcw, ShieldAlert } from "lucide-react";
 import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { isRolePermissionAllowed } from "../rbac";
 import { toERPUserMessage } from "../utils/userMessages";
 import {
   createSupabaseBoardingDiscipline,
@@ -19,8 +20,10 @@ const CATEGORY_OPTIONS = ["Ringan", "Sedang", "Berat"];
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function SupabaseBoardingDisciplineManager() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<BoardingDisciplineSnapshot>({ incidents: [], students: [], canManage: false });
+  const canManage = snapshot.canManage && isRolePermissionAllowed(role, "boarding.action.record-discipline", user?.modulePermissions);
+  const canReadStudentIdentifiers = isRolePermissionAllowed(role, "boarding.field.student-identifiers", user?.modulePermissions);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
   const [importBusy, setImportBusy] = useState(false);
@@ -56,9 +59,9 @@ export function SupabaseBoardingDisciplineManager() {
   const visibleIncidents = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("id-ID");
     if (!term) return snapshot.incidents;
-    return snapshot.incidents.filter((incident) => [incident.santriName, incident.nis, incident.room, incident.offense, incident.category]
+    return snapshot.incidents.filter((incident) => [incident.santriName, ...(canReadStudentIdentifiers ? [incident.nis] : []), incident.room, incident.offense, incident.category]
       .some((field) => field.toLocaleLowerCase("id-ID").includes(term)));
-  }, [query, snapshot.incidents]);
+  }, [query, snapshot.incidents, canReadStudentIdentifiers]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -112,7 +115,7 @@ export function SupabaseBoardingDisciplineManager() {
         <p className="mt-1 max-w-2xl text-sm text-slate-600 dark:text-slate-300">Catatan kedisiplinan terkait langsung dengan santri. Setiap perubahan tercatat untuk kebutuhan peninjauan.</p></div>
       <div className="flex gap-2">
         <button type="button" onClick={() => { setLoading(true); setError(""); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5"><RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Muat ulang</button>
-        {snapshot.canManage && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setOpenForm(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" />Catat pelanggaran</button>}
+        {canManage && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setOpenForm(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"><Plus className="h-4 w-4" />Catat pelanggaran</button>}
       </div>
     </header>
 
@@ -137,22 +140,22 @@ export function SupabaseBoardingDisciplineManager() {
     </section>}
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900">
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-slate-100">Riwayat pelanggaran</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Data yang ditampilkan hanya milik pesantren ini.</p></div><input aria-label="Cari catatan kedisiplinan" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari santri, NIS, kamar, pelanggaran…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs dark:border-white/15" /></div>
+      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10"><div><h2 className="font-semibold text-slate-900 dark:text-slate-100">Riwayat pelanggaran</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Data yang ditampilkan hanya milik pesantren ini.</p></div><input aria-label="Cari catatan kedisiplinan" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={canReadStudentIdentifiers ? "Cari santri, NIS, kamar, pelanggaran…" : "Cari santri, kamar, pelanggaran…"} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs dark:border-white/15" /></div>
       {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500 dark:text-slate-400"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat catatan pelanggaran…</div>
         : visibleIncidents.length === 0 ? <div className="p-12 text-center"><ClipboardCheck className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700 dark:text-slate-300">Belum ada catatan pelanggaran</p><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Catatan pelanggaran akan muncul di sini setelah disimpan.</p></div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"><tr><th className="px-4 py-3 font-semibold">Santri</th><th className="px-4 py-3 font-semibold">Pelanggaran</th><th className="px-4 py-3 font-semibold">Poin</th><th className="px-4 py-3 font-semibold">Tanggal</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Tindakan</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{visibleIncidents.map((incident) => <tr key={incident.id} className="align-top hover:bg-slate-50/70 dark:hover:bg-white/5">
-            <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{incident.santriName}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {incident.nis || "—"} · Kamar {incident.room || "—"}</div></td>
+            <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{incident.santriName}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{canReadStudentIdentifiers ? `NIS ${incident.nis || "—"} · ` : ""}Kamar {incident.room || "—"}</div></td>
             <td className="px-4 py-4"><div className="font-medium text-slate-800 dark:text-slate-200">{incident.offense}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{incident.category}{incident.resolution ? ` · Tindak lanjut: ${incident.resolution}` : ""}</div>{incident.photoUrl && <a className="mt-1 inline-block text-xs font-medium text-indigo-700 underline dark:text-indigo-300" href={incident.photoUrl} target="_blank" rel="noreferrer">Lihat bukti</a>}</td>
             <td className="px-4 py-4 font-mono text-rose-700 dark:text-rose-300">+{incident.points}</td><td className="whitespace-nowrap px-4 py-4 text-slate-700 dark:text-slate-300">{incident.date}</td>
             <td className="px-4 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${incident.resolved ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>{incident.resolved ? "Selesai" : "Aktif"}</span></td>
-            <td className="px-4 py-4 text-right">{!incident.resolved ? <button type="button" onClick={() => void resolve(incident.id)} disabled={saving === incident.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300">{saving === incident.id ? "Menyimpan…" : "Tandai selesai"}</button> : <span className="text-xs text-slate-400 dark:text-slate-500">Sudah selesai</span>}</td>
+            <td className="px-4 py-4 text-right">{!incident.resolved && isRolePermissionAllowed(role, "boarding.action.resolve-discipline", user?.modulePermissions) ? <button type="button" onClick={() => void resolve(incident.id)} disabled={saving === incident.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300">{saving === incident.id ? "Menyimpan…" : "Tandai selesai"}</button> : <span className="text-xs text-slate-400 dark:text-slate-500">{incident.resolved ? "Sudah selesai" : "—"}</span>}</td>
           </tr>)}</tbody></table></div>}
     </section>
 
     {openForm && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && saving !== "new") setOpenForm(false); }}>
       <form onSubmit={(event) => void submit(event)} className="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-xl dark:bg-slate-900" aria-labelledby="discipline-form-title">
         <div><h2 id="discipline-form-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">Catat pelanggaran santri</h2><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Kamar mengikuti data santri yang terdaftar.</p></div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select required value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-white/15">{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} {student.nis ? `· ${student.nis}` : ""}</option>)}</select></label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Santri<select required value={form.studentId} onChange={(e) => setForm({ ...form, studentId: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-white/15">{snapshot.students.map((student) => <option key={student.id} value={student.id}>{student.name} {canReadStudentIdentifiers && student.nis ? `· ${student.nis}` : ""}</option>)}</select></label>
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Pelanggaran<textarea required maxLength={1000} value={form.offense} onChange={(e) => setForm({ ...form, offense: e.target.value })} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-white/15" /></label>
         <div className="grid gap-3 sm:grid-cols-3"><label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Kategori<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-white/15">{CATEGORY_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Poin<input required type="number" min={1} max={1000} value={form.points} onChange={(e) => setForm({ ...form, points: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 dark:border-white/15" /></label>

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertCircle, CheckCircle2, LoaderCircle, RotateCcw, Users } from "lucide-react";
 import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { isRolePermissionAllowed } from "../rbac";
 import { toERPUserMessage } from "../utils/userMessages";
 import {
   listSupabaseBoardingAttendance,
@@ -20,7 +21,9 @@ function localDate() {
 }
 
 export function SupabaseBoardingAttendanceManager() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
+  const canMarkAttendance = isRolePermissionAllowed(role, "boarding.action.mark-attendance", user?.modulePermissions);
+  const canReadStudentIdentifiers = isRolePermissionAllowed(role, "boarding.field.student-identifiers", user?.modulePermissions);
   const [date, setDate] = useState(localDate);
   const [snapshot, setSnapshot] = useState<BoardingAttendanceSnapshot>({ attendanceDate: localDate(), records: [] });
   const [loading, setLoading] = useState(true);
@@ -50,8 +53,8 @@ export function SupabaseBoardingAttendanceManager() {
   const visibleRecords = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("id-ID");
     if (!term) return snapshot.records;
-    return snapshot.records.filter((record) => [record.studentName, record.nis, record.room].some((field) => field.toLocaleLowerCase("id-ID").includes(term)));
-  }, [query, snapshot.records]);
+    return snapshot.records.filter((record) => [record.studentName, ...(canReadStudentIdentifiers ? [record.nis] : []), record.room].some((field) => field.toLocaleLowerCase("id-ID").includes(term)));
+  }, [query, snapshot.records, canReadStudentIdentifiers]);
   const present = snapshot.records.filter((record) => record.status === "Hadir").length;
   const absent = snapshot.records.filter((record) => record.status === "Ghaib").length;
   const unmarked = snapshot.records.length - present - absent;
@@ -114,13 +117,13 @@ export function SupabaseBoardingAttendanceManager() {
 
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-900"><div className="flex flex-col gap-3 border-b border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
       <div><h2 className="font-semibold text-slate-900 dark:text-slate-100">Daftar kehadiran · {date}</h2><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Klik status untuk menyimpan. Perubahan akan dicoba kembali jika koneksi terputus.</p></div>
-      <input aria-label="Cari santri" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama, NIS, kamar…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs dark:border-white/15" /></div>
+      <input aria-label="Cari santri" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={canReadStudentIdentifiers ? "Cari nama, NIS, kamar…" : "Cari nama atau kamar…"} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs dark:border-white/15" /></div>
       {loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500 dark:text-slate-400"><LoaderCircle className="h-4 w-4 animate-spin" />Memuat daftar santri…</div>
         : visibleRecords.length === 0 ? <div className="p-12 text-center"><Users className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 font-medium text-slate-700 dark:text-slate-300">Tidak ada santri untuk ditampilkan</p><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Periksa data santri aktif di Master Data.</p></div>
           : <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"><tr><th className="px-4 py-3 font-semibold">Santri</th><th className="px-4 py-3 font-semibold">Kamar</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Tandai</th></tr></thead><tbody className="divide-y divide-slate-100 dark:divide-white/5">{visibleRecords.map((record) => <tr key={record.studentId} className="hover:bg-slate-50/70 dark:hover:bg-white/5">
-            <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{record.studentName}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {record.nis || "—"}</div></td><td className="px-4 py-4 text-slate-700 dark:text-slate-300">{record.room}</td>
+            <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{record.studentName}</div>{canReadStudentIdentifiers && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {record.nis || "—"}</div>}</td><td className="px-4 py-4 text-slate-700 dark:text-slate-300">{record.room}</td>
             <td className="px-4 py-4">{record.status ? <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${record.status === "Hadir" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>{record.status}</span> : <span className="text-xs text-amber-700 dark:text-amber-200">Belum ditandai</span>}</td>
-            <td className="px-4 py-4 text-right"><div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"><button type="button" aria-pressed={record.status === "Hadir"} onClick={() => void mark(record.studentId, "Hadir")} disabled={saving === record.studentId || record.status === "Hadir"} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${record.status === "Hadir" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-white"}`}>Hadir</button><button type="button" aria-pressed={record.status === "Ghaib"} onClick={() => void mark(record.studentId, "Ghaib")} disabled={saving === record.studentId || record.status === "Ghaib"} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${record.status === "Ghaib" ? "bg-rose-600 text-white" : "text-slate-600 hover:bg-white"}`}>Ghaib</button></div>{saving === record.studentId && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />}</td>
+            <td className="px-4 py-4 text-right">{canMarkAttendance ? <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"><button type="button" aria-pressed={record.status === "Hadir"} onClick={() => void mark(record.studentId, "Hadir")} disabled={saving === record.studentId || record.status === "Hadir"} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${record.status === "Hadir" ? "bg-emerald-600 text-white" : "text-slate-600 hover:bg-white"}`}>Hadir</button><button type="button" aria-pressed={record.status === "Ghaib"} onClick={() => void mark(record.studentId, "Ghaib")} disabled={saving === record.studentId || record.status === "Ghaib"} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${record.status === "Ghaib" ? "bg-rose-600 text-white" : "text-slate-600 hover:bg-white"}`}>Ghaib</button></div> : "—"}{saving === record.studentId && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />}</td>
           </tr>)}</tbody></table></div>}
     </section>
   </section>;

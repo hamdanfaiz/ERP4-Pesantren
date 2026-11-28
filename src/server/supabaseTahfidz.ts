@@ -6,6 +6,7 @@ import { normalizeTahfidzLeaderboardResult } from "../lib/tahfidzLeaderboardResp
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
+import { isRolePermissionAllowed, type UserRole } from "../rbac";
 
 type JsonObject = Record<string, any>;
 
@@ -137,7 +138,9 @@ async function listRows(table: string, tenantId: string, select: string, order: 
 
 type TahfidzSnapshotScope = { roster: JsonObject[]; halaqahs: JsonObject[] };
 
-function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[]) {
+function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[], role: string) {
+  const canReadStaffNotes = isRolePermissionAllowed(role as UserRole, "tahfidz.field.record-notes");
+  const canReadRecorderName = isRolePermissionAllowed(role as UserRole, "tahfidz.field.recorded-by");
   const studentById = new Map(roster.map((student) => [String(student.id), student]));
   return rows.map((record) => {
     const student = studentById.get(String(record.student_id || ""));
@@ -154,9 +157,9 @@ function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[]) {
       ayahEnd: Number(record.ayah_end),
       fluency: record.fluency_grade || null,
       tajweed: record.tajweed_grade || null,
-      notes: record.notes || "",
+      notes: canReadStaffNotes ? record.notes || "" : "",
       performedAt: String(record.performed_at),
-      recordedByName: record.recorded_by_name || "",
+      recordedByName: canReadRecorderName ? record.recorded_by_name || "" : "",
     };
   });
 }
@@ -227,7 +230,7 @@ async function fetchTahfidzRecordPage(
   }
 
   return {
-    records: mapTahfidzRecordRows(pageRows, recordRoster),
+    records: mapTahfidzRecordRows(pageRows, recordRoster, role),
     hasMore,
     nextCursor,
     oldestPerformedAt: lastRow ? String(lastRow.performed_at || "") : null,
@@ -454,7 +457,15 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const today = await getTahfidzBusinessDate(tenantId);
-  const rosterPage = await requestTahfidzRosterPage(tenantId, actorId, role, today, null, null, true);
+  const rosterPage = await requestTahfidzRosterPage(
+    tenantId,
+    actorId,
+    role,
+    today,
+    null,
+    null,
+    isRolePermissionAllowed(role as UserRole, "tahfidz.field.follow-ups"),
+  );
   const countIds = Object.keys(rosterPage.halaqahCounts).filter(isUuid);
   const halaqahFilters: Record<string, string> = { status: "eq.active" };
   if (role === "Ustadz") halaqahFilters.ustadz_user_id = "eq." + actorId;
@@ -706,7 +717,7 @@ export async function listSupabaseTahfidzSessions(
       status: String(row.status),
       score: row.score == null ? null : Number(row.score),
       outcome: row.outcome || null,
-      notes: String(row.notes || ""),
+      notes: isRolePermissionAllowed(role as UserRole, "tahfidz.field.record-notes") ? String(row.notes || "") : "",
       completedAt: row.completed_at || null,
     };
   });

@@ -54,6 +54,7 @@ import {
   ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES,
   PLATFORM_ONLY_MODULES,
   isModuleAccessible,
+  isRolePermissionAllowed,
   findUnauthorizedModuleGrants,
   isValidModulePermissions,
   type UserRole,
@@ -716,6 +717,11 @@ async function startServer() {
   const requireMasterDataAdmin = (actor: { role: string }) => {
     if (!(["Admin", "SuperAdmin"] as string[]).includes(actor.role)) {
       throw new SupabaseOnboardingError(403, "Operasi ini hanya tersedia untuk Admin pesantren.");
+    }
+  };
+  const requireActorRolePermission = (actor: { role: string; modulePermissions?: Record<string, boolean> | null }, permissionId: string) => {
+    if (!isRolePermissionAllowed(actor.role as UserRole, permissionId, actor.modulePermissions)) {
+      throw new SupabaseOnboardingError(403, "Akun ini tidak memiliki izin untuk bagian atau tindakan tersebut.");
     }
   };
   const loadHrisActor = async (uid: string) => {
@@ -1392,6 +1398,9 @@ async function startServer() {
         return res.status(400).json({ error: "Filter unit konflik jadwal tidak valid." });
       }
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.action.resolve-conflicts", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pemeriksaan konflik jadwal hanya tersedia untuk Admin tenant." });
+      }
       return res.json(await getSupabaseAcademicConflictSchedules(
         actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
         actor.organizationUnitId, req.query.unitId,
@@ -1435,6 +1444,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.tab.report-card", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akses ke ruang rapor tidak diberikan kepada akun ini." });
+      }
       return res.json(await getSupabaseAcademicReportWorkspace(actor.tenantId, actor.uid, actor.role));
     } catch (error) { return academicRouteError(res, error); }
   });
@@ -1446,6 +1458,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.action.manage-report-card", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin mengelola rapor." });
+      }
       const result = await applySupabaseAcademicReportAction(actor.tenantId, actor.uid, actor.role, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
@@ -1458,6 +1473,15 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      const permissionByKind: Record<string, string> = {
+        schedule: "academic.action.write-schedule",
+        journal: "academic.action.write-journal",
+        assessment: "academic.action.write-assessment",
+      };
+      const permission = permissionByKind[req.params.kind];
+      if (!permission || !isRolePermissionAllowed(actor.role as UserRole, permission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin mencatat jenis data Akademik tersebut." });
+      }
       const result = await saveSupabaseAcademicRecord(
         actor.tenantId, actor.uid, actor.role, req.params.kind, req.body?.record,
         enterpriseUnitsRuntimeEnabled, actor.organizationUnitId,
@@ -2017,6 +2041,18 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      const permissionByAction: Record<string, string> = {
+        category: "lms.action.manage-categories",
+        course: "lms.action.manage-courses",
+        module: "lms.action.manage-content",
+        material: "lms.action.manage-content",
+        assignment: "lms.action.manage-assignments",
+        enroll: "lms.action.manage-enrollments",
+      };
+      const permission = permissionByAction[req.params.action];
+      if (!permission || !isRolePermissionAllowed(actor.role as UserRole, permission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin untuk mengelola bagian LMS tersebut." });
+      }
       const result = await manageSupabaseLmsCatalog(actor.tenantId, actor.uid, req.params.action, req.body?.item);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return lmsRouteError(res, error); }
@@ -2029,6 +2065,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.track-progress", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pencatatan progres materi hanya tersedia untuk akun Santri." });
+      }
       return res.json(await saveSupabaseLmsProgress(actor.tenantId, actor.uid, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2040,6 +2079,12 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      const learningRecordPermission = req.body?.kind === "note"
+        ? "lms.action.save-private-note"
+        : req.body?.kind === "comment" ? "lms.action.comment-material" : "";
+      if (!learningRecordPermission || !isRolePermissionAllowed(actor.role as UserRole, learningRecordPermission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Catatan dan komentar materi hanya tersedia untuk akun Santri." });
+      }
       const result = await addSupabaseLmsLearningRecord(actor.tenantId, actor.uid, req.body);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return lmsRouteError(res, error); }
@@ -2052,6 +2097,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.submit-assignment", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pengumpulan tugas hanya tersedia untuk akun Santri." });
+      }
       return res.status(201).json(await submitSupabaseLmsAssignment(actor.tenantId, actor.uid, req.params.assignmentId, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2063,6 +2111,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.grade-submission", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Penilaian tugas hanya tersedia untuk pengajar dan Admin." });
+      }
       return res.json(await gradeSupabaseLmsSubmission(actor.tenantId, actor.uid, req.params.submissionId, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2076,8 +2127,8 @@ async function startServer() {
     if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).library) {
       throw new SupabaseLibraryError(403, "Akses modul Perpustakaan tidak diberikan kepada akun ini.");
     }
-    if (!["Admin", "SuperAdmin", "Ustadz"].includes(profile.role)) {
-      throw new SupabaseLibraryError(403, "Modul Perpustakaan Supabase saat ini hanya tersedia untuk Admin dan Ustadz.");
+    if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(profile.role)) {
+      throw new SupabaseLibraryError(403, "Role ini tidak memiliki akses ke modul Perpustakaan.");
     }
     return { ...profile, uid, tenantId };
   };
@@ -2241,7 +2292,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLibraryActor(uid);
-      return res.json(await listSupabaseLibrarySnapshot(actor.tenantId));
+      return res.json(await listSupabaseLibrarySnapshot(actor.tenantId, actor));
     } catch (error) { return libraryRouteError(res, error); }
   });
 
@@ -3058,7 +3109,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) throw new SupabaseOnboardingError(403, "Role ini tidak dapat membaca data asrama.");
+      requireActorRolePermission(actor, "boarding.tab.rooms");
       const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId, actor);
       return res.json(snapshot);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3071,7 +3122,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-room");
       const result = await assignSupabaseStudentRoom(actor.tenantId, req.params.studentId, req.body?.roomId ?? null, req.body?.buildingId ?? null, uid);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3097,6 +3148,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.permits");
       return res.json(await listSupabaseBoardingPermits(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3108,6 +3160,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.request-permit");
       const result = await requestSupabaseBoardingPermit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3120,6 +3173,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.process-permit");
       const result = await transitionSupabaseBoardingPermit(actor, req.params.permitId, req.body);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3139,6 +3193,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.discipline");
       return res.json(await listSupabaseBoardingDiscipline(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3150,6 +3205,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.record-discipline");
       const result = await createSupabaseBoardingDiscipline(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3162,6 +3218,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.resolve-discipline");
       return res.json(await resolveSupabaseBoardingDiscipline(actor, req.params.incidentId, req.body));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3180,6 +3237,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.attendance");
       return res.json(await getSupabaseBoardingAttendance(actor, req.query.date));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3191,6 +3249,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.mark-attendance");
       return res.json(await setSupabaseBoardingAttendance(actor, req.body));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3209,7 +3268,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.tab.assignments");
       return res.json(await listSupabaseBoardingStaffAssignments(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3221,7 +3280,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-staff");
       const result = await assignSupabaseBoardingLocationUnit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3234,7 +3293,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-staff");
       const result = await setSupabaseBoardingStaffAssignment(actor, req.body);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3247,6 +3306,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.facility-ops");
       return res.json(await listSupabaseBoardingFacilityOps(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3258,6 +3318,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.record-audit");
       const result = await createSupabaseBoardingCleanlinessAudit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3270,6 +3331,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.create-facility-ticket");
       actor.name = String(actor.name || actor.email || "Pengguna");
       const result = await createSupabaseBoardingFacilityTicket(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
@@ -3283,6 +3345,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.resolve-facility-ticket");
       return res.json(await resolveSupabaseBoardingFacilityTicket(actor, req.params.ticketId, req.body?.clientRequestId));
     } catch (error) { return masterDataRouteError(res, error); }
   });

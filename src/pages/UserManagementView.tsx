@@ -342,7 +342,10 @@ export function UserManagementView() {
 
       const finalPerms = createRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
-        : { ...createPermissions };
+        : ALL_MODULE_LIST.reduce((acc, m) => ({
+          ...acc,
+          [m.id]: isModuleAccessible(createRole, m.id, createPermissions),
+        }), {} as Record<string, boolean>);
       if (currentRole === 'Admin' || createRole === 'Walisantri') {
         finalPerms['settings'] = false;
       }
@@ -478,7 +481,10 @@ export function UserManagementView() {
 
       const finalPerms = editRole === 'SuperAdmin'
         ? ALL_MODULE_LIST.reduce((acc, m) => ({ ...acc, [m.id]: true }), {})
-        : { ...editPermissions };
+        : ALL_MODULE_LIST.reduce((acc, m) => ({
+          ...acc,
+          [m.id]: isModuleAccessible(editRole, m.id, editPermissions),
+        }), {} as Record<string, boolean>);
       if (currentRole === 'Admin') {
         finalPerms['settings'] = false;
       }
@@ -1279,7 +1285,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const all: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            all[m.id] = !PLATFORM_ONLY_MODULES.includes(m.id)
+                            all[m.id] = isModuleAccessible(createRole, m.id, null)
+                              && !PLATFORM_ONLY_MODULES.includes(m.id)
                               && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setCreatePermissions(all);
@@ -1315,8 +1322,10 @@ export function UserManagementView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-52 overflow-y-auto">
                     {ALL_MODULE_LIST.map((mod) => {
                       const isPlatformOnly = PLATFORM_ONLY_MODULES.includes(mod.id);
-                      const isChecked = isPlatformOnly ? false : !!createPermissions[mod.id];
+                      const targetRoleCanAccess = isModuleAccessible(createRole, mod.id, null);
+                      const isChecked = isPlatformOnly || !targetRoleCanAccess ? false : !!createPermissions[mod.id];
                       const isLockedForActor = isPlatformOnly
+                        || !targetRoleCanAccess
                         || (!actorCanGrantModule(currentRole, currentActor?.modulePermissions, mod.id) && !isChecked);
 
                       return (
@@ -1511,7 +1520,8 @@ export function UserManagementView() {
                         onClick={() => {
                           const all: Record<string, boolean> = {};
                           ALL_MODULE_LIST.forEach((m) => {
-                            all[m.id] = !PLATFORM_ONLY_MODULES.includes(m.id)
+                            all[m.id] = isModuleAccessible(editRole, m.id, null)
+                              && !PLATFORM_ONLY_MODULES.includes(m.id)
                               && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
                           });
                           setEditPermissions(all);
@@ -1547,8 +1557,10 @@ export function UserManagementView() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 max-h-56 overflow-y-auto">
                     {ALL_MODULE_LIST.map((mod) => {
                       const isPlatformOnly = PLATFORM_ONLY_MODULES.includes(mod.id);
-                      const isChecked = isPlatformOnly ? false : !!editPermissions[mod.id];
+                      const targetRoleCanAccess = isModuleAccessible(editRole, mod.id, null);
+                      const isChecked = isPlatformOnly || !targetRoleCanAccess ? false : !!editPermissions[mod.id];
                       const isLockedForActor = isPlatformOnly
+                        || !targetRoleCanAccess
                         || (!actorCanGrantModule(currentRole, currentActor?.modulePermissions, mod.id) && !isChecked);
 
                       return (

@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { StoredUserProfile } from "./identityStore";
 import { CommunicationStoreError } from "./communicationAnnouncements";
+import { isRolePermissionAllowed, type RolePermissionId, type UserRole } from "../rbac";
 
 type Row = Record<string, any>;
 
@@ -20,12 +21,8 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-function roleOf(actor: StoredUserProfile): string {
-  return String(actor.role || "").trim().toLowerCase();
-}
-
-function isAdmin(actor: StoredUserProfile): boolean {
-  return ["admin", "superadmin", "super_admin"].includes(roleOf(actor));
+function can(actor: StoredUserProfile, permission: RolePermissionId): boolean {
+  return isRolePermissionAllowed(actor.role as UserRole, permission, actor.modulePermissions);
 }
 
 async function resolveTenantUuid(tenantIdentifier: string): Promise<string> {
@@ -58,38 +55,50 @@ function mapRpcError(error: any): never {
 
 export async function listCommunicationOps(tenantId: string, actor: StoredUserProfile) {
   const tenantUuid = await resolveTenantUuid(tenantId);
-  const admin = isAdmin(actor);
+  const canManageTemplates = can(actor, "communication.action.manage-templates");
+  const canReadTicketRoster = can(actor, "communication.field.ticket-roster");
+  const canReadOwnTickets = can(actor, "communication.field.own-ticket");
+  const canReadMessages = can(actor, "communication.field.direct-messages");
+  const canReadTenantDirectory = can(actor, "communication.field.tenant-recipient-directory");
+  const canReadAdminDirectory = can(actor, "communication.field.admin-recipient-directory");
+  let ticketsQuery: any = null;
+  if (canReadTicketRoster || canReadOwnTickets) {
+    ticketsQuery = client().from("communication_tickets")
+      .select("id,subject,category,description,status,requested_by_user_id,requested_by_name,resolved_at,created_at,updated_at")
+      .eq("tenant_id", tenantUuid);
+    if (!canReadTicketRoster) ticketsQuery = ticketsQuery.eq("requested_by_user_id", actor.uid);
+    ticketsQuery = ticketsQuery.order("created_at", { ascending: false }).limit(500);
+  }
+  let profilesQuery: any = null;
+  if (canReadTenantDirectory || canReadAdminDirectory) {
+    profilesQuery = client().from("profiles")
+      .select("user_id,display_name,role")
+      .eq("tenant_id", tenantUuid)
+      .eq("status", "active")
+      .neq("user_id", actor.uid)
+      .order("display_name", { ascending: true })
+      .limit(500);
+    if (!canReadTenantDirectory) profilesQuery = profilesQuery.in("role", ["Admin", "SuperAdmin", "super_admin"]);
+  }
   const [templatesResult, ticketsResult, messagesResult, profilesResult] = await Promise.all([
-    client().from("communication_templates")
+    canManageTemplates ? client().from("communication_templates")
       .select("id,name,content,status,created_at,updated_at")
       .eq("tenant_id", tenantUuid)
       .order("updated_at", { ascending: false })
-      .limit(500),
-    client().from("communication_tickets")
-      .select("id,subject,category,description,status,requested_by_user_id,requested_by_name,resolved_at,created_at,updated_at")
-      .eq("tenant_id", tenantUuid)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    client().from("communication_direct_messages")
+      .limit(500) : Promise.resolve({ data: [], error: null }),
+    ticketsQuery || Promise.resolve({ data: [], error: null }),
+    canReadMessages ? client().from("communication_direct_messages")
       .select("id,from_user_id,from_name,to_user_id,to_name,body,status,created_at,updated_at")
       .eq("tenant_id", tenantUuid)
       .or(`from_user_id.eq.${actor.uid},to_user_id.eq.${actor.uid}`)
       .order("created_at", { ascending: false })
-      .limit(500),
-    client().from("profiles")
-      .select("user_id,display_name,email,role,status")
-      .eq("tenant_id", tenantUuid)
-      .eq("status", "active")
-      .order("display_name", { ascending: true })
-      .limit(500),
+      .limit(500) : Promise.resolve({ data: [], error: null }),
+    profilesQuery || Promise.resolve({ data: [], error: null }),
   ]);
   if (templatesResult.error || ticketsResult.error || messagesResult.error || profilesResult.error) {
     throw new CommunicationStoreError(503, "Data operasional komunikasi belum dapat dimuat.");
   }
-  const tickets = ((ticketsResult.data || []) as Row[]).filter((ticket) =>
-    admin || String(ticket.requested_by_user_id) === actor.uid);
-  const templates = ((templatesResult.data || []) as Row[])
-    .filter((item) => admin || item.status === "active")
+  const templates = canManageTemplates ? ((templatesResult.data || []) as Row[])
     .map((item) => ({
       id: String(item.id),
       name: String(item.name),
@@ -97,18 +106,17 @@ export async function listCommunicationOps(tenantId: string, actor: StoredUserPr
       status: String(item.status),
       createdAt: String(item.created_at),
       updatedAt: String(item.updated_at),
-    }));
+    })) : [];
   const directory = ((profilesResult.data || []) as Row[])
-    .filter((profile) => String(profile.user_id) !== actor.uid)
-    .filter((profile) => admin || ["admin", "super_admin"].includes(String(profile.role || "").toLowerCase()))
+    .filter((profile) => canReadTenantDirectory || ["admin", "superadmin", "super_admin"].includes(String(profile.role || "").toLowerCase()))
     .map((profile) => ({
       userId: String(profile.user_id),
-      name: String(profile.display_name || profile.email || profile.user_id),
+      name: String(profile.display_name || profile.user_id),
       role: String(profile.role || ""),
     }));
   return {
     templates,
-    tickets: tickets.map((item) => ({
+    tickets: ((ticketsResult.data || []) as Row[]).map((item) => ({
       id: String(item.id),
       subject: String(item.subject),
       category: String(item.category),
@@ -140,6 +148,7 @@ export async function createCommunicationTicket(
   actor: StoredUserProfile,
   input: { subject?: unknown; category?: unknown; description?: unknown; clientRequestId?: unknown },
 ) {
+  if (!can(actor, "communication.action.create-ticket")) throw new CommunicationStoreError(403, "Akun ini tidak dapat membuat tiket bantuan.");
   const tenantUuid = await resolveTenantUuid(tenantId);
   const subject = String(input.subject || "").trim();
   const category = String(input.category || "").trim();
@@ -169,7 +178,7 @@ export async function transitionCommunicationTicket(
   ticketId: string,
   input: { status?: unknown; clientRequestId?: unknown },
 ) {
-  if (!isAdmin(actor)) throw new CommunicationStoreError(403, "Hanya Admin yang dapat mengubah status tiket.");
+  if (!can(actor, "communication.action.transition-ticket")) throw new CommunicationStoreError(403, "Hanya Admin yang dapat mengubah status tiket.");
   const tenantUuid = await resolveTenantUuid(tenantId);
   const status = String(input.status || "").trim();
   const clientRequestId = String(input.clientRequestId || "").trim();
@@ -192,6 +201,7 @@ export async function createCommunicationDirectMessage(
   actor: StoredUserProfile,
   input: { toUserId?: unknown; body?: unknown; clientRequestId?: unknown },
 ) {
+  if (!can(actor, "communication.action.send-message")) throw new CommunicationStoreError(403, "Akun ini tidak dapat mengirim pesan.");
   const tenantUuid = await resolveTenantUuid(tenantId);
   const toUserId = String(input.toUserId || "").trim();
   const body = String(input.body || "").trim();
@@ -227,6 +237,7 @@ export async function transitionCommunicationDirectMessage(
   messageId: string,
   input: { status?: unknown; clientRequestId?: unknown },
 ) {
+  if (!can(actor, "communication.action.update-message-status")) throw new CommunicationStoreError(403, "Akun ini tidak dapat mengubah status pesan.");
   const tenantUuid = await resolveTenantUuid(tenantId);
   const status = String(input.status || "").trim();
   const clientRequestId = String(input.clientRequestId || "").trim();
@@ -249,7 +260,7 @@ export async function upsertCommunicationTemplate(
   actor: StoredUserProfile,
   input: { id?: unknown; name?: unknown; content?: unknown; status?: unknown; clientRequestId?: unknown },
 ) {
-  if (!isAdmin(actor)) throw new CommunicationStoreError(403, "Hanya Admin yang dapat mengelola templat.");
+  if (!can(actor, "communication.action.manage-templates")) throw new CommunicationStoreError(403, "Hanya Admin yang dapat mengelola templat.");
   const tenantUuid = await resolveTenantUuid(tenantId);
   const idRaw = String(input.id || "").trim();
   const name = String(input.name || "").trim();

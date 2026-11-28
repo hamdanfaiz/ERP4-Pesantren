@@ -1,5 +1,6 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
 import { useAuth } from '../contexts/AuthContext';
+import { isRolePermissionAllowed } from "../rbac";
 import { getAccessToken } from '../authSession';
 import React, { useState, useEffect, useRef } from "react";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
@@ -423,12 +424,47 @@ export function TahfidzManager() {
   const timeZone = normalizeTenantTimeZone(user?.tenantTimeZone);
   const currentTenantDate = (value: Date = new Date()) => SUPABASE_TAHFIDZ_RUNTIME ? tenantDate(value, timeZone) : localDate(value);
   const currentTenantTime = (value: Date = new Date()) => SUPABASE_TAHFIDZ_RUNTIME ? tenantTime(value, timeZone) : localTime(value);
-  const canManageTahfidz = ["Admin", "SuperAdmin"].includes(role);
-  const canRecordTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
-  const canExportTahfidz = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
-  const canManageTargets = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
+  const canManageTahfidz = isRolePermissionAllowed(role, "tahfidz.action.manage-halaqah", user?.modulePermissions);
+  const canRecordTahfidz = isRolePermissionAllowed(role, "tahfidz.action.record-setoran", user?.modulePermissions);
+  const canExportTahfidz = isRolePermissionAllowed(role, "tahfidz.action.export-report", user?.modulePermissions);
+  const canManageTargets = isRolePermissionAllowed(role, "tahfidz.action.manage-targets", user?.modulePermissions);
+  const canManageSessions = isRolePermissionAllowed(role, "tahfidz.action.manage-sessions", user?.modulePermissions);
+  const canAssessAudio = isRolePermissionAllowed(role, "tahfidz.action.assess-audio", user?.modulePermissions);
+  const canCommentOnStudent = isRolePermissionAllowed(role, "tahfidz.action.comment-student", user?.modulePermissions);
+  const canSendTahfidzReminders = isRolePermissionAllowed(role, "tahfidz.action.send-reminders", user?.modulePermissions);
+  const canSubmitPeerReview = isRolePermissionAllowed(role, "tahfidz.action.submit-peer-review", user?.modulePermissions);
+  const canModeratePeerReview = isRolePermissionAllowed(role, "tahfidz.action.moderate-peer-review", user?.modulePermissions);
+  const canViewRecordNotes = isRolePermissionAllowed(role, "tahfidz.field.record-notes", user?.modulePermissions);
+  const canViewRecordedBy = isRolePermissionAllowed(role, "tahfidz.field.recorded-by", user?.modulePermissions);
+  const canViewFollowUps = isRolePermissionAllowed(role, "tahfidz.field.follow-ups", user?.modulePermissions);
   const isTahfidzLearner = ["Santri", "Walisantri"].includes(role);
+  const canViewUnscopedTahfidzDemo = role === "Admin" || role === "SuperAdmin";
+  const renderScopedTahfidzUnavailable = (label: string) => (
+    <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center dark:border-white/10 dark:bg-slate-900">
+      <h2 className="font-semibold text-slate-900 dark:text-slate-100">{label} belum tersedia</h2>
+      <p className="mt-2 text-sm text-slate-500">Data akun dan penugasan belum dapat dimuat. Hubungi Admin atau aktifkan sumber data pesantren untuk melihat informasi yang sesuai dengan akun Anda.</p>
+    </section>
+  );
   const [activeTab, setActiveTab] = useState("dashboard"); // dashboard, records, targets, quran
+  const visibleTahfidzTabs = [
+    { id: "dashboard", label: "Ringkasan Halaqah" },
+    { id: "records", label: "Riwayat Setoran" },
+    { id: "targets", label: "Target & Rapor" },
+    { id: "talaqqi", label: "Jadwal Talaqqi" },
+    { id: "exams", label: "Munaqasyah" },
+    { id: "parent", label: "Portal Wali Santri" },
+    { id: "peer-review", label: "Penilaian Antar-Santri" },
+    { id: "quran", label: "Al-Qur'an" },
+    { id: "badges", label: "Pencapaian Tahfidz" },
+    { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
+  ].filter((tab) => isRolePermissionAllowed(role, `tahfidz.tab.${tab.id}`, user?.modulePermissions));
+  const renderedTahfidzTab = visibleTahfidzTabs.some((tab) => tab.id === activeTab) ? activeTab : "dashboard";
+
+  useEffect(() => {
+    if (!isRolePermissionAllowed(role, `tahfidz.tab.${activeTab}`, user?.modulePermissions)) {
+      setActiveTab("dashboard");
+    }
+  }, [activeTab, role, user?.modulePermissions]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
@@ -653,8 +689,8 @@ export function TahfidzManager() {
       ayat: `${record.ayahStart}-${record.ayahEnd}`,
       fluency: record.fluency || "N/A",
       tajweed: record.tajweed || "N/A",
-      notes: record.notes || "-",
-      ust: record.recordedByName || "",
+      notes: canViewRecordNotes ? record.notes || "-" : "-",
+      ust: canViewRecordedBy ? record.recordedByName || "" : "",
     };
   };
 
@@ -772,13 +808,13 @@ export function TahfidzManager() {
           "Ayat Akhir": Number(record.ayahEnd),
           Kelancaran: record.fluency || "Belum dinilai",
           Tajwid: record.tajweed || "Belum dinilai",
-          Catatan: record.notes || "",
-          "Dicatat Oleh": record.recordedByName || "",
+          ...(canViewRecordNotes ? { Catatan: record.notes || "" } : {}),
+          ...(canViewRecordedBy ? { "Dicatat Oleh": record.recordedByName || "" } : {}),
         };
       });
       downloadTransferCsv(
         `laporan-tahfidz-${reportDateFrom}-${reportDateTo}.csv`,
-        ["Tanggal", "Waktu", "NIS", "Nama Santri", "Halaqah", "Jenis Setoran", "Surah", "Ayat Mulai", "Ayat Akhir", "Kelancaran", "Tajwid", "Catatan", "Dicatat Oleh"],
+        ["Tanggal", "Waktu", "NIS", "Nama Santri", "Halaqah", "Jenis Setoran", "Surah", "Ayat Mulai", "Ayat Akhir", "Kelancaran", "Tajwid", ...(canViewRecordNotes ? ["Catatan"] : []), ...(canViewRecordedBy ? ["Dicatat Oleh"] : [])],
         exportedRows,
       );
       setIsTahfidzExportOpen(false);
@@ -1299,7 +1335,7 @@ export function TahfidzManager() {
           {SUPABASE_TAHFIDZ_RUNTIME && SUPABASE_TAHFIDZ_IMPORT && canManageTahfidz && <button onClick={() => void handleTahfidzImport(false)} disabled={isPreviewingTahfidzImport || isApplyingTahfidzImport} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
             {isPreviewingTahfidzImport ? "Memindai…" : "Pratinjau Impor Data Lama"}
           </button>}
-          {(!SUPABASE_TAHFIDZ_RUNTIME || canManageTahfidz) && <button onClick={() => openHalaqahForm()} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
+          {canManageTahfidz && <button onClick={() => openHalaqahForm()} className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Halaqah
           </button>}
         </div>
@@ -1354,7 +1390,7 @@ export function TahfidzManager() {
                     </span>
                   </div>
                 </div>
-                {(!SUPABASE_TAHFIDZ_RUNTIME || canManageTahfidz) && <button onClick={() => openHalaqahForm(halaqah)} aria-label={`Ubah halaqah ${halaqah.name}`} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">
+                {canManageTahfidz && <button onClick={() => openHalaqahForm(halaqah)} aria-label={`Ubah halaqah ${halaqah.name}`} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1">
                   <Settings2 className="w-4 h-4" />
                 </button>}
               </div>
@@ -1453,7 +1489,7 @@ export function TahfidzManager() {
                 </div>
               </div>
               <div className="p-4 border-t border-slate-200 dark:border-white/5 bg-slate-50/50 dark:bg-black/20 flex gap-2">
-                  {!SUPABASE_TAHFIDZ_RUNTIME && <button
+                  {!SUPABASE_TAHFIDZ_RUNTIME && canManageTahfidz && <button
                   onClick={() => {
                     setSelectedHalaqahFilter(halaqah.name);
                     setActiveTab("dashboard");
@@ -1473,7 +1509,7 @@ export function TahfidzManager() {
                     Tempatkan Santri
                   </button>
                 )}
-                {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
+                {canRecordTahfidz && <button
                   onClick={() => {
                     setSelectedHalaqahFilter(halaqah.name);
                     setActiveTab("records");
@@ -1744,7 +1780,7 @@ export function TahfidzManager() {
                             >
                               <Layers className="w-4 h-4" />
                             </button>
-                            <button
+                            {canCommentOnStudent && <button
                               onClick={() => {
                                 setSelectedSantri(santri);
                                 setIsCommentModalOpen(true);
@@ -1753,8 +1789,8 @@ export function TahfidzManager() {
                               title="Komentar Pengajar"
                             >
                               <MessageSquare className="w-4 h-4" />
-                            </button>
-                            {!SUPABASE_TAHFIDZ_RUNTIME && <button
+                            </button>}
+                            {!SUPABASE_TAHFIDZ_RUNTIME && canAssessAudio && <button
                               onClick={() => {
                                 setSelectedSantri(santri);
                                 setIsAssessmentOpen(true);
@@ -1871,12 +1907,12 @@ export function TahfidzManager() {
 
       {/* Floating Quick Actions Menu */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
-        {isQuickActionsOpen && (
+        {isQuickActionsOpen && (canRecordTahfidz || canManageTargets || canManageSessions) && (
           <div className="flex flex-col items-end gap-2 mb-2 animate-in slide-in-from-bottom-5 fade-in duration-200">
-            <button
+            {canRecordTahfidz && <button
               onClick={() => {
                 setActiveTab("records");
-                setIsAssessmentOpen(true);
+                startNewTahfidzRecord();
                 setIsQuickActionsOpen(false);
               }}
               className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl shadow-lg border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors whitespace-nowrap"
@@ -1885,8 +1921,8 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <Plus className="w-4 h-4" />
               </div>
-            </button>
-            <button
+            </button>}
+            {canManageTargets && <button
               onClick={() => {
                 setIsTargetModalOpen(true);
                 setIsQuickActionsOpen(false);
@@ -1897,8 +1933,8 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Target className="w-4 h-4" />
               </div>
-            </button>
-            <button
+            </button>}
+            {canManageSessions && <button
               onClick={() => {
                 setActiveTab("exams");
                 setIsExamModalOpen(true);
@@ -1910,7 +1946,7 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                 <Award className="w-4 h-4" />
               </div>
-            </button>
+            </button>}
             <button
               onClick={() => {
                 setActiveTab("records");
@@ -1925,12 +1961,12 @@ export function TahfidzManager() {
             </button>
           </div>
         )}
-        <button
+        {(canRecordTahfidz || canManageTargets || canManageSessions) && <button
           onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
           className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-emerald-600/30 transition-all duration-300 ${isQuickActionsOpen ? "bg-slate-800 rotate-45" : "bg-emerald-600 hover:bg-emerald-500 hover:scale-105"}`}
         >
           <Plus className="w-6 h-6" />
-        </button>
+        </button>}
       </div>
     </>
   );
@@ -2070,10 +2106,10 @@ export function TahfidzManager() {
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <h2 className="font-semibold text-slate-900 dark:text-slate-100">Perlu ditindaklanjuti</h2>
-              <p className="mt-1 text-sm text-slate-500">{dashboardFollowUps ? `${dashboardFollowUps.count} santri dalam antrean prioritas` : "Penempatan, target, atau nilai terbaru yang memerlukan perhatian"}</p>
+              <p className="mt-1 text-sm text-slate-500">{canViewFollowUps && dashboardFollowUps ? `${dashboardFollowUps.count} santri dalam antrean prioritas` : "Penempatan, target, atau nilai terbaru yang memerlukan perhatian"}</p>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-white/5">
-              {followUpRows.length ? followUpRows.map((student) => (
+              {canViewFollowUps && followUpRows.length ? followUpRows.map((student) => (
                 <div key={student.id} className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-slate-800 dark:text-slate-200">{student.name}</p>
@@ -2085,9 +2121,9 @@ export function TahfidzManager() {
                     {canManageTahfidz && student.reasons.includes("Belum ditempatkan pada halaqah") && <button type="button" onClick={() => { setDashboardActionStudent(student); setMembershipForm({ halaqahId: "", studentId: student.id, startsOn: currentTenantDate() }); setIsMembershipModalOpen(true); }} className="rounded-full border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-400/10">Tempatkan ke halaqah</button>}
                   </div>
                 </div>
-              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{tahfidzLoading ? "Memuat ringkasan tindak lanjut…" : dashboardFollowUps ? "Tidak ada sinyal tindak lanjut dari data yang tersedia." : rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman daftar santri yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
-              {dashboardFollowUps && dashboardFollowUps.count > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Menampilkan {followUpRows.length} dari {dashboardFollowUps.count} santri. Urutan memprioritaskan jumlah dan tingkat risiko.</p>}
-              {!dashboardFollowUps && followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Daftar ini berdasarkan halaman daftar santri yang telah dimuat.</p>}
+              )) : <p className="px-5 py-8 text-center text-sm text-slate-500">{!canViewFollowUps ? "Daftar tindak lanjut hanya tersedia bagi pengelola dan pembimbing." : tahfidzLoading ? "Memuat ringkasan tindak lanjut…" : dashboardFollowUps ? "Tidak ada sinyal tindak lanjut dari data yang tersedia." : rosterHasMore ? "Belum ada sinyal tindak lanjut pada halaman daftar santri yang dimuat." : "Tidak ada sinyal tindak lanjut dari data yang tersedia."}</p>}
+              {canViewFollowUps && dashboardFollowUps && dashboardFollowUps.count > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Menampilkan {followUpRows.length} dari {dashboardFollowUps.count} santri. Urutan memprioritaskan jumlah dan tingkat risiko.</p>}
+              {canViewFollowUps && !dashboardFollowUps && followUpRows.length === 6 && santriList.length > followUpRows.length && <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-white/5">Daftar ini berdasarkan halaman daftar santri yang telah dimuat.</p>}
             </div>
           </section>
         </div>
@@ -2138,7 +2174,7 @@ export function TahfidzManager() {
     if (!isTahfidzLearner) {
       return (
         <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300">
-          Portal ini hanya tersedia untuk akun Santri dan Wali Santri yang sudah tertaut ke data santri.
+          Portal ini hanya tersedia untuk akun Wali Santri yang sudah tertaut ke data santri.
         </div>
       );
     }
@@ -2219,7 +2255,7 @@ export function TahfidzManager() {
                   <div>
                     <p className="font-medium text-slate-900 dark:text-slate-100">{record.surah} · ayat {record.ayat}</p>
                     <p className="mt-1 text-xs text-slate-500">{record.type} · {record.date || "Tanggal tidak tersedia"} {record.time ? `· ${record.time}` : ""}</p>
-                    {record.notes && record.notes !== "-" && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Catatan: {record.notes}</p>}
+                    {canViewRecordNotes && record.notes && record.notes !== "-" && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Catatan: {record.notes}</p>}
                   </div>
                   <div className="flex shrink-0 gap-2 text-xs">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700 dark:bg-white/10 dark:text-slate-200">Kelancaran: {record.fluency === "N/A" ? "Belum dinilai" : record.fluency}</span>
@@ -2305,7 +2341,7 @@ export function TahfidzManager() {
   const renderRecords = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Quick Entry Form */}
-      {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:flex-wrap gap-4 items-end">
+      {canRecordTahfidz && <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-500/20 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:flex-wrap gap-4 items-end">
         <div className="w-full md:w-auto flex-1">
           <label className="block text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-500 mb-1.5">
             Santri
@@ -2445,7 +2481,7 @@ export function TahfidzManager() {
                 <th className="px-6 py-4">Santri & Halaqah</th>
                 <th className="px-6 py-4">Tipe & Hafalan</th>
                 <th className="px-6 py-4">Penilaian</th>
-                <th className="px-6 py-4">Catatan Musyrif</th>
+                {canViewRecordNotes && <th className="px-6 py-4">Catatan Musyrif</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -2506,7 +2542,7 @@ export function TahfidzManager() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm max-w-[200px] truncate">
+                  {canViewRecordNotes && <td className="px-6 py-4 text-slate-600 dark:text-slate-400 text-sm max-w-[200px] truncate">
                     {r.notes !== "-" ? (
                       r.notes
                     ) : (
@@ -2514,7 +2550,7 @@ export function TahfidzManager() {
                         Tidak ada catatan
                       </span>
                     )}
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -2546,27 +2582,27 @@ export function TahfidzManager() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {!SUPABASE_TAHFIDZ_RUNTIME && <button
+            {canManageTargets && !SUPABASE_TAHFIDZ_RUNTIME && <button
               onClick={() => setIsPrintPlanOpen(true)}
               className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-white/10 shadow-sm"
             >
               <Printer className="w-4 h-4" />
               Cetak Study Plan
             </button>}
-            {!SUPABASE_TAHFIDZ_RUNTIME && <button
+            {canManageTargets && !SUPABASE_TAHFIDZ_RUNTIME && <button
               onClick={() => setIsAiPlannerOpen(true)}
               className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:from-emerald-500 hover:to-teal-500 transition-colors shadow-sm"
             >
               <Sparkles className="w-4 h-4" />
               AI Planner
             </button>}
-            <button
+            {canManageTargets && <button
               onClick={() => setIsTargetModalOpen(true)}
               className="flex items-center gap-2 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-200 dark:hover:bg-emerald-900 transition-colors border border-emerald-200 dark:border-emerald-500/20 shadow-sm"
             >
               <Plus className="w-4 h-4" />
               Set Target Massal
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -2623,7 +2659,7 @@ export function TahfidzManager() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center gap-2">
-                      {SUPABASE_TAHFIDZ_RUNTIME && <button
+                      {canManageTargets && SUPABASE_TAHFIDZ_RUNTIME && <button
                         type="button"
                         onClick={() => {
                           const student = santri;
@@ -2634,13 +2670,13 @@ export function TahfidzManager() {
                         aria-label={`Cetak rencana hafalan ${santri.name}`}
                         className="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
                       >Rencana</button>}
-                      <button
+                      {canManageTargets && <button
                         type="button"
                         onClick={() => setIsTargetModalOpen(true)}
                         className="text-xs text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 font-medium bg-slate-100 dark:bg-white/5 px-2 py-1 rounded"
                       >
                         Sesuaikan
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>
@@ -2924,12 +2960,12 @@ export function TahfidzManager() {
             Manajemen sertifikasi dan evaluasi akhir tahfidz
           </p>
         </div>
-        <button
+        {canManageSessions && <button
           onClick={() => setIsExamModalOpen(true)}
           className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm shadow-emerald-500/20 flex items-center gap-2"
         >
           <Plus className="w-4 h-4" /> Jadwalkan Ujian Baru
-        </button>
+        </button>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -3072,13 +3108,13 @@ export function TahfidzManager() {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        <button
+                        {canManageSessions && <button
                           onClick={() => setIsExamActive(true)}
                           className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors text-slate-400"
                           title="Mulai Ujian"
                         >
                           <Play className="w-4 h-4" />
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
@@ -3111,13 +3147,13 @@ export function TahfidzManager() {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        <button
+                        {canManageSessions && <button
                           onClick={() => setIsExamActive(true)}
                           className="p-2 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-colors text-slate-400"
                           title="Mulai Ujian"
                         >
                           <Play className="w-4 h-4" />
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                     <tr className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors">
@@ -3150,13 +3186,13 @@ export function TahfidzManager() {
                         </span>
                       </td>
                       <td className="p-4 text-right">
-                        <button
+                        {canManageSessions && <button
                           onClick={() => setIsExamActive(true)}
                           className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-800 dark:hover:text-white rounded-lg transition-colors text-slate-400"
                           title="Buka Ujian"
                         >
                           <ChevronRight className="w-4 h-4" />
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   </>
@@ -3836,7 +3872,7 @@ export function TahfidzManager() {
               Jadwalkan dan pantau sesi bimbingan khusus tahsin & tahfidz.
             </p>
           </div>
-          {!SUPABASE_TAHFIDZ_RUNTIME && <button
+          {!SUPABASE_TAHFIDZ_RUNTIME && canManageSessions && <button
             onClick={() => setIsTalaqqiModalOpen(true)}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-sm"
           >
@@ -3976,7 +4012,7 @@ export function TahfidzManager() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {!SUPABASE_TAHFIDZ_RUNTIME ? <button
+          {canSendTahfidzReminders && (!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() =>
               isReminderEnabled
                 ? setIsReminderEnabled(false)
@@ -3997,11 +4033,11 @@ export function TahfidzManager() {
             <span className="hidden sm:inline">
               {isReminderEnabled ? "Pengingat Aktif" : "Aktifkan Pengingat"}
             </span>
-          </button> : <button type="button" disabled title="Pengingat belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>}
-          {!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
+          </button> : <button type="button" disabled title="Pengingat belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-medium text-slate-500 opacity-80 dark:border-white/10 dark:bg-white/5 dark:text-slate-400"><Bell className="h-4 w-4" /><span>Aktifkan Pengingat</span></button>)}
+          {canExportTahfidz && (!SUPABASE_TAHFIDZ_RUNTIME ? <button className="flex items-center gap-2 bg-white dark:bg-black/40 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 px-4 py-2 rounded-lg font-medium text-sm hover:bg-slate-50 dark:hover:bg-white/5 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
             <span className="hidden sm:inline">Ekspor Laporan</span>
-          </button> : canExportTahfidz && <button
+          </button> : <button
             type="button"
             onClick={() => {
               const today = currentTenantDate();
@@ -4011,8 +4047,8 @@ export function TahfidzManager() {
               setIsTahfidzExportOpen(true);
             }}
             className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-white/10 dark:bg-black/40 dark:text-slate-300 dark:hover:bg-white/5"
-          ><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>}
-          {!SUPABASE_TAHFIDZ_RUNTIME ? <button
+          ><Download className="h-4 w-4" /><span>Ekspor Laporan</span></button>)}
+          {canAssessAudio && (!SUPABASE_TAHFIDZ_RUNTIME ? <button
             onClick={() => {
               setSelectedSantri(displaySantri[0]);
               setIsAssessmentOpen(true);
@@ -4021,8 +4057,8 @@ export function TahfidzManager() {
           >
             <Mic className="w-4 h-4" />
             Penilaian Audio AI
-          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian Audio AI</button>}
-          {(!SUPABASE_TAHFIDZ_RUNTIME || canRecordTahfidz) && <button
+          </button> : <button type="button" disabled aria-label="Penilaian audio AI belum tersedia" title="Penilaian audio belum tersedia." className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 opacity-80 dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-300"><Mic className="h-4 w-4" />Penilaian Audio AI</button>)}
+          {canRecordTahfidz && <button
             onClick={startNewTahfidzRecord}
             className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium text-sm hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-600/20"
           >
@@ -4043,45 +4079,34 @@ export function TahfidzManager() {
         <button type="button" onClick={() => void loadMoreTahfidzRoster()} disabled={rosterLoadingMore} className="shrink-0 font-semibold underline underline-offset-2 disabled:opacity-50">{rosterLoadingMore ? "Memuat…" : "Muat santri berikutnya"}</button>
       </div>}
 
-            <ERPTabs
-        tabs={[
-          { id: "dashboard", label: "Ringkasan Halaqah" },
-          { id: "records", label: "Riwayat Setoran" },
-          { id: "targets", label: "Target & Rapor" },
-          { id: "talaqqi", label: "Jadwal Talaqqi" },
-          { id: "exams", label: "Munaqasyah" },
-          { id: "parent", label: "Portal Wali Santri" },
-          { id: "peer-review", label: "Penilaian Antar-Santri" },
-          { id: "quran", label: "Al-Qur'an" },
-          { id: "badges", label: "Pencapaian Tahfidz" },
-          { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
-        ]}
-        value={activeTab}
+      <ERPTabs
+        tabs={visibleTahfidzTabs}
+        value={renderedTahfidzTab}
         onChange={setActiveTab}
         ariaLabel="Bagian Sistem Tahfidz"
       />
 
-      {activeTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : renderDashboard())}
-      {activeTab === "halaqah" && renderHalaqahManagement()}
-      {activeTab === "records" && renderRecords()}
-      {activeTab === "targets" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseTargets() : renderTargets())}
-      {activeTab === "talaqqi" && !SUPABASE_TAHFIDZ_RUNTIME && renderTalaqqiCalendar()}
-      {activeTab === "exams" && !SUPABASE_TAHFIDZ_RUNTIME && renderExams()}
-      {activeTab === "talaqqi" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="talaqqi" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
-      {activeTab === "exams" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="exam" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
-      {activeTab === "parent" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseParentDashboard() : renderParentDashboard())}
-      {activeTab === "peer-review" && !SUPABASE_TAHFIDZ_RUNTIME && renderPeerReview()}
-      {activeTab === "badges" && !SUPABASE_TAHFIDZ_RUNTIME && renderBadges()}
-      {activeTab === "badges" && SUPABASE_TAHFIDZ_RUNTIME && renderSupabaseAchievements()}
-      {activeTab === "quran" && (
+      {renderedTahfidzTab === "dashboard" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseDashboard() : canViewUnscopedTahfidzDemo ? renderDashboard() : renderScopedTahfidzUnavailable("Ringkasan Tahfidz"))}
+      {renderedTahfidzTab === "halaqah" && (SUPABASE_TAHFIDZ_RUNTIME || canViewUnscopedTahfidzDemo ? renderHalaqahManagement() : renderScopedTahfidzUnavailable("Data halaqah"))}
+      {renderedTahfidzTab === "records" && (SUPABASE_TAHFIDZ_RUNTIME || canViewUnscopedTahfidzDemo ? renderRecords() : renderScopedTahfidzUnavailable("Riwayat setoran"))}
+      {renderedTahfidzTab === "targets" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseTargets() : canViewUnscopedTahfidzDemo ? renderTargets() : renderScopedTahfidzUnavailable("Target Tahfidz"))}
+      {renderedTahfidzTab === "talaqqi" && !SUPABASE_TAHFIDZ_RUNTIME && (canViewUnscopedTahfidzDemo ? renderTalaqqiCalendar() : renderScopedTahfidzUnavailable("Jadwal talaqqi"))}
+      {renderedTahfidzTab === "exams" && !SUPABASE_TAHFIDZ_RUNTIME && (canViewUnscopedTahfidzDemo ? renderExams() : renderScopedTahfidzUnavailable("Ujian Tahfidz"))}
+      {renderedTahfidzTab === "talaqqi" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="talaqqi" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
+      {renderedTahfidzTab === "exams" && SUPABASE_TAHFIDZ_RUNTIME && <SupabaseTahfidzSessions kind="exam" students={displaySantri} halaqahs={displayHalaqah} tenantTimeZone={user?.tenantTimeZone} rosterHasMore={rosterHasMore} rosterLoadingMore={rosterLoadingMore} onLoadMoreRoster={() => void loadMoreTahfidzRoster()} />}
+      {renderedTahfidzTab === "parent" && (SUPABASE_TAHFIDZ_RUNTIME ? renderSupabaseParentDashboard() : renderScopedTahfidzUnavailable("Portal wali santri"))}
+      {renderedTahfidzTab === "peer-review" && !SUPABASE_TAHFIDZ_RUNTIME && renderScopedTahfidzUnavailable("Penilaian antar-santri")}
+      {renderedTahfidzTab === "badges" && !SUPABASE_TAHFIDZ_RUNTIME && (canViewUnscopedTahfidzDemo ? renderBadges() : renderScopedTahfidzUnavailable("Pencapaian Tahfidz"))}
+      {renderedTahfidzTab === "badges" && SUPABASE_TAHFIDZ_RUNTIME && renderSupabaseAchievements()}
+      {renderedTahfidzTab === "quran" && (
         <div className="flex-1 min-h-0">
           <QuranViewer />
         </div>
       )}
-      {SUPABASE_TAHFIDZ_RUNTIME && activeTab === "peer-review" && <SupabaseTahfidzPeerReview />}
+      {SUPABASE_TAHFIDZ_RUNTIME && renderedTahfidzTab === "peer-review" && <SupabaseTahfidzPeerReview />}
 
       {/* Target Harian Modal */}
-      {isTargetModalOpen && (
+      {isTargetModalOpen && canManageTargets && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -4187,7 +4212,7 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {isHalaqahModalOpen && (
+      {isHalaqahModalOpen && canManageTahfidz && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">{editingHalaqah ? "Ubah Halaqah" : "Tambah Halaqah"}</h2><p className="mt-1 text-sm text-slate-500">{editingHalaqah ? "Perbarui nama, pembimbing, jadwal, lokasi, dan target harian." : "Isi nama, pembimbing, jadwal, lokasi, dan target harian."}</p></div>
@@ -4202,7 +4227,7 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {isMembershipModalOpen && (
+      {isMembershipModalOpen && canManageTahfidz && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm dark:bg-black/80">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-slate-900">
             <div className="border-b border-slate-200 p-5 dark:border-white/10"><h2 className="font-semibold text-slate-900 dark:text-slate-100">Tempatkan Santri ke Halaqah</h2><p className="mt-1 text-sm text-slate-500">Penempatan aktif akan disimpan untuk pesantren ini.</p></div>
@@ -4225,7 +4250,7 @@ export function TahfidzManager() {
       )}
 
       {/* Reminder Notification Modal */}
-      {isReminderModalOpen && (
+      {isReminderModalOpen && canSendTahfidzReminders && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -4412,7 +4437,7 @@ export function TahfidzManager() {
       )}
 
       {/* Comment Modal */}
-      {isCommentModalOpen && selectedSantri && (
+      {isCommentModalOpen && canCommentOnStudent && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -4472,7 +4497,7 @@ export function TahfidzManager() {
       )}
 
       {/* Talaqqi Scheduling Modal */}
-      {isTalaqqiModalOpen && (
+      {isTalaqqiModalOpen && canManageSessions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5007,7 +5032,7 @@ export function TahfidzManager() {
       )}
 
       {/* AI Planner Modal */}
-      {isAiPlannerOpen && (
+      {isAiPlannerOpen && canManageTargets && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5147,7 +5172,7 @@ export function TahfidzManager() {
       )}
 
       {/* Input Setoran Modal */}
-      {isInputOpen && (
+      {isInputOpen && canRecordTahfidz && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5554,7 +5579,7 @@ export function TahfidzManager() {
       )}
 
       {/* AI Assessment Modal */}
-      {!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && (
+      {!SUPABASE_TAHFIDZ_RUNTIME && canAssessAudio && isAssessmentOpen && selectedSantri && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5712,7 +5737,7 @@ export function TahfidzManager() {
         </div>
       )}
       {/* Exam Scheduling Modal */}
-      {isExamModalOpen && (
+      {isExamModalOpen && canManageSessions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5810,7 +5835,7 @@ export function TahfidzManager() {
       )}
 
       {/* Active Exam Action Modal */}
-      {isExamActive && (
+      {isExamActive && canManageSessions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10 max-h-[90vh]">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -6116,7 +6141,7 @@ export function TahfidzManager() {
       )}
 
       {/* Gamified Milestone Modal */}
-      {isMilestoneModalOpen && (
+      {isMilestoneModalOpen && canManageSessions && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md bg-slate-900/80 dark:bg-black/90 animate-in fade-in duration-500">
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center p-8 border border-amber-200 dark:border-amber-500/20 transform animate-in zoom-in-95 slide-in-from-bottom-8 duration-700">
             {/* Confetti / Burst effect background */}
@@ -6196,7 +6221,7 @@ export function TahfidzManager() {
       )}
 
       {/* Peer Review Modal */}
-      {isPeerReviewOpen && selectedReview && (
+      {isPeerReviewOpen && selectedReview && (canSubmitPeerReview || canModeratePeerReview) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -6286,7 +6311,7 @@ export function TahfidzManager() {
         </div>
       )}
 
-      {isPrintPlanOpen && SUPABASE_TAHFIDZ_RUNTIME && printPlanStudent && printPlanScopeKey === currentPrintPlanScopeKey && (
+      {isPrintPlanOpen && canManageTargets && SUPABASE_TAHFIDZ_RUNTIME && printPlanStudent && printPlanScopeKey === currentPrintPlanScopeKey && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 print:static print:block print:bg-white print:p-0" role="dialog" aria-modal="true" aria-labelledby="tahfidz-print-plan-title">
           <section className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-slate-900 dark:text-slate-100 print:max-h-none print:max-w-none print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
             <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10 print:hidden">
@@ -6363,7 +6388,7 @@ export function TahfidzManager() {
       )}
 
       {/* Printable Study Plan Modal */}
-      {isPrintPlanOpen && !SUPABASE_TAHFIDZ_RUNTIME && (
+      {isPrintPlanOpen && canManageTargets && !SUPABASE_TAHFIDZ_RUNTIME && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40 print:hidden">

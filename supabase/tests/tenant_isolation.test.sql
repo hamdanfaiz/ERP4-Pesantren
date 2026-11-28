@@ -7,7 +7,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
-SELECT plan(44);
+SELECT plan(50);
 
 -- Stable fixture IDs make failures easy to reproduce while keeping test data synthetic.
 INSERT INTO public.tenants (id, slug, name, status)
@@ -22,6 +22,7 @@ INSERT INTO auth.users (
 VALUES
   ('a1000000-0000-4000-8000-000000000011', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('a1000000-0000-4000-8000-000000000012', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'ustadz-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
+  ('a1000000-0000-4000-8000-000000000014', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'santri-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('b2000000-0000-4000-8000-000000000021', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin-b@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
   ('a1000000-0000-4000-8000-000000000013', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'suspended-a@test.invalid', '', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
@@ -30,7 +31,8 @@ INSERT INTO public.profiles (
 )
 VALUES
   ('a1000000-0000-4000-8000-000000000011', 'a1000000-0000-4000-8000-000000000001', 'admin-a@test.invalid', 'Admin A', 'admin', 'active', '{"users":true,"ppdb":true}'),
-  ('a1000000-0000-4000-8000-000000000012', 'a1000000-0000-4000-8000-000000000001', 'ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{}'),
+  ('a1000000-0000-4000-8000-000000000012', 'a1000000-0000-4000-8000-000000000001', 'ustadz-a@test.invalid', 'Ustadz A', 'ustadz', 'active', '{"finance":true,"ppdb":true,"tahfidz":true}'),
+  ('a1000000-0000-4000-8000-000000000014', 'a1000000-0000-4000-8000-000000000001', 'santri-a@test.invalid', 'Santri A', 'santri', 'active', '{"finance":true,"tahfidz":true}'),
   ('b2000000-0000-4000-8000-000000000021', 'b2000000-0000-4000-8000-000000000002', 'admin-b@test.invalid', 'Admin B', 'admin', 'active', '{"users":true,"ppdb":true}'),
   ('a1000000-0000-4000-8000-000000000013', 'a1000000-0000-4000-8000-000000000001', 'suspended-a@test.invalid', 'Suspended A', 'admin', 'suspended', '{"users":true,"ppdb":true}');
 \ir test_support/seed_tenant_reference_catalogs.psql
@@ -79,7 +81,7 @@ SELECT is(private.current_app_role(), 'admin', 'Admin A role comes from the acti
 SELECT ok(private.has_module_access('users'), 'Admin A has explicit users permission');
 SELECT ok(private.has_module_access('ppdb'), 'Admin A has explicit PPDB permission');
 SELECT is((SELECT count(*)::int FROM public.tenants), 1, 'Admin A sees one tenant');
-SELECT is((SELECT count(*)::int FROM public.profiles), 3, 'Admin A sees only profiles in tenant A, including suspended accounts');
+SELECT is((SELECT count(*)::int FROM public.profiles), 4, 'Admin A sees only profiles in tenant A, including suspended accounts');
 SELECT is((SELECT count(*)::int FROM public.profiles WHERE user_id = 'b2000000-0000-4000-8000-000000000021'), 0, 'Admin A cannot see tenant B profile');
 SELECT is((SELECT count(*)::int FROM public.candidates), 1, 'Admin A sees tenant A candidates with PPDB permission');
 SELECT is((SELECT count(*)::int FROM public.candidates WHERE tenant_id = 'b2000000-0000-4000-8000-000000000002'), 0, 'Admin A cannot see tenant B candidates');
@@ -92,8 +94,22 @@ SET LOCAL request.jwt.claim.role = 'authenticated';
 SET LOCAL request.jwt.claims = '{"sub":"a1000000-0000-4000-8000-000000000012","role":"authenticated"}';
 SELECT is(private.current_app_role(), 'ustadz', 'Ustadz role comes from the active profile');
 SELECT ok(NOT private.is_tenant_admin(), 'Ustadz is not a tenant administrator');
+SELECT ok(private.has_module_access('tahfidz'), 'Ustadz retains Tahfidz within the role baseline');
+SELECT ok(NOT private.has_module_access('finance'), 'An explicit finance grant cannot elevate Ustadz beyond the role baseline');
+SELECT ok(NOT private.has_module_access('ppdb'), 'An explicit PPDB grant cannot elevate Ustadz beyond the role baseline');
 SELECT is((SELECT count(*)::int FROM public.profiles), 1, 'Ustadz sees only their own profile');
 SELECT is((SELECT count(*)::int FROM public.candidates), 0, 'Ustadz cannot read PPDB candidates');
+RESET ROLE;
+
+-- Santri must not inherit the staff Finance module even if an old profile has
+-- an explicit `finance: true` flag.
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claim.sub = 'a1000000-0000-4000-8000-000000000014';
+SET LOCAL request.jwt.claim.role = 'authenticated';
+SET LOCAL request.jwt.claims = '{"sub":"a1000000-0000-4000-8000-000000000014","role":"authenticated"}';
+SELECT is(private.current_app_role(), 'santri', 'Santri role comes from the active profile');
+SELECT ok(private.has_module_access('tahfidz'), 'Santri retains Tahfidz within the role baseline');
+SELECT ok(NOT private.has_module_access('finance'), 'A stale Finance grant cannot expose staff Finance to Santri');
 RESET ROLE;
 
 -- Tenant B administrator cannot see any tenant A records.
