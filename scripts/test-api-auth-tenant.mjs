@@ -3733,7 +3733,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     const createdAnnouncement = communicationPayload.announcement;
     assert.ok(createdAnnouncement?.id, 'The communication API returns the persisted announcement ID.');
     assert.equal(createdAnnouncement.status, 'Sent');
-    assert.equal(createdAnnouncement.totalTarget, 1, 'The audience count is resolved from active tenant Ustadz profiles.');
+    assert.equal(createdAnnouncement.totalTarget, 2, 'The audience count includes both active tenant Ustadz profiles, even when one has narrower Tahfidz permissions.');
 
     const { data: communicationRow, error: communicationReadError } = await admin.from('communication_announcements')
       .select('tenant_id,title,target_audience,status,created_by_user_id')
@@ -3755,6 +3755,18 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     assert.ok(deliveredAnnouncement, 'The canonical Guru & Musyrif audience relationship makes the announcement visible to its Ustadz recipient.');
     assert.equal('totalTarget' in deliveredAnnouncement, false,
       'Audience reach statistics are not disclosed to a non-Admin announcement recipient.');
+
+    const featureRestrictedUstadzAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(featureRestrictedUstadzAnnouncementList.status, 200,
+      'A Ustadz with narrower Tahfidz permissions can still read a permitted communication audience.');
+    const featureRestrictedUstadzAnnouncements = (await featureRestrictedUstadzAnnouncementList.json()).announcements;
+    const featureRestrictedDeliveredAnnouncement = featureRestrictedUstadzAnnouncements.find((item) => item.id === createdAnnouncement.id);
+    assert.ok(featureRestrictedDeliveredAnnouncement,
+      'A Tahfidz permission denial does not incorrectly remove the Ustadz from a communication audience.');
+    assert.equal('totalTarget' in featureRestrictedDeliveredAnnouncement, false,
+      'Audience reach statistics are not disclosed to a non-Admin announcement recipient with other restricted features.');
 
     const tenantBAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },
