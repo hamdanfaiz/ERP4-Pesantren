@@ -34,8 +34,7 @@ import {
   ALL_MODULE_LIST,
   SYSTEM_SETTINGS_RUNTIME_ENABLED,
 } from '../services/systemSettingsService';
-import { UserRole } from '../rbac';
-import { ModuleId } from '../types';
+import { ROLE_MODULES } from '../rbac';
 import { useAuth } from '../contexts/AuthContext';
 import { getAccessToken } from '../authSession';
 import { legacyArchiveImportEnabled } from '../runtimeBackend';
@@ -52,7 +51,6 @@ export function SettingsManager() {
     orgInfo: currentOrgInfo, 
     integrations: currentIntegrations, 
     mobileConfig: currentMobileConfig,
-    permissions: currentPermissions,
     updateSettings,
     settingsReady,
     settingsLoadError,
@@ -100,7 +98,6 @@ export function SettingsManager() {
   const [orgInfo, setOrgInfo] = useState<OrgInfo>(currentOrgInfo);
   const [integrations, setIntegrations] = useState<IntegrationsConfig>(currentIntegrations);
   const [mobileConfig, setMobileConfig] = useState<MobileConfig>(currentMobileConfig);
-  const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>(currentPermissions);
 
   // Sync local state when store updates
   useEffect(() => {
@@ -108,7 +105,6 @@ export function SettingsManager() {
     setOrgInfo(currentOrgInfo);
     setIntegrations(currentIntegrations);
     setMobileConfig(currentMobileConfig);
-    setPermissions(currentPermissions);
     setSettingsConflict(false);
   }, [settings]);
 
@@ -127,7 +123,6 @@ export function SettingsManager() {
         orgInfo,
         integrations,
         mobileConfig,
-        permissions,
       });
       if (SUPABASE_SYSTEM_SETTINGS && generalSettings.timezone !== user?.tenantTimeZone) {
         try {
@@ -203,30 +198,6 @@ export function SettingsManager() {
       console.error(err);
       showToast('Gagal memproses file gambar. Pastikan format adalah PNG atau JPG.', 'error');
     }
-  };
-
-  const togglePermission = (role: UserRole, moduleId: ModuleId) => {
-    if (role === 'SuperAdmin') return;
-    setPermissions(prev => ({
-      ...prev,
-      [role]: {
-        ...(prev[role] || {}),
-        [moduleId]: !prev[role]?.[moduleId]
-      }
-    }));
-  };
-
-  const setAllPermissionsForRole = (role: UserRole, grant: boolean) => {
-    if (role === 'SuperAdmin') return;
-    const newRolePerms: Record<string, boolean> = {};
-    ALL_MODULE_LIST.forEach(m => {
-      newRolePerms[m.id] = grant;
-    });
-    setPermissions(prev => ({
-      ...prev,
-      [role]: newRolePerms
-    }));
-    showToast(`${grant ? 'Memberikan' : 'Mencabut'} semua hak akses modul untuk role ${role}.`, 'info');
   };
 
   const handleDownloadBackup = () => {
@@ -634,10 +605,10 @@ export function SettingsManager() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-indigo-400" /> Matriks Hak Akses Dinamis (Dynamic RBAC)
+                      <Shield className="w-5 h-5 text-indigo-400" /> Matriks Akses Bawaan Berdasarkan Peran
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Konfigurasi hak akses modul per-role. Perubahan langsung mengatur navigasi Sidebar dan proteksi halaman.
+                      Hak akses mengikuti peran yang ditetapkan. Pengaturan izin pengguna hanya dapat membatasi akses lebih lanjut. Bagian, tindakan, dan data sensitif menyesuaikan peran pada tiap modul.
                     </p>
                   </div>
                 </div>
@@ -652,25 +623,6 @@ export function SettingsManager() {
                         {SYSTEM_ROLES.map(role => (
                           <th key={role} className="p-3 text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider text-center">
                             <div>{role}</div>
-                            {role !== 'SuperAdmin' && (
-                              <div className="flex items-center justify-center gap-1 mt-1 font-normal text-[10px] lowercase">
-                                <button 
-                                  type="button" 
-                                  onClick={() => setAllPermissionsForRole(role, true)}
-                                  className="text-emerald-400 hover:underline"
-                                >
-                                  semua
-                                </button>
-                                <span>/</span>
-                                <button 
-                                  type="button" 
-                                  onClick={() => setAllPermissionsForRole(role, false)}
-                                  className="text-rose-400 hover:underline"
-                                >
-                                  cabut
-                                </button>
-                              </div>
-                            )}
                           </th>
                         ))}
                       </tr>
@@ -687,25 +639,18 @@ export function SettingsManager() {
                             </div>
                           </td>
                           {SYSTEM_ROLES.map((role) => {
-                            const isSuperAdmin = role === 'SuperAdmin';
-                            const hasAccess = isSuperAdmin ? true : !!permissions[role]?.[mdl.id];
+                            const hasAccess = (ROLE_MODULES[role] || []).includes(mdl.id);
                             return (
                               <td key={`${role}-${mdl.id}`} className="p-3 text-center">
-                                <button
-                                  type="button"
-                                  disabled={isSuperAdmin}
-                                  onClick={() => togglePermission(role, mdl.id)}
+                                <span
                                   className={cn(
-                                    "inline-flex items-center justify-center p-1.5 rounded-lg transition-all",
-                                    hasAccess 
-                                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/20 hover:bg-emerald-600" 
-                                      : "bg-slate-200 dark:bg-white/5 text-slate-400 hover:bg-slate-300 dark:hover:bg-white/10 hover:text-slate-200",
-                                    isSuperAdmin && "opacity-60 cursor-not-allowed"
+                                    "inline-flex items-center justify-center p-1.5 rounded-lg",
+                                    hasAccess ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-white/5 text-slate-400",
                                   )}
-                                  title={isSuperAdmin ? "SuperAdmin memiliki hak akses penuh" : `${hasAccess ? 'Cabut' : 'Beri'} akses ${mdl.name} untuk ${role}`}
+                                  aria-label={`${role}: ${hasAccess ? 'diizinkan' : 'tidak diizinkan'} untuk ${mdl.name}`}
                                 >
                                   {hasAccess ? <Check className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
-                                </button>
+                                </span>
                               </td>
                             );
                           })}

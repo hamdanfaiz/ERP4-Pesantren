@@ -6,6 +6,7 @@ import { normalizeTahfidzLeaderboardResult } from "../lib/tahfidzLeaderboardResp
 import { buildTahfidzRecordPageParams, encodeTahfidzRecordCursor, TAHFIDZ_RECORD_PAGE_SIZE } from "../lib/tahfidzRecordPagination";
 import { normalizeTahfidzRosterCursor, normalizeTahfidzRosterSearch, TAHFIDZ_ROSTER_PAGE_SIZE } from "../lib/tahfidzRosterPagination";
 import { buildTahfidzSessionPageParams, encodeTahfidzSessionCursor, TAHFIDZ_SESSION_PAGE_SIZE } from "../lib/tahfidzSessionPagination";
+import { isRolePermissionAllowed, type UserRole } from "../rbac";
 
 type JsonObject = Record<string, any>;
 
@@ -136,8 +137,11 @@ async function listRows(table: string, tenantId: string, select: string, order: 
 }
 
 type TahfidzSnapshotScope = { roster: JsonObject[]; halaqahs: JsonObject[] };
+type PermissionMap = Record<string, boolean> | null | undefined;
 
-function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[]) {
+function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[], role: string, modulePermissions?: PermissionMap) {
+  const canReadStaffNotes = isRolePermissionAllowed(role as UserRole, "tahfidz.field.record-notes", modulePermissions);
+  const canReadRecorderName = isRolePermissionAllowed(role as UserRole, "tahfidz.field.recorded-by", modulePermissions);
   const studentById = new Map(roster.map((student) => [String(student.id), student]));
   return rows.map((record) => {
     const student = studentById.get(String(record.student_id || ""));
@@ -154,9 +158,9 @@ function mapTahfidzRecordRows(rows: JsonObject[], roster: JsonObject[]) {
       ayahEnd: Number(record.ayah_end),
       fluency: record.fluency_grade || null,
       tajweed: record.tajweed_grade || null,
-      notes: record.notes || "",
+      notes: canReadStaffNotes ? record.notes || "" : "",
       performedAt: String(record.performed_at),
-      recordedByName: record.recorded_by_name || "",
+      recordedByName: canReadRecorderName ? record.recorded_by_name || "" : "",
     };
   });
 }
@@ -167,6 +171,7 @@ async function fetchTahfidzRecordPage(
   scope: TahfidzSnapshotScope,
   cursorValue?: unknown,
   options: { pageSize?: number; from?: unknown; to?: unknown } = {},
+  modulePermissions?: PermissionMap,
 ) {
   let params: URLSearchParams | null;
   try {
@@ -227,7 +232,7 @@ async function fetchTahfidzRecordPage(
   }
 
   return {
-    records: mapTahfidzRecordRows(pageRows, recordRoster),
+    records: mapTahfidzRecordRows(pageRows, recordRoster, role, modulePermissions),
     hasMore,
     nextCursor,
     oldestPerformedAt: lastRow ? String(lastRow.performed_at || "") : null,
@@ -331,7 +336,8 @@ export async function listSupabaseTahfidzRosterPage(
   actorSupabaseUid: string,
   role: string,
   cursorValue?: unknown,
-  searchValue?: unknown
+  searchValue?: unknown,
+  modulePermissions?: PermissionMap,
 ) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca roster Tahfidz.");
@@ -348,7 +354,16 @@ export async function listSupabaseTahfidzRosterPage(
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const businessDate = await getTahfidzBusinessDate(tenantId);
-  return requestTahfidzRosterPage(tenantId, actorId, role, businessDate, cursor, search, false);
+  const page = await requestTahfidzRosterPage(tenantId, actorId, role, businessDate, cursor, search, false);
+  const canReadTargets = isRolePermissionAllowed(role as UserRole, "tahfidz.tab.targets", modulePermissions);
+  return canReadTargets ? page : {
+    ...page,
+    roster: page.roster.map((student: JsonObject) => {
+      const withoutTarget = { ...student };
+      delete withoutTarget.target;
+      return withoutTarget;
+    }),
+  };
 }
 
 export async function listSupabaseTahfidzAchievementPage(
@@ -446,15 +461,38 @@ export async function listSupabaseTahfidzLeaderboard(
   return normalized;
 }
 
-export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, actorSupabaseUid: string, role: string, includeRecords = true) {
+export async function listSupabaseTahfidzSnapshot(
+  tenantIdentifier: string,
+  actorSupabaseUid: string,
+  role: string,
+  includeRecords = true,
+  modulePermissions?: PermissionMap,
+) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca data operasional Tahfidz.");
   }
+  const roleForPolicy = role as UserRole;
+  const canReadDashboard = isRolePermissionAllowed(roleForPolicy, "tahfidz.tab.dashboard", modulePermissions);
+  const canReadRecords = isRolePermissionAllowed(roleForPolicy, "tahfidz.tab.records", modulePermissions);
+  const canReadTargets = isRolePermissionAllowed(roleForPolicy, "tahfidz.tab.targets", modulePermissions);
+  const canReadHalaqah = isRolePermissionAllowed(roleForPolicy, "tahfidz.tab.halaqah", modulePermissions);
+  const canReadParentPortal = isRolePermissionAllowed(roleForPolicy, "tahfidz.tab.parent", modulePermissions);
+  const canReadRoster = canReadDashboard || canReadRecords || canReadTargets || canReadHalaqah || canReadParentPortal;
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const today = await getTahfidzBusinessDate(tenantId);
-  const rosterPage = await requestTahfidzRosterPage(tenantId, actorId, role, today, null, null, true);
+  const rosterPage = canReadRoster
+    ? await requestTahfidzRosterPage(
+      tenantId,
+      actorId,
+      role,
+      today,
+      null,
+      null,
+      canReadDashboard && isRolePermissionAllowed(roleForPolicy, "tahfidz.field.follow-ups", modulePermissions),
+    )
+    : { roster: [], hasMore: false, nextCursor: null, stats: null, halaqahCounts: {}, followUps: null };
   const countIds = Object.keys(rosterPage.halaqahCounts).filter(isUuid);
   const halaqahFilters: Record<string, string> = { status: "eq.active" };
   if (role === "Ustadz") halaqahFilters.ustadz_user_id = "eq." + actorId;
@@ -467,13 +505,17 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
     }
   }
   const [halaqahs, ustadzProfiles] = await Promise.all([
-    listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", halaqahFilters),
+    canReadRoster
+      ? listRows("tahfidz_halaqahs", tenantId, "id,name,ustadz_user_id,ustadz_name,schedule_text,room_text,daily_target_pages,status", "name.asc,id.asc", halaqahFilters)
+      : Promise.resolve([]),
     ["Admin", "SuperAdmin"].includes(role)
+      && canReadHalaqah
+      && isRolePermissionAllowed(roleForPolicy, "tahfidz.action.manage-halaqah", modulePermissions)
       ? listRows("profiles", tenantId, "user_id,display_name", "display_name.asc,user_id.asc", { role: "eq.ustadz", status: "eq.active" })
       : Promise.resolve([]),
   ]);
   const snapshot: any = {
-    halaqahs: halaqahs.map((halaqah) => ({
+    halaqahs: canReadRoster ? halaqahs.map((halaqah) => ({
       id: String(halaqah.id),
       name: String(halaqah.name),
       ustadzUserId: halaqah.ustadz_user_id || null,
@@ -482,23 +524,28 @@ export async function listSupabaseTahfidzSnapshot(tenantIdentifier: string, acto
       room: halaqah.room_text || "",
       dailyTargetPages: Number(halaqah.daily_target_pages || 0),
       studentCount: Number(rosterPage.halaqahCounts[String(halaqah.id)] || 0),
-    })),
-    roster: rosterPage.roster,
-    rosterPage: { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor },
-    rosterStats: rosterPage.stats,
+    })) : [],
+    roster: canReadRoster ? rosterPage.roster.map((student: JsonObject) => {
+      if (canReadTargets) return student;
+      const withoutTarget = { ...student };
+      delete withoutTarget.target;
+      return withoutTarget;
+    }) : [],
+    rosterPage: canReadRoster ? { hasMore: rosterPage.hasMore, nextCursor: rosterPage.nextCursor } : { hasMore: false, nextCursor: null },
+    rosterStats: canReadDashboard ? rosterPage.stats : null,
     followUps: rosterPage.followUps,
     records: [],
     recordsPage: { hasMore: false, nextCursor: null, oldestPerformedAt: null },
-    ustadzOptions: ["Admin", "SuperAdmin"].includes(role)
+    ustadzOptions: canReadHalaqah && isRolePermissionAllowed(roleForPolicy, "tahfidz.action.manage-halaqah", modulePermissions)
       ? ustadzProfiles.map((profile) => ({ userId: String(profile.user_id), name: String(profile.display_name || "") }))
       : [],
   };
 
-  if (includeRecords) {
+  if (includeRecords && canReadRecords) {
     const recordScope = role === "Santri" || role === "Walisantri"
       ? await resolveTahfidzRecordPageScope(tenantId, actorId, role)
       : { roster: snapshot.roster, halaqahs: snapshot.halaqahs };
-    const recordPage = await fetchTahfidzRecordPage(tenantId, role, recordScope);
+    const recordPage = await fetchTahfidzRecordPage(tenantId, role, recordScope, undefined, {}, modulePermissions);
     snapshot.records = recordPage.records;
     snapshot.recordsPage = {
       hasMore: recordPage.hasMore,
@@ -600,6 +647,7 @@ export async function listSupabaseTahfidzRecordPage(
   role: string,
   cursorValue?: unknown,
   options: { pageSize?: number; from?: unknown; to?: unknown } = {},
+  modulePermissions?: PermissionMap,
 ) {
   if (!["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"].includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca riwayat Tahfidz.");
@@ -608,7 +656,7 @@ export async function listSupabaseTahfidzRecordPage(
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
   const actorId = await resolveSupabaseTahfidzActor(tenantId, actorSupabaseUid, expectedRole);
   const scope = await resolveTahfidzRecordPageScope(tenantId, actorId, role);
-  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue, options);
+  return fetchTahfidzRecordPage(tenantId, role, scope, cursorValue, options, modulePermissions);
 }
 
 export async function listSupabaseTahfidzSessions(
@@ -616,10 +664,15 @@ export async function listSupabaseTahfidzSessions(
   actorSupabaseUid: string,
   role: string,
   kind: "talaqqi" | "exam",
-  cursorValue?: unknown
+  cursorValue?: unknown,
+  modulePermissions?: PermissionMap,
 ) {
   if (!(["Admin", "SuperAdmin", "Ustadz", "Santri", "Walisantri"] as string[]).includes(role)) {
     throw new SupabaseTahfidzError(403, "Role ini tidak dapat membaca sesi Tahfidz.");
+  }
+  const sessionTab = kind === "exam" ? "tahfidz.tab.exams" : "tahfidz.tab.talaqqi";
+  if (!isRolePermissionAllowed(role as UserRole, sessionTab, modulePermissions)) {
+    throw new SupabaseTahfidzError(403, "Bagian sesi ini tidak diizinkan untuk akun Anda.");
   }
   const tenantId = await resolveTenantId(tenantIdentifier);
   const expectedRole = legacySupabaseRole(role) || ({ Santri: "santri", Walisantri: "wali_santri" } as Record<string, string>)[role] || "";
@@ -640,10 +693,10 @@ export async function listSupabaseTahfidzSessions(
   }
   if (!sessionParams) return {
     sessions: [], hasMore: false, nextCursor: null,
-    canManage: ["Admin", "SuperAdmin", "Ustadz"].includes(role), actorUserId: actorId,
+    canManage: isRolePermissionAllowed(role as UserRole, "tahfidz.action.manage-sessions", modulePermissions), actorUserId: actorId,
   };
   const [snapshot, rows] = await Promise.all([
-    listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role, false),
+    listSupabaseTahfidzSnapshot(tenantIdentifier, actorSupabaseUid, role, false, modulePermissions),
     supabaseRequest("/rest/v1/tahfidz_sessions?" + sessionParams.toString()),
   ]);
   if (!Array.isArray(rows)) throw new SupabaseTahfidzError(503, "Halaman sesi Tahfidz belum dapat dimuat.");
@@ -706,11 +759,17 @@ export async function listSupabaseTahfidzSessions(
       status: String(row.status),
       score: row.score == null ? null : Number(row.score),
       outcome: row.outcome || null,
-      notes: String(row.notes || ""),
+      notes: isRolePermissionAllowed(role as UserRole, "tahfidz.field.record-notes", modulePermissions) ? String(row.notes || "") : "",
       completedAt: row.completed_at || null,
     };
   });
-  return { sessions, hasMore, nextCursor, canManage: ["Admin", "SuperAdmin", "Ustadz"].includes(role), actorUserId: actorId };
+  return {
+    sessions,
+    hasMore,
+    nextCursor,
+    canManage: isRolePermissionAllowed(role as UserRole, "tahfidz.action.manage-sessions", modulePermissions),
+    actorUserId: actorId,
+  };
 }
 
 export async function mutateSupabaseTahfidzSession(

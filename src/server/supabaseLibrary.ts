@@ -2,6 +2,8 @@ import { tenantBusinessDate } from "../utils/businessDate";
 
 import { readPostgrestRowsInPages } from "./postgrestPagination";
 import { listSupabaseReferenceItems } from "./supabaseReferenceCatalog";
+import type { StoredUserProfile } from "./identityStore";
+import { libraryStudentScope } from "../rbac";
 
 type Row = Record<string, any>;
 
@@ -113,14 +115,21 @@ async function tenantRows(table: string, tenantId: string, select: string, order
   });
 }
 
-export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
+export async function listSupabaseLibrarySnapshot(tenantIdentifier: string, actor: Pick<StoredUserProfile, "role" | "linkedSantriId">) {
   const tenant = await resolveTenant(tenantIdentifier);
   const tenantId = tenant.id;
+  const scope = libraryStudentScope(actor.role, actor.linkedSantriId);
+  if (scope.kind === "denied") {
+    throw new SupabaseLibraryError(403, actor.role === "Santri" ? "Akun Santri belum ditautkan ke data santri yang sah." : "Role ini tidak memiliki akses ke data Perpustakaan.");
+  }
+  const isSantri = scope.kind === "linked-student";
+  const linkedStudentId = isSantri ? scope.studentId : "";
   const businessDate = tenantBusinessDate(new Date(), tenant.timeZone);
-  const [books, circulations, students, bookCategories] = await Promise.all([
+  const [books, circulationCounts, circulations, students, bookCategories] = await Promise.all([
     tenantRows("library_books", tenantId, "id,title,author,category,category_reference_id,isbn,total_copies,shelf,status", "title.asc,id.asc", { status: "eq.active" }),
-    tenantRows("library_circulations", tenantId, "id,book_id,student_id,borrowed_on,due_on,returned_on,status", "borrowed_on.desc,id.desc"),
-    tenantRows("students", tenantId, "id,name,nis,status", "name.asc,id.asc", { status: "neq.Archived" }),
+    tenantRows("library_circulations", tenantId, "book_id,status", "id.asc"),
+    tenantRows("library_circulations", tenantId, "id,book_id,student_id,borrowed_on,due_on,returned_on,status", "borrowed_on.desc,id.desc", isSantri ? { student_id: "eq." + linkedStudentId } : {}),
+    tenantRows("students", tenantId, "id,name,nis,status", "name.asc,id.asc", isSantri ? { id: "eq." + linkedStudentId, status: "neq.Archived" } : { status: "neq.Archived" }),
     listSupabaseReferenceItems(tenantId, "library_book_category"),
   ]);
   const inactiveStatuses = new Set(["archived", "archive", "arsip", "alumni", "graduated", "lulus", "inactive", "nonaktif", "tidak aktif", "dikeluarkan"]);
@@ -128,7 +137,7 @@ export async function listSupabaseLibrarySnapshot(tenantIdentifier: string) {
   const booksById = new Map(books.map((book) => [String(book.id), book]));
   const studentsById = new Map(students.map((student) => [String(student.id), student]));
   const counts = new Map<string, number>();
-  for (const circulation of circulations) if (circulation.status === "active") {
+  for (const circulation of circulationCounts) if (circulation.status === "active") {
     counts.set(String(circulation.book_id), (counts.get(String(circulation.book_id)) || 0) + 1);
   }
   return {

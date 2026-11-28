@@ -1917,7 +1917,8 @@ async function main() {
       body: JSON.stringify({
         email: `restricted-default-${randomUUID()}@example.test`,
         name: 'Akun uji terbatas',
-        role: 'Santri',
+        role: 'Ustadz',
+        organizationUnitId: hrisOrganizationUnitId,
         tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
       }),
     });
@@ -2190,6 +2191,59 @@ async function main() {
       await sleep(250);
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
+
+    const restrictedFeatureUstadz = await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-feature-denials', {
+      tahfidz: true,
+      'tahfidz.action.record-setoran': false,
+      'tahfidz.action.manage-sessions': false,
+      'tahfidz.tab.dashboard': false,
+      'tahfidz.tab.records': false,
+      'tahfidz.tab.talaqqi': false,
+      'tahfidz.tab.peer-review': false,
+    });
+    users.push(restrictedFeatureUstadz);
+    const restrictedFeatureUstadzToken = await signIn(anon, restrictedFeatureUstadz);
+    const deniedTahfidzRecord = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: {} }),
+    });
+    assert.equal(deniedTahfidzRecord.status, 403, 'A per-account action denial must be enforced by the Tahfidz API, not only hidden in the client.');
+    await deniedTahfidzRecord.body?.cancel();
+    const deniedTahfidzRecordPage = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzRecordPage.status, 403, 'A per-account tab denial must block direct access to its page API.');
+    await deniedTahfidzRecordPage.body?.cancel();
+    const deniedTahfidzRoster = await fetch(`${referenceApiBase}/api/tahfidz/roster?search=UAT`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzRoster.status, 403, 'A dashboard denial must block direct roster-search access unless the account has another authorized roster workflow.');
+    await deniedTahfidzRoster.body?.cancel();
+    const deniedTahfidzLeaderboard = await fetch(`${referenceApiBase}/api/tahfidz/leaderboard`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzLeaderboard.status, 403, 'A dashboard denial must block direct access to leaderboard data.');
+    await deniedTahfidzLeaderboard.body?.cancel();
+    const deniedTahfidzSessionTab = await fetch(`${referenceApiBase}/api/tahfidz/sessions?kind=talaqqi`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzSessionTab.status, 403, 'A per-account tab denial must block direct access to the corresponding Tahfidz page API.');
+    await deniedTahfidzSessionTab.body?.cancel();
+    const deniedTahfidzSessionWrite = await fetch(`${referenceApiBase}/api/tahfidz/sessions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: { kind: 'exam' } }),
+    });
+    assert.equal(deniedTahfidzSessionWrite.status, 403, 'A per-account action denial must block direct scheduling even when the tab is visible.');
+    await deniedTahfidzSessionWrite.body?.cancel();
+    const deniedTahfidzReviewModeration = await fetch(`${referenceApiBase}/api/tahfidz/peer-reviews/00000000-0000-4000-8000-000000000001/moderation`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved' }),
+    });
+    assert.equal(deniedTahfidzReviewModeration.status, 403, 'A denied peer-review tab blocks direct moderation even if the Ustadz role has the moderator action baseline.');
+    await deniedTahfidzReviewModeration.body?.cancel();
 
     const guardianAdminB = await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'guardian-admin-b', {
       users: true,
@@ -3679,7 +3733,7 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     const createdAnnouncement = communicationPayload.announcement;
     assert.ok(createdAnnouncement?.id, 'The communication API returns the persisted announcement ID.');
     assert.equal(createdAnnouncement.status, 'Sent');
-    assert.equal(createdAnnouncement.totalTarget, 1, 'The audience count is resolved from active tenant Ustadz profiles.');
+    assert.equal(createdAnnouncement.totalTarget, 2, 'The audience count includes both active tenant Ustadz profiles, even when one has narrower Tahfidz permissions.');
 
     const { data: communicationRow, error: communicationReadError } = await admin.from('communication_announcements')
       .select('tenant_id,title,target_audience,status,created_by_user_id')
@@ -3699,7 +3753,20 @@ assert.match(guardianActivationToken || '', /^[A-Za-z0-9_-]{43}$/, 'The activati
     const ustadzAnnouncements = (await ustadzAnnouncementList.json()).announcements;
     const deliveredAnnouncement = ustadzAnnouncements.find((item) => item.id === createdAnnouncement.id);
     assert.ok(deliveredAnnouncement, 'The canonical Guru & Musyrif audience relationship makes the announcement visible to its Ustadz recipient.');
-    assert.equal(deliveredAnnouncement.totalTarget, 1);
+    assert.equal('totalTarget' in deliveredAnnouncement, false,
+      'Audience reach statistics are not disclosed to a non-Admin announcement recipient.');
+
+    const featureRestrictedUstadzAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(featureRestrictedUstadzAnnouncementList.status, 200,
+      'A Ustadz with narrower Tahfidz permissions can still read a permitted communication audience.');
+    const featureRestrictedUstadzAnnouncements = (await featureRestrictedUstadzAnnouncementList.json()).announcements;
+    const featureRestrictedDeliveredAnnouncement = featureRestrictedUstadzAnnouncements.find((item) => item.id === createdAnnouncement.id);
+    assert.ok(featureRestrictedDeliveredAnnouncement,
+      'A Tahfidz permission denial does not incorrectly remove the Ustadz from a communication audience.');
+    assert.equal('totalTarget' in featureRestrictedDeliveredAnnouncement, false,
+      'Audience reach statistics are not disclosed to a non-Admin announcement recipient with other restricted features.');
 
     const tenantBAnnouncementList = await fetch(`${referenceApiBase}/api/communication/announcements`, {
       headers: { Authorization: `Bearer ${otherTenantMarketplaceAdminToken}` },

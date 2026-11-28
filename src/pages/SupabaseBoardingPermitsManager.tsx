@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AlertCircle, ArrowRight, CheckCircle2, ClipboardList, LoaderCircle, Plus, RotateCcw, X } from "lucide-react";
 import { ERPEmptyState, ERPErrorState, ERPLoadingState, ERPNotice } from "../components/ERPDesignSystem";
 import { useAuth } from "../contexts/AuthContext";
+import { isRolePermissionAllowed } from "../rbac";
 import { toERPUserMessage } from "../utils/userMessages";
 import {
   listSupabaseBoardingPermits,
@@ -52,7 +53,7 @@ function permitStatusLabel(status: string) {
 }
 
 export function SupabaseBoardingPermitsManager() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const [snapshot, setSnapshot] = useState<BoardingPermitsSnapshot>({
     permits: [], students: [], canManage: false, canRequest: false, canFinalize: false,
   });
@@ -173,7 +174,10 @@ export function SupabaseBoardingPermitsManager() {
 
   const pendingCount = snapshot.permits.filter((permit) => permit.status.startsWith("Pending")).length;
   const activeCount = snapshot.permits.filter((permit) => permit.status === "Active").length;
-  const canManage = snapshot.canManage;
+  const canManage = snapshot.canManage && isRolePermissionAllowed(role, "boarding.action.process-permit", user?.modulePermissions);
+  const canRequest = snapshot.canRequest && isRolePermissionAllowed(role, "boarding.action.request-permit", user?.modulePermissions);
+  const canFinalize = snapshot.canFinalize && isRolePermissionAllowed(role, "boarding.action.process-permit", user?.modulePermissions);
+  const canReadPermitIdentifiers = isRolePermissionAllowed(role, "boarding.field.permit-identifiers", user?.modulePermissions);
 
   return (
     <section className="space-y-6">
@@ -189,7 +193,7 @@ export function SupabaseBoardingPermitsManager() {
           <button type="button" onClick={() => { setLoading(true); void refresh().catch((e: any) => setError(toERPUserMessage(e, "Data belum dapat dimuat."))).finally(() => setLoading(false)); }} disabled={loading} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-white/5">
             <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} /> Muat ulang
           </button>
-          {snapshot.canRequest && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setIsFormOpen(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+          {canRequest && <button type="button" onClick={() => { setError(""); createRequestId.current = crypto.randomUUID(); setIsFormOpen(true); }} disabled={!snapshot.students.length} className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
             <Plus className="h-4 w-4" /> Ajukan izin
           </button>}
         </div>
@@ -229,15 +233,15 @@ export function SupabaseBoardingPermitsManager() {
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400"><tr><th className="px-4 py-3 font-semibold">Santri</th><th className="px-4 py-3 font-semibold">Jenis / alasan</th><th className="px-4 py-3 font-semibold">Periode</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Tindakan</th></tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {visiblePermits.map((permit) => <tr key={permit.id} className="align-top hover:bg-slate-50/70 dark:hover:bg-white/5">
-                  <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{permit.santriName}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {permit.nis || "—"} · Kamar {permit.room}</div></td>
+                  <td className="px-4 py-4"><div className="font-semibold text-slate-900 dark:text-slate-100">{permit.santriName}</div><div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{canReadPermitIdentifiers && <>NIS {permit.nis || "—"} · </>}Kamar {permit.room}</div></td>
                   <td className="px-4 py-4"><div className="font-medium text-slate-800 dark:text-slate-200">{PERMIT_TYPES.find((type) => type.value === permit.type)?.label || permit.type}</div><div className="mt-1 max-w-xs text-xs text-slate-500 dark:text-slate-400">{permit.reason}</div></td>
                   <td className="whitespace-nowrap px-4 py-4 text-slate-700 dark:text-slate-300">{permit.startDate}<div className="mt-1 text-xs text-slate-500 dark:text-slate-400">s.d. {permit.endDate}</div></td>
                   <td className="px-4 py-4"><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyle(permit.status)}`}>{permitStatusLabel(permit.status)}</span></td>
                   <td className="px-4 py-4 text-right">
                     {canManage && permit.status === "Pending Musyrif" && <div className="inline-flex gap-1"><button type="button" onClick={() => void changeStatus(permit, "Pending Keamanan")} disabled={saving === permit.id} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300" title="Teruskan ke keamanan">Teruskan <ArrowRight className="h-3.5 w-3.5" /></button><button type="button" onClick={() => void changeStatus(permit, "Rejected")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300">Tolak</button></div>}
                     {canManage && permit.status === "Pending Keamanan" && <div className="inline-flex gap-1"><button type="button" onClick={() => void changeStatus(permit, "Approved")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:text-emerald-300">Setujui</button><button type="button" onClick={() => void changeStatus(permit, "Rejected")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-300">Tolak</button></div>}
-                    {snapshot.canFinalize && permit.status === "Approved" && <button type="button" onClick={() => void changeStatus(permit, "Active")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50">Catat keluar</button>}
-                    {snapshot.canFinalize && permit.status === "Active" && <button type="button" onClick={() => void changeStatus(permit, "Returned")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50">Catat kembali</button>}
+                    {canFinalize && permit.status === "Approved" && <button type="button" onClick={() => void changeStatus(permit, "Active")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-50">Catat keluar</button>}
+                    {canFinalize && permit.status === "Active" && <button type="button" onClick={() => void changeStatus(permit, "Returned")} disabled={saving === permit.id} className="rounded-md px-2 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50">Catat kembali</button>}
                     {saving === permit.id && <LoaderCircle className="ml-2 inline h-4 w-4 animate-spin text-slate-400 dark:text-slate-500" />}
                     {!canManage && <span className="text-xs text-slate-400 dark:text-slate-500">Menunggu petugas</span>}
                   </td>

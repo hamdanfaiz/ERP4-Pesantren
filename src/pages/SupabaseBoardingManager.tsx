@@ -1,5 +1,5 @@
 import { publicRuntimeConfigValue } from "../runtimeConfig";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { BedDouble, CalendarCheck, ClipboardList, ShieldAlert, UserRoundCog, Wrench } from "lucide-react";
 import { SupabaseBoardingDisciplineManager } from "./SupabaseBoardingDisciplineManager";
 import { SupabaseBoardingPermitsManager } from "./SupabaseBoardingPermitsManager";
@@ -8,6 +8,8 @@ import { SupabaseBoardingAssignmentsManager } from "./SupabaseBoardingAssignment
 import { SupabaseBoardingFacilityOpsManager } from "./SupabaseBoardingFacilityOpsManager";
 import { SupabaseBoardingRoomsManager } from "./SupabaseBoardingRoomsManager";
 import { ERPTabs } from "../components/ERPDesignSystem";
+import { useAuth } from "../contexts/AuthContext";
+import { isRolePermissionAllowed } from "../rbac";
 
 const BOARDING_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_RUNTIME_ENABLED") === "true";
 const PERMITS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_PERMITS_RUNTIME_ENABLED") === "true";
@@ -18,6 +20,7 @@ const FACILITY_OPS_ENABLED = publicRuntimeConfigValue("VITE_SUPABASE_BOARDING_FA
 type Section = "rooms" | "permits" | "discipline" | "attendance" | "assignments" | "facility-ops";
 
 export function SupabaseBoardingManager() {
+  const { role, user } = useAuth();
   const sections = [
     { id: "rooms" as const, label: "Penempatan Kamar", icon: <BedDouble className="h-4 w-4" />, enabled: BOARDING_ENABLED },
     { id: "permits" as const, label: "Perizinan", icon: <ClipboardList className="h-4 w-4" />, enabled: PERMITS_ENABLED },
@@ -26,21 +29,30 @@ export function SupabaseBoardingManager() {
     { id: "assignments" as const, label: "Penugasan", icon: <UserRoundCog className="h-4 w-4" />, enabled: ASSIGNMENTS_ENABLED },
     { id: "facility-ops" as const, label: "Fasilitas", icon: <Wrench className="h-4 w-4" />, enabled: FACILITY_OPS_ENABLED },
   ];
-  const [section, setSection] = useState<Section>(sections.find((item) => item.enabled)?.id || "rooms");
-  const selected = sections.find((item) => item.id === section) || sections[0];
-  const tabs = sections.map((item) => ({
+  const visibleSections = sections.filter((item) => isRolePermissionAllowed(
+    role, `boarding.tab.${item.id}`, user?.modulePermissions,
+  ));
+  const [section, setSection] = useState<Section | null>(null);
+  const selected = visibleSections.find((item) => item.id === section)
+    || visibleSections.find((item) => item.enabled)
+    || visibleSections[0];
+  useEffect(() => {
+    if (selected && selected.id !== section) setSection(selected.id);
+  }, [selected?.id, section]);
+  const tabs = visibleSections.map((item) => ({
     ...item,
     label: <span className="inline-flex items-center gap-2">{item.label}<span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${item.enabled ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-200" : "bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-200"}`}>{item.enabled ? "Aktif" : "Belum aktif"}</span></span>,
   }));
+  if (!selected) return <section role="status" className="erp-boarding-theme rounded-xl border border-slate-200 p-6 text-sm text-slate-600 dark:border-white/10 dark:text-slate-300">Tidak ada bagian Asrama yang tersedia untuk akun ini.</section>;
   return <div className="erp-boarding-theme space-y-5">
     <ERPTabs tabs={tabs} value={selected.id} onChange={(id) => setSection(id as Section)} ariaLabel="Navigasi modul Asrama" />
     {!selected.enabled ? <UnavailableSection label={selected.label} />
-      : selected.id === "rooms" ? <SupabaseBoardingRoomsManager />
-      : selected.id === "permits" ? <SupabaseBoardingPermitsManager />
-      : selected.id === "discipline" ? <SupabaseBoardingDisciplineManager />
-        : selected.id === "attendance" ? <SupabaseBoardingAttendanceManager />
-          : selected.id === "assignments" ? <SupabaseBoardingAssignmentsManager />
-            : <SupabaseBoardingFacilityOpsManager />}
+      : selected.id === "rooms" ? <SupabaseBoardingRoomsManager key={`${role}:${user?.uid || ""}`} />
+      : selected.id === "permits" ? <SupabaseBoardingPermitsManager key={`${role}:${user?.uid || ""}`} />
+      : selected.id === "discipline" ? <SupabaseBoardingDisciplineManager key={`${role}:${user?.uid || ""}`} />
+        : selected.id === "attendance" ? <SupabaseBoardingAttendanceManager key={`${role}:${user?.uid || ""}`} />
+          : selected.id === "assignments" ? <SupabaseBoardingAssignmentsManager key={`${role}:${user?.uid || ""}`} />
+            : <SupabaseBoardingFacilityOpsManager key={`${role}:${user?.uid || ""}`} />}
   </div>;
 }
 

@@ -54,8 +54,11 @@ import {
   ALL_SYSTEM_MODULE_IDS as ALL_SYSTEM_MODULES,
   PLATFORM_ONLY_MODULES,
   isModuleAccessible,
+  isRolePermissionAllowed,
   findUnauthorizedModuleGrants,
+  findUnauthorizedRolePermissionGrants,
   isValidModulePermissions,
+  isValidRolePermissionOverrides,
   type UserRole,
 } from "./src/rbac";
 import {
@@ -340,12 +343,26 @@ const FEATURE_UNAVAILABLE_MESSAGE = "Layanan ini belum tersedia saat ini. Silaka
 
 dotenv.config();
 
-function resolveUserModulePermissions(role: string, perms?: Record<string, boolean> | null): Record<string, boolean> {
+function resolveUserModulePermissions(
+  role: string,
+  perms?: Record<string, boolean> | null,
+  rolePermissionOverrides?: Record<string, boolean> | null,
+): Record<string, boolean> {
   const result: Record<string, boolean> = {};
   const supportedRoles = ["SuperAdmin", "Admin", "Ustadz", "Santri", "Walisantri", "Public"] as const;
   const safeRole: UserRole = supportedRoles.includes(role as UserRole) ? role as UserRole : "Public";
   ALL_SYSTEM_MODULES.forEach((modId) => {
     result[modId] = isModuleAccessible(safeRole, modId, perms);
+  });
+  // Keep only deny overrides that belong to the target role's current baseline.
+  // Sub-module grants are immutable source policy and are never stored here.
+  const overrides = safeRole === "SuperAdmin" ? {} : rolePermissionOverrides ?? perms ?? {};
+  Object.entries(overrides).forEach(([permissionId, allowed]) => {
+    if (allowed === false
+      && isValidRolePermissionOverrides({ [permissionId]: false }, safeRole)
+      && isRolePermissionAllowed(safeRole, permissionId)) {
+      result[permissionId] = false;
+    }
   });
   return result;
 }
@@ -693,6 +710,14 @@ async function startServer() {
     }
     return { ...profile, uid, tenantId };
   };
+  const requireTahfidzRolePermission = (
+    actor: { role: string; modulePermissions?: Record<string, boolean> | null },
+    permissionId: string,
+  ) => {
+    if (!isRolePermissionAllowed(actor.role as UserRole, permissionId, actor.modulePermissions)) {
+      throw new SupabaseTahfidzError(403, "Akun ini tidak memiliki izin untuk bagian atau tindakan Tahfidz tersebut.");
+    }
+  };
   const tahfidzRuntimeEnabled = String(process.env.SUPABASE_TAHFIDZ_RUNTIME_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzBulkTargetsEnabled = String(process.env.SUPABASE_TAHFIDZ_BULK_TARGETS_ENABLED || "").trim().toLowerCase() === "true";
   const tahfidzRouteError = (res: express.Response, error: unknown) => {
@@ -716,6 +741,11 @@ async function startServer() {
   const requireMasterDataAdmin = (actor: { role: string }) => {
     if (!(["Admin", "SuperAdmin"] as string[]).includes(actor.role)) {
       throw new SupabaseOnboardingError(403, "Operasi ini hanya tersedia untuk Admin pesantren.");
+    }
+  };
+  const requireActorRolePermission = (actor: { role: string; modulePermissions?: Record<string, boolean> | null }, permissionId: string) => {
+    if (!isRolePermissionAllowed(actor.role as UserRole, permissionId, actor.modulePermissions)) {
+      throw new SupabaseOnboardingError(403, "Akun ini tidak memiliki izin untuk bagian atau tindakan tersebut.");
     }
   };
   const loadHrisActor = async (uid: string) => {
@@ -1392,6 +1422,9 @@ async function startServer() {
         return res.status(400).json({ error: "Filter unit konflik jadwal tidak valid." });
       }
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.action.resolve-conflicts", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pemeriksaan konflik jadwal hanya tersedia untuk Admin tenant." });
+      }
       return res.json(await getSupabaseAcademicConflictSchedules(
         actor.tenantId, actor.uid, actor.role, enterpriseUnitsRuntimeEnabled,
         actor.organizationUnitId, req.query.unitId,
@@ -1435,6 +1468,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.tab.report-card", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akses ke ruang rapor tidak diberikan kepada akun ini." });
+      }
       return res.json(await getSupabaseAcademicReportWorkspace(actor.tenantId, actor.uid, actor.role));
     } catch (error) { return academicRouteError(res, error); }
   });
@@ -1446,6 +1482,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "academic.action.manage-report-card", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin mengelola rapor." });
+      }
       const result = await applySupabaseAcademicReportAction(actor.tenantId, actor.uid, actor.role, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return academicRouteError(res, error); }
@@ -1458,6 +1497,15 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadAcademicActor(uid);
+      const permissionByKind: Record<string, string> = {
+        schedule: "academic.action.write-schedule",
+        journal: "academic.action.write-journal",
+        assessment: "academic.action.write-assessment",
+      };
+      const permission = permissionByKind[req.params.kind];
+      if (!permission || !isRolePermissionAllowed(actor.role as UserRole, permission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin mencatat jenis data Akademik tersebut." });
+      }
       const result = await saveSupabaseAcademicRecord(
         actor.tenantId, actor.uid, actor.role, req.params.kind, req.body?.record,
         enterpriseUnitsRuntimeEnabled, actor.organizationUnitId,
@@ -2017,6 +2065,18 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      const permissionByAction: Record<string, string> = {
+        category: "lms.action.manage-categories",
+        course: "lms.action.manage-courses",
+        module: "lms.action.manage-content",
+        material: "lms.action.manage-content",
+        assignment: "lms.action.manage-assignments",
+        enroll: "lms.action.manage-enrollments",
+      };
+      const permission = permissionByAction[req.params.action];
+      if (!permission || !isRolePermissionAllowed(actor.role as UserRole, permission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Akun ini tidak memiliki izin untuk mengelola bagian LMS tersebut." });
+      }
       const result = await manageSupabaseLmsCatalog(actor.tenantId, actor.uid, req.params.action, req.body?.item);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return lmsRouteError(res, error); }
@@ -2029,6 +2089,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.track-progress", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pencatatan progres materi hanya tersedia untuk akun Santri." });
+      }
       return res.json(await saveSupabaseLmsProgress(actor.tenantId, actor.uid, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2040,6 +2103,12 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      const learningRecordPermission = req.body?.kind === "note"
+        ? "lms.action.save-private-note"
+        : req.body?.kind === "comment" ? "lms.action.comment-material" : "";
+      if (!learningRecordPermission || !isRolePermissionAllowed(actor.role as UserRole, learningRecordPermission, actor.modulePermissions)) {
+        return res.status(403).json({ error: "Catatan dan komentar materi hanya tersedia untuk akun Santri." });
+      }
       const result = await addSupabaseLmsLearningRecord(actor.tenantId, actor.uid, req.body);
       return res.status(result?.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return lmsRouteError(res, error); }
@@ -2052,6 +2121,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.submit-assignment", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Pengumpulan tugas hanya tersedia untuk akun Santri." });
+      }
       return res.status(201).json(await submitSupabaseLmsAssignment(actor.tenantId, actor.uid, req.params.assignmentId, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2063,6 +2135,9 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLmsActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "lms.action.grade-submission", actor.modulePermissions)) {
+        return res.status(403).json({ error: "Penilaian tugas hanya tersedia untuk pengajar dan Admin." });
+      }
       return res.json(await gradeSupabaseLmsSubmission(actor.tenantId, actor.uid, req.params.submissionId, req.body));
     } catch (error) { return lmsRouteError(res, error); }
   });
@@ -2076,8 +2151,8 @@ async function startServer() {
     if (!resolveUserModulePermissions(profile.role, profile.modulePermissions).library) {
       throw new SupabaseLibraryError(403, "Akses modul Perpustakaan tidak diberikan kepada akun ini.");
     }
-    if (!["Admin", "SuperAdmin", "Ustadz"].includes(profile.role)) {
-      throw new SupabaseLibraryError(403, "Modul Perpustakaan Supabase saat ini hanya tersedia untuk Admin dan Ustadz.");
+    if (!["Admin", "SuperAdmin", "Ustadz", "Santri"].includes(profile.role)) {
+      throw new SupabaseLibraryError(403, "Role ini tidak memiliki akses ke modul Perpustakaan.");
     }
     return { ...profile, uid, tenantId };
   };
@@ -2241,7 +2316,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadLibraryActor(uid);
-      return res.json(await listSupabaseLibrarySnapshot(actor.tenantId));
+      return res.json(await listSupabaseLibrarySnapshot(actor.tenantId, actor));
     } catch (error) { return libraryRouteError(res, error); }
   });
 
@@ -3058,7 +3133,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) throw new SupabaseOnboardingError(403, "Role ini tidak dapat membaca data asrama.");
+      requireActorRolePermission(actor, "boarding.tab.rooms");
       const snapshot = await listSupabaseBoardingSnapshot(actor.tenantId, actor);
       return res.json(snapshot);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3071,7 +3146,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-room");
       const result = await assignSupabaseStudentRoom(actor.tenantId, req.params.studentId, req.body?.roomId ?? null, req.body?.buildingId ?? null, uid);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3097,6 +3172,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.permits");
       return res.json(await listSupabaseBoardingPermits(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3108,6 +3184,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.request-permit");
       const result = await requestSupabaseBoardingPermit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3120,6 +3197,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.process-permit");
       const result = await transitionSupabaseBoardingPermit(actor, req.params.permitId, req.body);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3139,6 +3217,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.discipline");
       return res.json(await listSupabaseBoardingDiscipline(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3150,6 +3229,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.record-discipline");
       const result = await createSupabaseBoardingDiscipline(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3162,6 +3242,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.resolve-discipline");
       return res.json(await resolveSupabaseBoardingDiscipline(actor, req.params.incidentId, req.body));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3180,6 +3261,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.attendance");
       return res.json(await getSupabaseBoardingAttendance(actor, req.query.date));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3191,6 +3273,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.mark-attendance");
       return res.json(await setSupabaseBoardingAttendance(actor, req.body));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3209,7 +3292,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.tab.assignments");
       return res.json(await listSupabaseBoardingStaffAssignments(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3221,7 +3304,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-staff");
       const result = await assignSupabaseBoardingLocationUnit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3234,7 +3317,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
-      requireMasterDataAdmin(actor);
+      requireActorRolePermission(actor, "boarding.action.assign-staff");
       const result = await setSupabaseBoardingStaffAssignment(actor, req.body);
       return res.json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3247,6 +3330,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.tab.facility-ops");
       return res.json(await listSupabaseBoardingFacilityOps(actor));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3258,6 +3342,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.record-audit");
       const result = await createSupabaseBoardingCleanlinessAudit(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return masterDataRouteError(res, error); }
@@ -3270,6 +3355,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.create-facility-ticket");
       actor.name = String(actor.name || actor.email || "Pengguna");
       const result = await createSupabaseBoardingFacilityTicket(actor, req.body);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
@@ -3283,6 +3369,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadMasterDataActor(uid, "boarding");
+      requireActorRolePermission(actor, "boarding.action.resolve-facility-ticket");
       return res.json(await resolveSupabaseBoardingFacilityTicket(actor, req.params.ticketId, req.body?.clientRequestId));
     } catch (error) { return masterDataRouteError(res, error); }
   });
@@ -3301,7 +3388,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      return res.json(await listSupabaseTahfidzSnapshot(actor.tenantId, actor.uid, actor.role));
+      return res.json(await listSupabaseTahfidzSnapshot(actor.tenantId, actor.uid, actor.role, true, actor.modulePermissions));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
@@ -3311,7 +3398,8 @@ async function startServer() {
     try {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
-      await loadTahfidzActor(uid);
+      const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.quran");
       return res.json({ data: await listSupabaseQuranSurahs() });
     } catch (error) {
       if (error instanceof SupabaseQuranCatalogError) return res.status(error.status).json({ error: error.message });
@@ -3330,8 +3418,12 @@ async function startServer() {
         return res.status(400).json({ error: "Kursor atau pencarian roster Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
+      if (!isRolePermissionAllowed(actor.role as UserRole, "tahfidz.tab.dashboard", actor.modulePermissions)
+        && !isRolePermissionAllowed(actor.role as UserRole, "tahfidz.action.manage-sessions", actor.modulePermissions)) {
+        throw new SupabaseTahfidzError(403, "Akun ini tidak memiliki izin untuk membaca roster Tahfidz.");
+      }
       return res.json(await listSupabaseTahfidzRosterPage(
-        actor.tenantId, actor.uid, actor.role, req.query.cursor, req.query.search,
+        actor.tenantId, actor.uid, actor.role, req.query.cursor, req.query.search, actor.modulePermissions,
       ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
@@ -3346,6 +3438,7 @@ async function startServer() {
         return res.status(400).json({ error: "Kursor halaman pencapaian Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.badges");
       return res.json(await listSupabaseTahfidzAchievementPage(
         actor.tenantId, actor.uid, actor.role, req.query.cursor,
       ));
@@ -3366,6 +3459,7 @@ async function startServer() {
         return res.status(400).json({ error: "Jumlah peringkat Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.dashboard");
       return res.json(await listSupabaseTahfidzLeaderboard(
         actor.tenantId, actor.uid, actor.role, limitValue,
       ));
@@ -3388,9 +3482,11 @@ async function startServer() {
         return res.status(400).json({ error: "Ukuran halaman riwayat Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.records");
       return res.json(await listSupabaseTahfidzRecordPage(
         actor.tenantId, actor.uid, actor.role, req.query.cursor,
         { pageSize: pageSizeValue, from: req.query.from, to: req.query.to },
+        actor.modulePermissions,
       ));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
@@ -3407,7 +3503,7 @@ async function startServer() {
         return res.status(400).json({ error: "Kursor halaman sesi Tahfidz tidak valid." });
       }
       const actor = await loadTahfidzActor(uid);
-      return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind, req.query.cursor));
+      return res.json(await listSupabaseTahfidzSessions(actor.tenantId, actor.uid, actor.role, kind, req.query.cursor, actor.modulePermissions));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
 
@@ -3418,6 +3514,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.peer-review");
       return res.json(await listSupabaseTahfidzPeerReviews(actor.tenantId, actor.uid, actor.role));
     } catch (error) { return tahfidzRouteError(res, error); }
   });
@@ -3429,6 +3526,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.peer-review");
+      requireTahfidzRolePermission(actor, "tahfidz.action.submit-peer-review");
       const result = await submitSupabaseTahfidzPeerReview(actor.tenantId, actor.uid, actor.role, req.body?.review);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3441,6 +3540,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.peer-review");
+      requireTahfidzRolePermission(actor, "tahfidz.action.moderate-peer-review");
       const result = await moderateSupabaseTahfidzPeerReview(actor.tenantId, actor.uid, actor.role, req.params.reviewId, req.body);
       return res.json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3453,7 +3554,11 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) return res.status(403).json({ error: "Role ini hanya dapat melihat sesi Tahfidz." });
+      const sessionKind = req.body?.session?.kind;
+      if (sessionKind === "exam") requireTahfidzRolePermission(actor, "tahfidz.tab.exams");
+      else if (sessionKind === "talaqqi") requireTahfidzRolePermission(actor, "tahfidz.tab.talaqqi");
+      else return res.status(400).json({ error: "Jenis sesi Tahfidz tidak valid." });
+      requireTahfidzRolePermission(actor, "tahfidz.action.manage-sessions");
       const result = await mutateSupabaseTahfidzSession(actor.tenantId, actor.uid, actor.role, req.body?.session);
       return res.status(req.body?.session?.sessionId || result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3466,7 +3571,7 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) return res.status(403).json({ error: "Role tidak dapat mencatat setoran." });
+      requireTahfidzRolePermission(actor, "tahfidz.action.record-setoran");
       const result = await recordSupabaseTahfidzSetoran(actor.tenantId, actor.uid, actor.role, actor.name, req.body?.record);
       return res.status(result.alreadyRecorded ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3479,6 +3584,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
+      requireTahfidzRolePermission(actor, "tahfidz.tab.targets");
+      requireTahfidzRolePermission(actor, "tahfidz.action.manage-targets");
       const result = await recordSupabaseTahfidzTarget(actor.tenantId, actor.uid, actor.role, req.body?.target);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3492,9 +3599,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin", "Ustadz"].includes(actor.role)) {
-        return res.status(403).json({ error: "Role ini tidak dapat mengatur target Tahfidz." });
-      }
+      requireTahfidzRolePermission(actor, "tahfidz.tab.targets");
+      requireTahfidzRolePermission(actor, "tahfidz.action.manage-targets");
       const result = await recordSupabaseTahfidzTargetsBulk(actor.tenantId, actor.uid, actor.role, req.body?.target);
       return res.status(result.alreadyApplied ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3507,7 +3613,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengelola halaqah." });
+      requireTahfidzRolePermission(actor, "tahfidz.tab.halaqah");
+      requireTahfidzRolePermission(actor, "tahfidz.action.manage-halaqah");
       const result = await saveSupabaseTahfidzHalaqah(actor.tenantId, actor.uid, actor.role, req.body?.halaqah);
       return res.status(result.alreadyApplied || req.body?.halaqah?.id ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -3520,7 +3627,8 @@ async function startServer() {
       const uid = String((req as any).user?.uid || "");
       if (!uid) return res.status(401).json({ error: "Autentikasi diperlukan." });
       const actor = await loadTahfidzActor(uid);
-      if (!["Admin", "SuperAdmin"].includes(actor.role)) return res.status(403).json({ error: "Hanya Admin pesantren yang dapat mengatur penempatan halaqah." });
+      requireTahfidzRolePermission(actor, "tahfidz.tab.halaqah");
+      requireTahfidzRolePermission(actor, "tahfidz.action.manage-halaqah");
       const result = await assignSupabaseTahfidzMembership(actor.tenantId, actor.uid, actor.role, req.body?.membership);
       return res.status(result.alreadyApplied || result.alreadyAssigned ? 200 : 201).json(result);
     } catch (error) { return tahfidzRouteError(res, error); }
@@ -4098,6 +4206,7 @@ async function startServer() {
     const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const guardianId = typeof req.body?.guardianId === "string" ? req.body.guardianId.trim() : "";
     const requestedPermissions = req.body?.modulePermissions;
+    const requestedRolePermissionOverrides = req.body?.rolePermissionOverrides;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
       return res.status(400).json({ code: "INVALID_EMAIL", error: "Alamat email tidak valid." });
     }
@@ -4107,7 +4216,14 @@ async function startServer() {
     if (requestedPermissions != null && !isValidModulePermissions(requestedPermissions)) {
       return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
     }
-    const permissions = resolveUserModulePermissions("Walisantri", requestedPermissions || undefined);
+    if (requestedRolePermissionOverrides != null && !isValidRolePermissionOverrides(requestedRolePermissionOverrides, "Walisantri")) {
+      return res.status(400).json({ code: "INVALID_ROLE_PERMISSION_OVERRIDES", error: "Pembatasan akses rinci tidak sesuai dengan role Wali Santri." });
+    }
+    const permissions = resolveUserModulePermissions(
+      "Walisantri",
+      requestedPermissions || undefined,
+      requestedRolePermissionOverrides || undefined,
+    );
     permissions.settings = false;
     const unauthorizedGrants = findUnauthorizedModuleGrants(
       actor.role,
@@ -4118,7 +4234,7 @@ async function startServer() {
     if (unauthorizedGrants.length) {
       return res.status(403).json({
         code: "FORBIDDEN_MODULE_PERMISSION",
-        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+        error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
       });
     }
     try {
@@ -4271,6 +4387,7 @@ async function startServer() {
       role,
       tempPassword,
       modulePermissions,
+      rolePermissionOverrides,
       username,
       organizationUnitId,
       linkedSantriId,
@@ -4318,6 +4435,9 @@ async function startServer() {
     if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
       return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
     }
+    if (rolePermissionOverrides != null && !isValidRolePermissionOverrides(rolePermissionOverrides, role as UserRole)) {
+      return res.status(400).json({ code: "INVALID_ROLE_PERMISSION_OVERRIDES", error: "Pembatasan akses rinci tidak sesuai dengan role yang dipilih." });
+    }
 
     if (actor.role === "Admin") {
       if (role === "SuperAdmin" || role === "Admin") {
@@ -4332,7 +4452,7 @@ async function startServer() {
     // SuperAdmin gets all access and its permissions cannot be reduced.
     // Tenant Admin gets all tenant-scoped modules by default, settings is locked out.
     // Ensure actor cannot grant platform-only module 'settings' (Admin boundary).
-    const finalPermissions = resolveUserModulePermissions(role, modulePermissions || undefined);
+    const finalPermissions = resolveUserModulePermissions(role, modulePermissions || undefined, rolePermissionOverrides || undefined);
     // Safety: actor cannot grant platform-only modules (Admin can never grant settings).
     if (actor.role === "Admin") {
       finalPermissions["settings"] = false;
@@ -4343,10 +4463,21 @@ async function startServer() {
       role as UserRole,
       finalPermissions,
     );
-    if (unauthorizedGrants.length) {
+    // Check explicit requests before role defaults clamp them. Silently
+    // dropping a requested grant can hide a misconfigured account form and
+    // makes unauthorized attempts look like unrelated Auth failures.
+    const explicitlyUnauthorizedGrants = modulePermissions == null
+      ? []
+      : findUnauthorizedModuleGrants(
+        actor.role,
+        actor.modulePermissions,
+        role as UserRole,
+        modulePermissions,
+      );
+    if (unauthorizedGrants.length || explicitlyUnauthorizedGrants.length) {
       return res.status(403).json({
         code: "FORBIDDEN_MODULE_PERMISSION",
-        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+        error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
       });
     }
 
@@ -4396,8 +4527,9 @@ async function startServer() {
         return res.status(403).json({ code: "FORBIDDEN", error: "Akses ditolak: pengguna berada di luar tenant Anda." });
       }
 
-      const { name, role, status, modulePermissions, organizationUnitId } = req.body || {};
+      const { name, role, status, modulePermissions, rolePermissionOverrides, organizationUnitId } = req.body || {};
       const hasOrganizationUnit = Object.prototype.hasOwnProperty.call(req.body || {}, "organizationUnitId");
+      const hasRolePermissionOverrides = Object.prototype.hasOwnProperty.call(req.body || {}, "rolePermissionOverrides");
       if (modulePermissions != null && !isValidModulePermissions(modulePermissions)) {
         return res.status(400).json({ code: "INVALID_MODULE_PERMISSIONS", error: "Format izin modul tidak valid." });
       }
@@ -4442,6 +4574,9 @@ async function startServer() {
         updates.role = role;
         newRole = role;
       }
+      if (hasRolePermissionOverrides && !isValidRolePermissionOverrides(rolePermissionOverrides, newRole as UserRole)) {
+        return res.status(400).json({ code: "INVALID_ROLE_PERMISSION_OVERRIDES", error: "Pembatasan akses rinci tidak sesuai dengan role yang dipilih." });
+      }
 
       if (newRole === "Ustadz") {
         const nextOrganizationUnitId = hasOrganizationUnit ? organizationUnitId : targetData.organizationUnitId;
@@ -4466,14 +4601,18 @@ async function startServer() {
         const fullPerms: Record<string, boolean> = {};
         ALL_SYSTEM_MODULES.forEach((m) => { fullPerms[m] = true; });
         updates.modulePermissions = fullPerms;
-      } else if (modulePermissions && typeof modulePermissions === "object") {
-        const merged: Record<string, boolean> = resolveUserModulePermissions(newRole, targetData.modulePermissions);
+      } else if ((modulePermissions && typeof modulePermissions === "object") || hasRolePermissionOverrides || (role && newRole !== targetData.role)) {
+        const merged: Record<string, boolean> = resolveUserModulePermissions(
+          newRole,
+          targetData.modulePermissions,
+          hasRolePermissionOverrides ? rolePermissionOverrides : undefined,
+        );
         ALL_SYSTEM_MODULES.forEach((m) => {
           if (PLATFORM_ONLY_MODULES.includes(m)) {
             merged[m] = false;
             return;
           }
-          if (modulePermissions[m] !== undefined) {
+          if (modulePermissions?.[m] !== undefined) {
             merged[m] = modulePermissions[m] === true;
           }
         });
@@ -4481,8 +4620,6 @@ async function startServer() {
           merged["settings"] = false;
         }
         updates.modulePermissions = merged;
-      } else if (role && newRole !== targetData.role) {
-        updates.modulePermissions = resolveUserModulePermissions(newRole, targetData.modulePermissions);
       }
 
       const nextPermissions = updates.modulePermissions || targetData.modulePermissions;
@@ -4497,7 +4634,21 @@ async function startServer() {
       if (unauthorizedGrants.length) {
         return res.status(403).json({
           code: "FORBIDDEN_MODULE_PERMISSION",
-          error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+          error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
+        });
+      }
+      const unauthorizedRolePermissionGrants = findUnauthorizedRolePermissionGrants(
+        actor.role as UserRole,
+        actor.modulePermissions,
+        newRole as UserRole,
+        nextPermissions,
+        targetData.role as UserRole,
+        targetData.modulePermissions,
+      );
+      if (unauthorizedRolePermissionGrants.length) {
+        return res.status(403).json({
+          code: "FORBIDDEN_ROLE_PERMISSION",
+          error: "Perubahan akses rinci berada di luar kewenangan modul akun Anda.",
         });
       }
 

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { listTenantProfiles, type StoredUserProfile } from './identityStore';
+import { isRolePermissionAllowed, type UserRole } from '../rbac';
 
 export class CommunicationStoreError extends Error {
   status: number;
@@ -103,7 +104,7 @@ async function announcementRecipientsByTarget(tenantUuid: string, targets: strin
   return new Map<string, Set<string>>(entries);
 }
 
-function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: number, readByActor: boolean, actorName: string) {
+function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: number, readByActor: boolean, actorName: string, includeAudienceMetrics = false) {
   const createdAt = new Date(row.scheduled_at || row.created_at);
   const date = Number.isNaN(createdAt.getTime()) ? '' : createdAt.toISOString().slice(0, 10);
   return {
@@ -113,9 +114,9 @@ function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: n
     target: row.target_audience,
     date,
     status: row.status === 'sent' ? 'Sent' : row.status === 'scheduled' ? 'Scheduled' : 'Draft',
-    readCount,
-    legacyReadCount: Number(row.legacy_read_count || 0),
-    totalTarget,
+    readCount: includeAudienceMetrics ? readCount : undefined,
+    legacyReadCount: includeAudienceMetrics ? Number(row.legacy_read_count || 0) : undefined,
+    totalTarget: includeAudienceMetrics ? totalTarget : undefined,
     readByCurrentUser: readByActor,
     acknowledgedBy: readByActor && actorName ? [actorName] : [],
     isUrgent: row.is_urgent,
@@ -125,16 +126,19 @@ function mapAnnouncement(row: AnnouncementRow, readCount: number, totalTarget: n
 export async function listCommunicationAnnouncements(tenantId: string, actor: StoredUserProfile) {
   const client = getServiceClient();
   const tenantUuid = await resolveTenantUuid(tenantId);
-  const rowsResult = await client.from('communication_announcements')
+  const canManageAnnouncements = isRolePermissionAllowed(actor.role as UserRole, 'communication.action.publish-announcement', actor.modulePermissions);
+  const canSeeAudienceMetrics = isRolePermissionAllowed(actor.role as UserRole, 'communication.field.audience-metrics', actor.modulePermissions);
+  let rowsQuery: any = client.from('communication_announcements')
     .select('id,tenant_id,title,body,target_audience,status,is_urgent,read_count,legacy_read_count,created_by_user_id,created_at,scheduled_at')
     .eq('tenant_id', tenantUuid)
+  if (!canManageAnnouncements) rowsQuery = rowsQuery.eq('status', 'sent');
+  const rowsResult = await rowsQuery
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(500);
   if (rowsResult.error) throw new CommunicationStoreError(503, 'Pengumuman belum dapat dimuat dari Supabase.');
   const rows = (rowsResult.data || []) as AnnouncementRow[];
   const recipientsByTarget = await announcementRecipientsByTarget(tenantUuid, rows.map((row) => row.target_audience));
-  const canManageAnnouncements = ['admin', 'superadmin', 'super_admin'].includes(normalizedRole(actor));
   const visibleRows = rows.filter((row) => canManageAnnouncements
     ? true
     : row.status === 'sent' && recipientsByTarget.get(row.target_audience)?.has(actor.uid));
@@ -152,7 +156,7 @@ export async function listCommunicationAnnouncements(tenantId: string, actor: St
 
   return visibleRows.map((row) => {
     const totalTarget = recipientsByTarget.get(row.target_audience)?.size || 0;
-    return mapAnnouncement(row, Number(row.read_count || 0) + Number(row.legacy_read_count || 0), totalTarget, actorReadIds.has(row.id), actor.name);
+    return mapAnnouncement(row, Number(row.read_count || 0) + Number(row.legacy_read_count || 0), totalTarget, actorReadIds.has(row.id), actor.name, canSeeAudienceMetrics);
   });
 }
 
@@ -161,7 +165,7 @@ export async function createCommunicationAnnouncement(
   actor: StoredUserProfile,
   input: { title: unknown; content: unknown; target: unknown; isUrgent: unknown },
 ) {
-  if (!['admin', 'superadmin', 'super_admin'].includes(normalizedRole(actor))) {
+  if (!isRolePermissionAllowed(actor.role as UserRole, 'communication.action.publish-announcement', actor.modulePermissions)) {
     throw new CommunicationStoreError(403, 'Hanya Admin tenant yang dapat menerbitkan pengumuman.');
   }
   const rawTitle = String(input.title || '').trim();
@@ -189,11 +193,11 @@ export async function createCommunicationAnnouncement(
   if (error || !data) {
     throw new CommunicationStoreError(503, 'Pengumuman belum dapat disimpan ke Supabase.');
   }
-  return mapAnnouncement(data as AnnouncementRow, Number(data.read_count || 0) + Number(data.legacy_read_count || 0), totalTarget, false, actor.name);
+  return mapAnnouncement(data as AnnouncementRow, Number(data.read_count || 0) + Number(data.legacy_read_count || 0), totalTarget, false, actor.name, true);
 }
 
 export async function acknowledgeCommunicationAnnouncement(tenantId: string, actor: StoredUserProfile, announcementId: string) {
-  if (!['walisantri', 'wali_santri'].includes(normalizedRole(actor))) {
+  if (!isRolePermissionAllowed(actor.role as UserRole, 'communication.action.acknowledge-announcement', actor.modulePermissions)) {
     throw new CommunicationStoreError(403, 'Hanya akun Wali Santri yang dapat mengonfirmasi pengumuman.');
   }
   const client = getServiceClient();

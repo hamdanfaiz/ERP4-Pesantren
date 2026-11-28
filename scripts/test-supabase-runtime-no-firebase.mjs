@@ -159,10 +159,10 @@ assert.ok(!fs.existsSync(path.join(root, 'src', 'pages', 'EcosystemManager.tsx')
 assert.ok(!fs.readFileSync(path.join(root, '.env.example'), 'utf8').includes('PAYMENT_GATEWAY_SECRET_KEY'),
   'The initial release must not expose a payment gateway configuration placeholder.');
 const tahfidzSource = fs.readFileSync(path.join(root, 'src', 'pages', 'TahfidzManager.tsx'), 'utf8');
-assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && <button[\s\S]*?title="Penilaian audio otomatis"/,
-  'Demo-only audio assessment actions must remain hidden in the Supabase Tahfidz runtime and use Indonesian copy.');
-assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && isAssessmentOpen && selectedSantri && \(/,
-  'The mock AI assessment modal must not render in the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && canAssessAudio && <button[\s\S]*?title="Penilaian audio otomatis"/,
+  'Demo-only audio assessment actions must be permission-scoped and remain hidden in the Supabase Tahfidz runtime.');
+assert.match(tahfidzSource, /\{!SUPABASE_TAHFIDZ_RUNTIME && canAssessAudio && isAssessmentOpen && selectedSantri && \(/,
+  'The mock AI assessment modal must be permission-scoped and must not render in the Supabase Tahfidz runtime.');
 
 const masterDataSource = fs.readFileSync(path.join(root, 'src', 'pages', 'MasterDataManager.tsx'), 'utf8');
 assert.match(masterDataSource, /const visibleTabs = TABS;/,
@@ -290,11 +290,11 @@ for (const feature of ['report-card', 'conflict-resolver']) {
 for (const feature of ['teachers', 'subjects', 'curricula']) {
   assert.ok(academicSource.includes(`id: "${feature}"`), `Academic must own the ${feature} reference submenu moved from Master Data.`);
 }
-assert.match(academicSource, /!\[\"schedule\",\s*\"conflict-resolver\",\s*\"teachers\",\s*\"subjects\",\s*\"curricula\"\]\.includes\(tab\.id\)\s*\|\|\s*isAdmin/,
-  'Academic owner reference tabs must be limited to Admin roles.');
-assert.match(academicSource, /activeTab === "teachers"\s*\?\s*<TeacherDirectory[\s\S]*?activeTab === "subjects"\s*\?\s*<SubjectReferenceList[\s\S]*?activeTab === "curricula"\s*\?\s*<CurriculumReferenceList/,
+assert.match(academicSource, /const visibleAcademicTabs = TABS\.filter\(\(tab\) => isRolePermissionAllowed\(role, `academic\.tab\.\$\{tab\.id\}`, user\?\.modulePermissions\)\)/,
+  'Academic tabs must be filtered by the shared role, tab, and module-permission policy.');
+assert.match(academicSource, /effectiveActiveTab === "teachers"\s*\?\s*<TeacherDirectory[\s\S]*?effectiveActiveTab === "subjects"\s*\?\s*<SubjectReferenceList[\s\S]*?effectiveActiveTab === "curricula"\s*\?\s*<CurriculumReferenceList/,
   'Moved academic reference tabs must render their tenant-backed views in the Academic module.');
-assert.match(academicSource, /activeTab === "report-card"\s*\?\s*<SupabaseAcademicReportPanel\s+isAdmin=\{isAdmin\}\s*\/>/,
+assert.match(academicSource, /effectiveActiveTab === "report-card"\s*\?\s*<SupabaseAcademicReportPanel\s+isAdmin=\{isAdmin\}\s*\/>/,
   'E-Rapor must render its tenant-backed report workspace.');
 const academicReportSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseAcademicReportPanel.tsx'), 'utf8');
 assert.match(academicReportSource, /reportRequest\("\/api\/academic\/report-cards"/,
@@ -331,7 +331,7 @@ for (const feature of ['dashboard', 'categories', 'video-library', 'assessments'
   assert.ok(lmsSource.includes(`id: "${feature}"`), `LMS reference submenu ${feature} must remain visible.`);
 }
 for (const feature of ['dashboard', 'categories', 'video-library', 'assessments', 'peer-review', 'instructor']) {
-  assert.ok(lmsSource.includes(`tab === "${feature}" &&`), `LMS ${feature} tab must render its module screen.`);
+  assert.ok(lmsSource.includes(`visibleTab === "${feature}" &&`) || lmsSource.includes(`tab === "${feature}" &&`), `LMS ${feature} tab must render its module screen.`);
 }
 const hrisSource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseHrisManager.tsx'), 'utf8');
 for (const feature of ['tracking', 'shifts', 'payroll', 'performance', 'hiring', 'analytics']) {
@@ -361,7 +361,7 @@ assert.match(alumniSource, /requestAlumni\("\/api\/donation\/snapshot"\)/,
 const librarySource = fs.readFileSync(path.join(root, 'src', 'pages', 'SupabaseLibraryManager.tsx'), 'utf8');
 assert.match(librarySource, /id:\s*["']digital["']\s*,\s*label:\s*["']Perpustakaan Digital["']/,
   'The digital library submenu must remain visible when the Storage feature flag is closed.');
-assert.match(librarySource, /activeTab === "digital" && !digitalAssetsEnabled && <ERPFeatureStatus/,
+assert.match(librarySource, /effectiveActiveTab === "digital" && !digitalAssetsEnabled && <ERPFeatureStatus/,
   'The digital library must explain its closed Storage gate instead of appearing to disappear.');
 const archiveImportPolicy = fs.readFileSync(path.join(root, 'src', 'runtimeBackend.ts'), 'utf8');
 assert.match(archiveImportPolicy, /export const legacyArchiveImportEnabled = false/,
@@ -581,6 +581,7 @@ for (const { path: relativePath, pattern } of customerCopyGuards) {
 }
 console.log(`Supabase-only module routing passed (${expectedRoutes.size} Supabase routes; PPOB/ecosystem excluded; ${retiredRouteHandlers.size} retired migration routes closed).`);
 console.log('Browser persistence policy passed (no active localStorage writes; sessionStorage limited to Supabase Auth and temporary idempotency keys).');
+
 
 
 

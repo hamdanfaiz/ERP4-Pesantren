@@ -3,6 +3,7 @@ import { AlertCircle, BedDouble, CheckCircle2, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toERPUserMessage } from "../utils/userMessages";
 import { ERPLoadingSkeleton } from "../components/ERPDesignSystem";
+import { isRolePermissionAllowed } from "../rbac";
 import {
   assignSupabaseStudentRoom,
   listSupabaseBoardingSnapshot,
@@ -15,8 +16,9 @@ function isActive(status?: string) {
 }
 
 export function SupabaseBoardingRoomsManager() {
-  const { role } = useAuth();
-  const canManage = role === "Admin" || role === "SuperAdmin";
+  const { role, user } = useAuth();
+  const canManage = isRolePermissionAllowed(role, "boarding.action.assign-room", user?.modulePermissions);
+  const canReadStudentIdentifiers = isRolePermissionAllowed(role, "boarding.field.student-identifiers", user?.modulePermissions);
   const [students, setStudents] = useState<SupabaseBoardingStudent[]>([]);
   const [structures, setStructures] = useState<SupabaseStructureRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,9 +64,9 @@ export function SupabaseBoardingRoomsManager() {
   const visible = useMemo(() => {
     const term = query.trim().toLocaleLowerCase("id-ID");
     if (!term) return students;
-    return students.filter((student) => [student.name, student.nis, student.room, student.grade]
+    return students.filter((student) => [student.name, ...(canReadStudentIdentifiers ? [student.nis, student.grade] : []), student.room]
       .some((field) => String(field || "").toLocaleLowerCase("id-ID").includes(term)));
-  }, [students, query]);
+  }, [students, query, canReadStudentIdentifiers]);
 
   const save = async (student: SupabaseBoardingStudent) => {
     if (!canManage) return;
@@ -112,7 +114,7 @@ export function SupabaseBoardingRoomsManager() {
           <h2 className="font-semibold text-slate-900 dark:text-slate-100">Daftar penempatan</h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{students.length} santri · {rooms.length} kamar aktif</p>
         </div>
-        <input aria-label="Cari santri" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, NIS, kamar, kelas…" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:max-w-xs dark:border-white/15" />
+        <input aria-label="Cari santri" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={canReadStudentIdentifiers ? "Cari nama, NIS, kamar, kelas…" : "Cari nama atau kamar…"} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100 sm:max-w-xs dark:border-white/15" />
       </div>
       {loading ? <div className="p-4"><ERPLoadingSkeleton variant="list" label="Memuat penempatan kamar…" rows={5} /></div>
         : !visible.length ? <div className="p-10 text-center text-sm text-slate-500 dark:text-slate-400">Belum ada santri untuk ditampilkan.</div>
@@ -133,7 +135,7 @@ export function SupabaseBoardingRoomsManager() {
                 return <tr key={student.id}>
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-900 dark:text-slate-100">{student.name}</div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {student.nis || "—"} · {student.gender || "—"} · {student.grade || "—"}</div>
+                    {canReadStudentIdentifiers && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">NIS {student.nis || "—"} · {student.gender || "—"} · {student.grade || "—"}</div>}
                   </td>
                   <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{student.room || "Belum ditempatkan"}{student.dormitory ? <div className="text-xs text-slate-500 dark:text-slate-400">{student.dormitory}</div> : null}</td>
                   <td className="px-4 py-3">

@@ -7,6 +7,7 @@ import { ERPTabs } from "../components/ERPDesignSystem";
 import { SupabaseModuleReferenceSettings } from "../components/SupabaseReferenceCatalogManager";
 import { buildCbtCalendarGrid, cbtTenantMonthKey, groupCbtExamsByTenantDate, shiftCbtCalendarMonth } from "../lib/cbtCalendar";
 import { toERPUserMessage } from "../utils/userMessages";
+import { isRolePermissionAllowed } from "../rbac";
 import { displayCbtQuestionText } from "../utils/cbtQuestionText";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, tenantDate, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
@@ -913,7 +914,7 @@ export function SupabaseCBTManager() {
     </div>
     {summaryError && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-100">{summaryError}</div>}
 
-    <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])]} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
+    <ERPTabs tabs={[...CBT_REFERENCE_TABS, ...(legacyArchiveImportEnabled ? [{ id: "import" as const, label: "Impor Arsip", icon: <RefreshCw className="h-4 w-4" /> }] : [])].filter((item) => isRolePermissionAllowed(role, `cbt.tab.${item.id}`, user?.modulePermissions))} value={tab} onChange={(id) => { setTab(id as Tab); setError(""); setNotice(""); }} ariaLabel="Bagian Ujian Berbasis Komputer" />
     <SupabaseModuleReferenceSettings domains={["cbt_question_template"]} />
 
     {tab === "dashboard" && <div className="space-y-5">
