@@ -1,3 +1,15 @@
+## Pembaruan — 28 November 2026: penugasan aktif tersedia di VQE
+
+Bagian ini memperbarui snapshot baca-saja yang lebih lama di bawah: snapshot tersebut benar ketika diambil, sebelum penugasan dibuat.
+
+- Admin VQE membuat sesi sintetis `UAT CBT Santri 20261129`, Fiqih/Jenjang UAT, satu soal, status terbit, jendela 29 November 2026 pukul 08.00–5 Desember 2026 pukul 20.00 WIB, durasi 30 menit.
+- Sesi ditugaskan hanya kepada akun Santri UAT `UAT Santri Uji NIS 20261125`. Antarmuka mengonfirmasi satu peserta; jumlah selesai nol.
+- Ujian belum dimulai. Belum ada attempt, jawaban, timer, maupun hasil. **Login Santri dan UAT mulai–simpan–kumpul–lihat hasil masih perlu dilakukan.**
+- Saat melanjutkan UAT, masuk memakai akun Santri sintetis yang sudah disiapkan, buka **CBT → Ujian Saya**, pastikan hanya ujian yang ditugaskan tampil, lalu lakukan skenario peserta yang disepakati. Jangan memakai akun/ujian Production.
+- PR #316 tetap Draft hingga alur peserta tersebut diverifikasi. Tidak ada perubahan pada PTSAS Production, migrasi, atau konfigurasi hosting.
+
+---
+
 # Prasyarat UAT sisi Santri CBT — 28 November 2026
 
 ## Ringkasan pemeriksaan
