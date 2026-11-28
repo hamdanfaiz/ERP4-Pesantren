@@ -1,3 +1,13 @@
+## Catatan lanjutan — 28 November 2026, jadwal UAT CBT sisi Santri disiapkan
+
+- Pada staging VQE di Hostinger, Admin membuat sesi sintetis `UAT CBT Santri 20261129` untuk mata pelajaran Fiqih dan jenjang UAT. Sesi berstatus Terbit, berlangsung 29 November 2026 pukul 08.00 sampai 5 Desember 2026 pukul 20.00 WIB, durasi 30 menit, nilai lulus 60.
+- Satu soal sintetis dipilih, “Berapa rakaat shalat Subuh?”, dan sesi ditugaskan hanya kepada akun Santri UAT `UAT Santri Uji NIS 20261125`. UI mengonfirmasi “Ujian dan penugasan berhasil disimpan”; ringkasan menunjukkan 1 peserta, 0 selesai.
+- Tidak ada ujian yang dimulai; belum ada attempt, jawaban, timer, atau hasil. Akun Santri belum dipakai untuk login peserta. UAT alur mulai–simpan–kumpul–lihat hasil masih menunggu pemeriksaan sebagai Santri.
+- PR #316 tetap Draft. CI yang terakhir diverifikasi lulus 3/3 job wajib pada run [46105642831](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/46105642831); perubahan catatan ini tidak mengubah kode aplikasi. PTSAS Production, migrasi, Storage, dan konfigurasi hosting tidak diubah.
+- Pekerjaan lanjutan tanpa login peserta dapat mencakup pemeriksaan kode dan tes lokal. Jangan menganggap keberhasilan penugasan ini sebagai UAT CBT lengkap atau bukti siap Production.
+
+---
+
 ## Catatan lanjutan — 28 November 2026, verifikasi head PR #316
 
 - Checkout `codex/cbt-answer-sync-20261128` berada pada head PR #316 `a8b44177f53a11ae339e618cfc27cb313516fa75`. Working tree bersih sebelum pemeriksaan lokal. CI head PR lulus 3/3 job; review belum ada dan PR masih draft.
