@@ -5,6 +5,7 @@ import {
   groupCbtExamsByTenantDate,
   shiftCbtCalendarMonth,
 } from "../src/lib/cbtCalendar";
+import { formatTenantDateTime } from "../src/lib/tenantTimeZone";
 
 const november = buildCbtCalendarGrid("2026-11", "Asia/Jakarta", "2026-11-15T04:00:00.000Z");
 assert.equal(november.length, 42, "month grid always occupies six weeks");
@@ -27,6 +28,11 @@ const nearMidnight = "2026-10-31T17:30:00.000Z";
 assert.equal(cbtTenantMonthKey(nearMidnight, "Asia/Jakarta"), "2026-11", "tenant timezone determines month boundary");
 assert.equal(cbtTenantMonthKey(nearMidnight, "America/Los_Angeles"), "2026-10", "different tenant zones can show different months");
 
+const participantStartJakarta = formatTenantDateTime("2026-11-01T03:00:00.000Z", "Asia/Jakarta");
+const participantStartLosAngeles = formatTenantDateTime("2026-11-01T03:00:00.000Z", "America/Los_Angeles");
+assert.match(participantStartJakarta, /10[.:]00/, "participant exam times use the pesantren timezone");
+assert.match(participantStartLosAngeles, /20[.:]00/, "participant exam times follow other tenant timezones too");
+
 const schedules = groupCbtExamsByTenantDate([
   { id: "late", title: "Ujian Z", startsAt: "2026-11-01T03:00:00.000Z" },
   { id: "early", title: "Ujian A", startsAt: "2026-10-31T18:00:00.000Z" },
@@ -35,5 +41,5 @@ const schedules = groupCbtExamsByTenantDate([
 assert.deepEqual(schedules.get("2026-11-01")?.map((exam) => exam.id), ["early", "late"], "events group by tenant-local start date and sort by start time");
 assert.equal(schedules.has(""), false, "invalid schedules are excluded rather than rendered on an empty date");
 
-console.log("CBT tenant calendar: 16 assertions passed");
+console.log("CBT tenant calendar: 18 assertions passed");
 

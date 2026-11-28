@@ -1,9 +1,12 @@
 import { toERPUserMessage } from "../utils/userMessages";
 import { displayCbtQuestionText } from "../utils/cbtQuestionText";
+import { areCbtAnswerSnapshotsEqual, createCbtAnswerSyncQueue, flushCbtAnswerSnapshot } from "../lib/cbtAnswerSync";
+import { withCbtRequestTimeout } from "../lib/cbtRequestTimeout";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Play, RefreshCw, ShieldCheck, Send } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime } from "../lib/tenantTimeZone";
 
 type AssignedExam = {
   assignmentId: string; id: string; title: string; subject: string; grade: string; startsAt: string; endsAt: string;
@@ -15,6 +18,7 @@ type Attempt = {
   attemptId: string; examId: string; title: string; startsAt: string; expiresAt: string; serverNow: string;
   expired: boolean; submitted: boolean; questions: Question[]; answers: Record<string, number>;
 };
+type AnswerSyncState = "pending" | "saving" | "saved" | "unsaved";
 
 async function requestCbt(path: string, init: RequestInit = {}) {
   const token = await getAccessToken();
@@ -23,14 +27,18 @@ async function requestCbt(path: string, init: RequestInit = {}) {
   headers.set("Authorization", "Bearer " + token);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const response = await fetch(path, { ...init, headers, cache: "no-store" });
-  const result = await response.json().catch(() => ({}));
+  const { response, result } = await withCbtRequestTimeout(async (signal) => {
+    const response = await fetch(path, { ...init, headers, cache: "no-store", signal });
+    const result = await response.json().catch(() => ({}));
+    return { response, result };
+  }, init.signal);
   if (!response.ok) throw new Error(result.error || "Layanan ujian belum dapat diproses.");
   return result;
 }
 
 export function SupabaseCBTStudentDashboard() {
   const { role, user } = useAuth();
+  const tenantTimeZone = user?.tenantTimeZone || DEFAULT_TENANT_TIME_ZONE;
   const [exams, setExams] = useState<AssignedExam[]>([]);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
@@ -41,8 +49,10 @@ export function SupabaseCBTStudentDashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [answerSyncState, setAnswerSyncState] = useState<AnswerSyncState>("saved");
   const submitLock = useRef(false);
-  const answerSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const answerSaveQueue = useRef(createCbtAnswerSyncQueue());
+  const latestAnswers = useRef<Record<string, number>>({});
   const restoreComplete = useRef(false);
   const attemptDeadline = useRef(0);
 
@@ -75,44 +85,72 @@ export function SupabaseCBTStudentDashboard() {
       }
       const remainingMs = Math.max(0, expiresAt - serverNow - (responseReceivedAt - requestStartedAt));
       attemptDeadline.current = responseReceivedAt + remainingMs;
+      const restoredAnswers = { ...(nextAttempt.answers || {}) };
+      await answerSaveQueue.current.reset(restoredAnswers);
+      latestAnswers.current = restoredAnswers;
       setAttempt(nextAttempt);
-      setAnswers(nextAttempt.answers || {});
+      setAnswers(restoredAnswers);
       setCurrentIndex(0);
       setTimeLeft(Math.ceil(remainingMs / 1000));
+      setAnswerSyncState("saved");
       restoreComplete.current = true;
       if (nextAttempt.expired || remainingMs <= 0) {
-        await submitAttempt(nextAttempt.attemptId, nextAttempt.answers || {}, true);
+        await submitAttempt(nextAttempt.attemptId, true);
       }
     } catch (cause: any) { setError(toERPUserMessage(cause, "Ujian tidak dapat dimulai.")); }
     finally { setBusy(false); }
   };
 
   const persistAnswersInOrder = (attemptId: string, snapshot: Record<string, number>) => {
-    // Serializing autosaves prevents a slow, older snapshot from landing after a newer answer set.
-    const save = answerSaveQueue.current.catch(() => undefined).then(() =>
-      requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
-        method: "PUT", body: JSON.stringify({ answers: snapshot }),
-      })
-    );
-    answerSaveQueue.current = save.then(() => undefined, () => undefined);
+    const stableSnapshot = { ...snapshot };
+    const save = answerSaveQueue.current.enqueue(stableSnapshot, async (orderedSnapshot) => {
+      setAnswerSyncState("saving");
+      return requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
+        method: "PUT", body: JSON.stringify({ answers: orderedSnapshot }),
+      });
+    });
+    void save.then(() => {
+      if (areCbtAnswerSnapshotsEqual(latestAnswers.current, stableSnapshot)) setAnswerSyncState("saved");
+    }, () => {
+      if (areCbtAnswerSnapshotsEqual(latestAnswers.current, stableSnapshot)) setAnswerSyncState("unsaved");
+    });
     return save;
   };
 
-  const submitAttempt = async (attemptId = attempt?.attemptId || "", finalAnswers = answers, automatic = false) => {
+  const updateAnswer = (questionId: string, optionIndex: number) => {
+    if (submitLock.current) return;
+    const nextAnswers = { ...latestAnswers.current, [questionId]: optionIndex };
+    latestAnswers.current = nextAnswers;
+    setAnswers(nextAnswers);
+    setAnswerSyncState("pending");
+    setError("");
+  };
+
+  const submitAttempt = async (attemptId = attempt?.attemptId || "", automatic = false) => {
     if (!attemptId || submitLock.current) return;
     submitLock.current = true; setBusy(true); setError(""); setNotice("");
     try {
-      if (performance.now() < attemptDeadline.current) {
-        try {
-          await persistAnswersInOrder(attemptId, finalAnswers);
-        } catch (cause) {
-          if (performance.now() < attemptDeadline.current) throw cause;
-        }
-      }
+      const finalAnswers = { ...latestAnswers.current };
+      const answersPersisted = await flushCbtAnswerSnapshot(
+        answerSaveQueue.current,
+        finalAnswers,
+        async (orderedSnapshot) => {
+          setAnswerSyncState("saving");
+          return requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/answers", {
+            method: "PUT", body: JSON.stringify({ answers: orderedSnapshot }),
+          });
+        },
+        () => performance.now() < attemptDeadline.current,
+      );
+      setAnswerSyncState(answersPersisted ? "saved" : "unsaved");
       const result = await requestCbt("/api/cbt/attempts/" + encodeURIComponent(attemptId) + "/submit", { method: "POST" });
-      setNotice((automatic ? "Waktu habis. Jawaban tersimpan dikumpulkan otomatis. " : "Ujian selesai. ")
-        + "Nilai " + Number(result.score || 0) + " — " + (result.passed ? "Lulus." : "Belum lulus."));
+      const syncWarning = answersPersisted ? "" : " Perubahan terakhir belum tersinkron; nilai dihitung dari jawaban yang tersimpan.";
+      setNotice((automatic ? "Waktu habis. Ujian dikumpulkan otomatis." : "Ujian selesai.")
+        + syncWarning + " Nilai " + Number(result.score || 0) + " — " + (result.passed ? "Lulus." : "Belum lulus."));
       setAttempt(null); setAnswers({}); setConfirmSubmit(false); attemptDeadline.current = 0;
+      latestAnswers.current = {};
+      await answerSaveQueue.current.reset({});
+      setAnswerSyncState("saved");
       await refresh();
     } catch (cause: any) { setError(toERPUserMessage(cause, "Jawaban belum dapat dikumpulkan.")); }
     finally { setBusy(false); submitLock.current = false; }
@@ -121,10 +159,13 @@ export function SupabaseCBTStudentDashboard() {
   useEffect(() => {
     if (!attempt || !restoreComplete.current || !attempt.attemptId || busy || performance.now() >= attemptDeadline.current) return;
     const saveTimer = setTimeout(() => {
-      if (performance.now() >= attemptDeadline.current) return;
+      if (performance.now() >= attemptDeadline.current) {
+        setAnswerSyncState(answerSaveQueue.current.isPersisted(answers) ? "saved" : "unsaved");
+        return;
+      }
       void persistAnswersInOrder(attempt.attemptId, answers)
         .catch((cause: any) => setError(toERPUserMessage(cause, "Jawaban belum tersinkron.")));
-    }, 500);
+    }, 250);
     return () => clearTimeout(saveTimer);
   }, [answers, attempt?.attemptId, attempt?.expiresAt, busy]);
 
@@ -133,7 +174,7 @@ export function SupabaseCBTStudentDashboard() {
     const timer = setInterval(() => {
       const remaining = Math.max(0, Math.ceil((attemptDeadline.current - performance.now()) / 1000));
       setTimeLeft(remaining);
-      if (remaining === 0 && !submitLock.current) void submitAttempt(attempt.attemptId, answers, true);
+      if (remaining === 0 && !submitLock.current) void submitAttempt(attempt.attemptId, true);
     }, 1000);
     return () => clearInterval(timer);
   }, [attempt?.attemptId, attempt?.expiresAt, answers]);
@@ -160,10 +201,10 @@ export function SupabaseCBTStudentDashboard() {
     </header>
     {error && <div role="alert" className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">{error}</div>}
     <section className="mx-auto w-full max-w-4xl flex-1 overflow-y-auto p-4 sm:p-8">
-      <div className="mb-5 flex items-center justify-between text-xs text-slate-500"><span>{answeredCount} jawaban tersimpan sementara</span><span>{attempt.questions.length} soal</span></div>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500"><span>{answeredCount} jawaban dipilih</span><span role="status" aria-live="polite">{answerSyncState === "pending" ? "Menunggu penyimpanan…" : answerSyncState === "saving" ? "Menyimpan jawaban…" : answerSyncState === "unsaved" ? "Perubahan terakhir belum tersinkron" : "Jawaban tersimpan"}</span><span>{attempt.questions.length} soal</span></div>
       <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-slate-900 sm:p-8">
         <div className="whitespace-pre-wrap text-base leading-7 text-slate-900 dark:text-white">{displayCbtQuestionText(currentQuestion.text)}</div>
-        <div className="mt-6 space-y-3">{currentQuestion.options.map((option, index) => <label key={index} className={"flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition " + (answers[currentQuestion.id] === index ? "border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-400/10 dark:text-indigo-100" : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5")}><input type="radio" name={currentQuestion.id} checked={answers[currentQuestion.id] === index} onChange={() => setAnswers((current) => ({ ...current, [currentQuestion.id]: index }))} />{displayCbtQuestionText(option)}</label>)}</div>
+        <div className="mt-6 space-y-3">{currentQuestion.options.map((option, index) => <label key={index} className={"flex cursor-pointer items-start gap-3 rounded-xl border p-4 text-sm transition " + (answers[currentQuestion.id] === index ? "border-indigo-500 bg-indigo-50 text-indigo-950 dark:bg-indigo-400/10 dark:text-indigo-100" : "border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/5")}><input type="radio" name={currentQuestion.id} checked={answers[currentQuestion.id] === index} disabled={busy} onChange={() => updateAnswer(currentQuestion.id, index)} />{displayCbtQuestionText(option)}</label>)}</div>
       </article>
     </section>
     <footer className="border-t border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900">
@@ -187,7 +228,7 @@ export function SupabaseCBTStudentDashboard() {
       const statusText = isSubmitted ? "Selesai" : exam.status === "in_progress" ? "Sedang dikerjakan" : exam.status === "completed" ? "Selesai" : now < start ? "Terjadwal" : now >= end ? "Jendela berakhir" : "Tersedia";
       return <article key={exam.assignmentId} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold text-slate-900 dark:text-white">{exam.title}</h2><p className="mt-1 text-sm text-slate-500">{exam.subject} · {exam.grade}</p></div><span className="rounded-lg bg-slate-100 px-2 py-1 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">{statusText}</span></div>
-        <div className="mt-4 space-y-1 text-xs text-slate-500"><p>Mulai: {new Date(exam.startsAt).toLocaleString("id-ID")}</p><p>Batas sesi: {new Date(exam.endsAt).toLocaleString("id-ID")}</p><p>Durasi: {exam.durationMinutes} menit</p></div>
+        <div className="mt-4 space-y-1 text-xs text-slate-500"><p>Mulai: {formatTenantDateTime(exam.startsAt, tenantTimeZone)}</p><p>Batas sesi: {formatTenantDateTime(exam.endsAt, tenantTimeZone)}</p><p>Durasi: {exam.durationMinutes} menit</p></div>
         {isSubmitted && <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm dark:bg-white/5">Nilai: <strong>{exam.score}</strong> · {exam.passed ? "Lulus" : "Belum lulus"}</div>}
         <button type="button" onClick={() => void startExam(exam.id)} disabled={busy || !available} className={"mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50 " + (available ? "bg-indigo-700 text-white hover:bg-indigo-800" : "border border-slate-200 text-slate-500 dark:border-white/10")}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}{exam.attemptId ? "Lanjutkan / kumpulkan" : "Mulai ujian"}</button>
       </article>;
