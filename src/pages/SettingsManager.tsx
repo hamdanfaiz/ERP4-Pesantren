@@ -608,7 +608,7 @@ export function SettingsManager() {
                       <Shield className="w-5 h-5 text-indigo-400" /> Matriks Akses Bawaan Berdasarkan Peran
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Batas role diterapkan oleh backend. Izin per akun hanya dapat mempersempit akses, tidak dapat menaikkan hak melampaui peran. Tab, tindakan, dan kolom sensitif mengikuti kebijakan tiap modul.
+                      Hak akses mengikuti peran yang ditetapkan. Pengaturan izin pengguna hanya dapat membatasi akses lebih lanjut. Bagian, tindakan, dan data sensitif menyesuaikan peran pada tiap modul.
                     </p>
                   </div>
                 </div>
