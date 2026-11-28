@@ -67,6 +67,13 @@ assert.equal(isRolePermissionAllowed("Ustadz", "lms.tab.dashboard", { lms: false
 
 assert.equal(isRolePermissionAllowed("Ustadz", "academic.tab.journal"), true);
 assert.equal(isRolePermissionAllowed("Ustadz", "academic.tab.schedule"), false);
+for (const adminOnlyAcademicTab of ["conflict-resolver", "teachers", "subjects", "curricula"] as const) {
+  assert.equal(isRolePermissionAllowed("Admin", `academic.tab.${adminOnlyAcademicTab}`), true);
+  assert.equal(isRolePermissionAllowed("SuperAdmin", `academic.tab.${adminOnlyAcademicTab}`), true);
+  assert.equal(isRolePermissionAllowed("Ustadz", `academic.tab.${adminOnlyAcademicTab}`), false);
+  assert.equal(isRolePermissionAllowed("Santri", `academic.tab.${adminOnlyAcademicTab}`), false);
+  assert.equal(isRolePermissionAllowed("Walisantri", `academic.tab.${adminOnlyAcademicTab}`), false);
+}
 assert.equal(isRolePermissionAllowed("Santri", "academic.tab.assessment"), false);
 assert.equal(isRolePermissionAllowed("Ustadz", "academic.action.write-assessment"), true);
 assert.equal(isRolePermissionAllowed("Santri", "academic.field.student-identifiers"), false);
@@ -192,3 +199,4 @@ assert.deepEqual(
 );
 
 console.log("RBAC role ceiling, izin tab/tindakan/kolom, batas pemberian modul, dan katalog Indonesia lulus.");
+
