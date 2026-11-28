@@ -14,6 +14,7 @@ import { ModuleErrorBoundary } from './components/ModuleErrorBoundary';
 import { Tenant, ModuleId } from './types';
 import { ROLE_MODULES } from './rbac';
 import { useSystemSettings } from './hooks/useSystemSettings';
+import { isPasswordRecoveryCallback } from './utils/passwordRecoveryRoute';
 
 // Module pages are loaded on demand to keep the initial bundle small.
 const SupabaseDashboardOverview = React.lazy(() => import('./pages/SupabaseDashboardOverview').then((module) => ({ default: module.SupabaseDashboardOverview })));
@@ -76,7 +77,7 @@ export default function App() {
   const { role, user, completeGuardianInvitation, completeGuardianRegistration, completePasswordRecovery } = useAuth();
   const [guardianInviteToken, setGuardianInviteToken] = useState(() => new URLSearchParams(window.location.search).get('guardianInvite') || '');
   const [guardianRegistrationRoute, setGuardianRegistrationRoute] = useState(() => new URLSearchParams(window.location.search).has('guardianRegistration'));
-  const [passwordRecoveryRoute, setPasswordRecoveryRoute] = useState(() => new URLSearchParams(window.location.search).has('passwordRecovery'));
+  const [passwordRecoveryRoute, setPasswordRecoveryRoute] = useState(() => isPasswordRecoveryCallback(window.location));
   const currentTenant: Tenant = {
     id: user?.tenantId || '',
     name: user?.tenantName || 'Pesantren',
@@ -306,6 +307,7 @@ export default function App() {
     </div>
   );
 }
+
 
 
 
