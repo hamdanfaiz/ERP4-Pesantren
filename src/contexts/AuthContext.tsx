@@ -5,6 +5,7 @@ import { supabase, supabaseClientConfigured } from '../utils/supabase';
 import { UserRole } from '../rbac';
 import { normalizeTenantTimeZone } from '../lib/tenantTimeZone';
 import { toERPUserMessage } from '../utils/userMessages';
+import { isPasswordRecoveryCallback } from '../utils/passwordRecoveryRoute';
 
 export interface AuthUser {
   uid: string;
@@ -130,10 +131,10 @@ async function loadUserProfile(authUser: SupabaseAuthUser, accessToken: string):
 }
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const guardianInvitationRoute = useRef(typeof window !== 'undefined' && (
+  const preserveAuthCallbackSession = useRef(typeof window !== 'undefined' && (
     new URLSearchParams(window.location.search).has('guardianInvite')
     || new URLSearchParams(window.location.search).has('guardianRegistration')
-    || new URLSearchParams(window.location.search).has('passwordRecovery')
+    || isPasswordRecoveryCallback(window.location)
   ));
   const [role, setRole] = useState<UserRole>('Public');
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -176,7 +177,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               if (!mounted || currentRevision !== revision) return;
               setUser(null);
               setRole('Public');
-              if (!guardianInvitationRoute.current) {
+              if (!preserveAuthCallbackSession.current) {
                 setAuthSession(null);
                 try { await supabase.auth.signOut(); } catch { /* Keep the session fail-closed. */ }
               }
@@ -260,10 +261,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setRole(session.role);
   };
 
-  const completeGuardianInvitation = () => { guardianInvitationRoute.current = false; };
-  const beginGuardianRegistration = () => { guardianInvitationRoute.current = true; };
-  const completeGuardianRegistration = () => { guardianInvitationRoute.current = false; };
-  const completePasswordRecovery = () => { guardianInvitationRoute.current = false; };
+  const completeGuardianInvitation = () => { preserveAuthCallbackSession.current = false; };
+  const beginGuardianRegistration = () => { preserveAuthCallbackSession.current = true; };
+  const completeGuardianRegistration = () => { preserveAuthCallbackSession.current = false; };
+  const completePasswordRecovery = () => { preserveAuthCallbackSession.current = false; };
 
   const changeInitialPassword = async (password: string) => {
     const { data } = await supabase.auth.getSession();
