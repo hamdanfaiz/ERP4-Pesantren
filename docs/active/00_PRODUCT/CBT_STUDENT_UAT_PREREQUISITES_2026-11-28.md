@@ -7,8 +7,8 @@ Pemeriksaan baca-saja dilakukan pada Supabase VQE staging (`vqemuyzveuirlkvdggjd
 - Ujian `Ujian Sampel Fiqih Semester Ganjil` berstatus `published`.
 - Jendela ujian: 19 November 2026 pukul 13.40 sampai 20 Desember 2026 pukul 13.40 WIB. Dengan demikian, pada pemeriksaan 28 November, jendela tersebut masih terbuka.
 - Belum ada penugasan pada `cbt_exam_assignments` dan belum ada percobaan pada `cbt_attempts`.
-- Terdapat 43 baris siswa pada tabel `students`, tetapi 0 berstatus aktif.
-- Terdapat 4 profil ber-role Santri dan semuanya berstatus `suspended`; tidak ada profil Santri aktif untuk UAT.
+- Pemeriksaan awal menemukan 43 baris siswa; hitung ulang baca-saja pada pembaruan 28 November menemukan 47 baris (`45 Active`, `2 Archived`).
+- Hitung profil terbaru menemukan 5 profil ber-role Santri dan semuanya `suspended`; tidak ada profil Santri aktif untuk UAT.
 - Tidak ada identitas pengguna, email, atau data pribadi yang dicatat dalam laporan ini.
 
 ## Arti hasil
@@ -47,9 +47,17 @@ Ini membuktikan tampilan pratinjau peserta dari sisi Admin, bukan alur ujian akt
 
 Daftar ujian peserta kini memformat waktu mulai dan batas sesi menurut zona waktu tenant pada profil, dengan zona waktu pesantren sebagai cadangan. Ini menghindari jam yang berbeda ketika perangkat peserta memakai zona waktu berbeda dari pesantren. `npm run test:cbt-calendar` lulus dengan 18 assertion, `npm run lint` lulus, dan `npm run build` lulus; build masih mencatat peringatan chunk PDF besar dan anotasi Zod yang dihapus Rollup. Perubahan ini tidak mengubah database atau aturan waktu server. Ketiga job CI wajib pada commit kode `63c6897` lulus. Supabase Preview dilewati karena branch PR tidak terhubung ke preview VQE.
 
+## Status CI dan pembacaan ulang VQE — 28 November 2026
+
+- Head PR #316 `de8343e6ac0873b81ee57c1c9e96e0c17f50bbff`: tiga job CI wajib lulus (build/Firebase bundle guard, instalasi NPM pelanggan, migrasi/API auth/pgTAP). Supabase Preview dilewati karena branch tidak terkait dengan preview branch VQE.
+- Pembacaan agregat terbaru pada VQE menemukan 1 ujian `published`, 0 penugasan dan 0 percobaan; tabel siswa berisi 45 baris `Active` dan 2 `Archived`. Profil role Santri berjumlah 5 dan semuanya `suspended`; tidak ada akun Santri aktif yang dapat dipakai UAT.
+- Pembacaan hanya menghitung status; tidak mengambil identitas siswa, email, jawaban, atau isi data operasional dan tidak mengubah database.
+- Link preview Hostinger PR #316 saat ini menyajikan commit `de8343e`. UAT Admin pratinjau baca-saja tetap berbeda dari UAT peserta nyata. Untuk alur **CBT → Ujian Saya**, akun Santri aktif dan penugasan masih dibutuhkan; mulai–simpan–kumpulkan belum diuji.
+
 ## Pemeriksaan lintas-sistem — 28 November 2026
 
 - GitHub mengonfirmasi `main` pada `45d9c0d670de0715e57154b043465e2a970c796e`; PR #316 adalah draft dengan head kode `63c6897`. CI build, instalasi NPM, dan migrasi/API auth/pgTAP lulus; Supabase Preview dilewati.
 - Pemeriksaan source global lulus: Supabase-only runtime (172 modul, 26 route Supabase, tanpa paket Firebase dalam graph runtime), kebijakan persistensi browser, pesan error pengguna (16 assertion + 14 skenario keamanan), UI copy, dan contoh environment Compose (73 variabel).
 - Hostinger mengonfirmasi preview PR #316 `humane-royalblue-salmon-45.hostingersite.com` menyajikan commit `63c6897`. Pemeriksaan aset baca-saja sebelumnya menemukan 105 aset JavaScript pada preview PR, 105 pada staging utama, dan 107 pada `erp4-pesantren.tlusur.com`; pemeriksaan aset tidak membuktikan interaksi semua modul.
 - Tidak ada permintaan/penulisan database, perubahan setting hosting, atau deployment Production pada pemeriksaan ini. UAT siswa aktif masih memerlukan akun Santri dan penugasan ujian VQE.
+
