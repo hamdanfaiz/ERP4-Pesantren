@@ -1,11 +1,14 @@
+Warning: truncated output (original token count: 28361)
+Total output lines: 838
+
 ## Status kerja terbaru — 28 November 2026
 
-- GitHub `main` tetap pada `45d9c0d670de0715e57154b043465e2a970c796e`. Draft [PR #316](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/316) memuat perbaikan autosave/tenggat CBT dan waktu jadwal sisi peserta; commit kode `63c6897` belum digabung ke `main` atau Production.
-- Pada sumber lokal, `npm run build`, `npm run lint`, `npm run test:cbt-calendar` (18 assertion), 14 tes CBT sebelumnya, dan guard cakupan 83/83 skrip lulus. Tiga job CI wajib pada commit kode `63c6897` lulus: build/Firebase bundle guard, migrasi/API auth/pgTAP termasuk backup-restore lokal terisolasi, dan instalasi NPM pelanggan. Supabase Preview dilewati karena branch PR tidak terhubung ke preview VQE.
+- GitHub `main` tetap pada `45d9c0d670de0715e57154b043465e2a970c796e`. Draft [PR #316](https://github.com/hamdanfaiz/ERP4-Pesantren/pull/316) memuat perbaikan autosave/tenggat CBT dan waktu jadwal sisi peserta; head `de8343e6ac0873b81ee57c1c9e96e0c17f50bbff` belum digabung ke `main` atau Production.
+- Pada sumber lokal, `npm run build`, `npm run lint`, `npm run test:cbt-calendar` (18 assertion), 14 tes CBT sebelumnya, dan guard cakupan 83/83 skrip lulus. Tiga job CI wajib pada head PR #316 lulus: build/Firebase bundle guard, migrasi/API auth/pgTAP termasuk backup-restore lokal terisolasi, dan instalasi NPM pelanggan. Supabase Preview dilewati karena branch PR tidak terhubung ke preview VQE.
 - Pemeriksaan runtime sebelumnya pada branch ini mengonfirmasi 172 modul Supabase-only dan 26 route Supabase aktif, tanpa paket Firebase di graph produksi atau penulisan aktif ke `localStorage`; pemeriksaan frontend CI terbaru tetap lulus setelah perubahan jadwal peserta.
-- Hostinger mengonfirmasi preview PR #316 di [humane-royalblue-salmon-45.hostingersite.com](https://humane-royalblue-salmon-45.hostingersite.com) menyajikan commit `63c6897`. Bukti ini mengonfirmasi revision preview, bukan UAT interaksi semua modul.
-- Pratinjau Admin CBT bersifat baca-saja. Portal Santri **Ujian Saya** belum diuji lewat ujian aktif karena staging belum memiliki akun Santri aktif dengan penugasan.
-- Tidak ada migrasi, perubahan database/akun/Storage, perubahan setting hosting, atau deployment Production. PR tetap draft sampai UAT sisi peserta dilakukan.
+- Hostinger mengonfirmasi preview PR #316 di [humane-royalblue-salmon-45.hostingersite.com](https://humane-royalblue-salmon-45.hostingersite.com) menyajikan head `de8343e`. Bukti ini mengonfirmasi revision preview, bukan UAT interaksi semua modul.
+- Pratinjau Admin CBT bersifat baca-saja. Pembacaan agregat terbaru VQE menemukan 1 ujian terbit, 0 penugasan/percobaan, 45 catatan siswa aktif dan 2 arsip; lima profil Santri semuanya ditangguhkan. Portal Santri **Ujian Saya** belum diuji lewat ujian aktif.
+- Tidak ada migrasi, perubahan database/akun/Storage, perubahan setting hosting, atau deployment Production. PR tetap draft sampai alur sisi peserta—dengan akun Santri aktif dan penugasan—diuji.
 - Produk tetap **belum dinyatakan siap Production atau komersial**. UAT tulis-baca lintas modul serta matriks role/tenant belum lengkap. Gate Production (rekonsiliasi DDL aktual, urutan migrasi, serta bukti backup dan pemulihan) belum dibuktikan oleh tim database. Jangan menjalankan promosi migrasi massal untuk menutup selisih ledger.
 
 ---
@@ -317,132 +320,7 @@ Hasil Advisor tidak membuktikan kebijakan RLS, grant, route backend, Storage, at
 - Source leaderboard Tahfidz menampilkan **Peringkat Hafalan Santri** untuk mode sepanjang waktu; urutan utama menghitung ayat hafalan unik, lalu setoran dan hari aktif sebagai pemecah seri. Endpoint membatasi data Ustadz pada halaqah yang ditugaskan kepadanya.
 - Pengujian source/CI memeriksa urutan, deduplikasi ayat, serta cakupan tenant dan halaqah. Tampilan preview yang sedang tersaji **belum terverifikasi**; pemeriksaan UI otomatis gagal dimulai pada sesi ini. Tangkapan layar dari preview lama tidak membuktikan build terbaru sudah tampil.
 
-### Progress dan pekerjaan yang tersisa
-- Perkiraan pengembangan source tetap sekitar **75%**. Ini angka checkpoint kasar, bukan persentase fitur yang telah lulus UAT atau kesiapan Production.
-- Ledger VQE staging 166/166 cocok dengan source pada snapshot 22 November. Ledger PTSAS Production memiliki 100 entri: 97 pasangan versi/nama cocok, tiga nama kosong, dan 66 migration source belum tercatat. Selisih ledger **bukan** instruksi menjalankan `db push` massal; DDL aktual harus direkonsiliasi satu per satu.
-- UAT browser lintas role/tenant dan verifikasi preview terbaru masih terbuka. Bukti DDL Production, pemulihan backup/restore Production, dan commit hosting yang sedang aktif juga belum ada.
-- PR #209 dan checkpoint ini hanya mengubah dokumentasi. Tidak ada perubahan aplikasi, database, Auth, Storage, atau data Production.
-
----
-
-## Checkpoint terbaru — 22 November 2026, 01.42 WIB
-
-### Source, fitur, dan CI
-
-- `main` berada pada commit `6db3ac18c4b1bc194d55bae83f48a3dd777c363a`. PR #205 (siaran OpenWA idempoten) dan PR #206 (checkpoint rilis) sudah merged.
-- PR #205 menambahkan ledger tahan lama per kampanye/penerima, mencegah retry kirim ulang status terminal atau ambigu, dan mempertahankan id permintaan di UI saat hasil belum pasti.
-- PR #205 lulus **3/3 CI** sebelum merge (run [#44933961597](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44933961597)); CI pasca-merge juga **3/3** (run [#44934747145](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44934747145)). Pengujian database berjalan di Supabase lokal terisolasi dengan data sintetis.
-- Estimasi source sekitar **75%** tetap perkiraan checkpoint terdahulu, bukan skor UAT dan belum dihitung ulang.
-
-### Status ledger terbaru, baca-saja
-
-Pemeriksaan 22 November membaca metadata `version, name` dari kedua proyek dan membandingkannya dengan 166 file migration pada `main`:
-
-- **VQE staging** `vqemuyzveuirlkvdggjd`: proyek ACTIVE_HEALTHY; ledger **166/166** cocok persis. Ledger mencatat migration `20270404010000_crm_broadcast_idempotency`. Ini membuktikan metadata migration ada di VQE, tetapi bukan bukti UAT CRM/OpenWA atau siapa/kapan yang menerapkannya.
-- **PTSAS Production** `ptsasgdvgrbdtgyqieie`: proyek ACTIVE_HEALTHY; **100** entri ledger, **97** pasangan versi/nama cocok, **3** nama kosong, **66** source migration belum tercatat; tidak ditemukan versi ekstra atau nama berbeda.
-- Manifest lengkap dan daftar 66 versi terdapat pada [rekonsiliasi ledger 22 November](../06_DATABASE/ENVIRONMENT_MIGRATION_PARITY_2026-11-22.md). Konektor hanya membaca metadata. Tidak ada DDL atau data aplikasi yang dibaca, dan sesi ini tidak menjalankan SQL tulis maupun migration.
-
-### Bukti yang masih kurang
-
-- VQE ledger cocok, tetapi UAT browser CRM/OpenWA belum dilakukan. Tidak ada bukti kirim berhasil, penolakan provider, timeout ambigu, atau klik ulang pada UI VQE.
-- Ledger PTSAS belum direkonsiliasi dengan DDL aktual. **Jangan** menjalankan `supabase db push` massal untuk 66 versi yang belum tercatat; sebagian perubahan mungkin sudah berada di skema Production tanpa ledger.
-- Perbandingan DDL penuh, tinjauan backend owner, backup dan restore Production, serta verifikasi commit yang sedang disajikan hosting masih belum terbukti.
-- Produk belum dinyatakan siap go-live atau komersial. Migrasi PTSAS dan konfigurasi Production tidak diubah.
-
-### Urutan lanjutan
-
-1. Backend owner cocokkan DDL Production, fungsi, trigger, policy, grants, dan dependensi terhadap migrasi yang belum tercatat; periksa pula tiga nama ledger kosong.
-2. Lakukan UAT CRM di VQE dengan penerima uji terkendali; uji hasil sukses, penolakan, timeout ambigu, dan retry id yang sama. Pengiriman pesan eksternal harus diarahkan ke nomor yang disetujui pemilik.
-3. Buktikan backup dan restore pada target aman sebelum menyusun rencana promosi Production; jalankan hanya migration yang dampaknya sudah dipahami.
-4. Pastikan hosting menjalankan commit yang disetujui, lalu lakukan smoke test lintas role/tenant dan modul utama.
-
-
----
-
-## Checkpoint terbaru — 21 November 2026, 23.11 WIB
-
-### Source dan deployment mandiri
-
-- `main` berada pada commit `a8c1b86d494a530a465c8ff975fae8e9762c3f0d`.
-- PR #199 meneruskan `WA_GATEWAY_API_KEY` dari environment host ke container server; nilai opsionalnya kosong secara bawaan dan tidak boleh masuk ke browser. Panduan deployment dan pemeriksaan Compose juga diperbarui.
-- PR #196 sebelumnya menambahkan pass-through server-only untuk `PUBLIC_PPDB_ENABLED` dan `PUBLIC_PPDB_TENANT_ID`, tetap fail-closed.
-- CI PR #199 lulus **3/3 job**: instalasi NPM pelanggan, build/Docker/guard Firebase, serta migrasi sintetis, pgTAP, API tenant, Storage, dan backup-restore lokal. [Run #2162](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44922434357).
-- PR #196–#199 sudah digabung; pemeriksaan GitHub tidak menemukan PR terbuka.
-
-### Batas bukti
-
-- Tidak ada perubahan data, Auth, Storage, atau konfigurasi Supabase di VQE maupun PTSAS Production. CI menjalankan database lokal terisolasi; hasil backup-restore CI bukan bukti pemulihan cloud.
-- Konektor web tidak dapat mengakses domain pelanggan untuk memverifikasi commit yang sedang disajikan. Deployment hosting tetap belum terkonfirmasi.
-- Estimasi source tetap sekitar **75%** dan bersifat kasar, bukan skor UAT. Login browser lintas role/modul, simpan-baca penuh pada staging, rekonsiliasi DDL Production, serta rehearsal backup-restore cloud masih terbuka.
-- Tidak ada langkah manual yang dilakukan; pekerjaan browser/hosting yang memerlukan sesi pemilik akun ditunda sampai pemilik aktif.
-
----
-
-## Checkpoint terbaru — 21 November 2026, 22.51 WIB
-
-### Source dan paket pemasangan mandiri
-
-- `main` berada pada merge commit `de6c2deb8e98188ab9a730b9d024de4fc63f26e6`.
-- PR #196 menutup celah konfigurasi Docker: `PUBLIC_PPDB_ENABLED` dan `PUBLIC_PPDB_TENANT_ID` kini diteruskan ke proses server. PPDB tetap nonaktif secara bawaan; variabel tenant tidak ditambahkan ke konfigurasi browser.
-- PR #197 memperjelas panduan pendaftaran Wali dan PPDB publik pada [panduan deployment terkelola pelanggan](../../guides/CUSTOMER_MANAGED_DEPLOYMENT.md).
-- CI PR #196 dan #197 lulus 3/3 job wajib, termasuk instalasi NPM bersih, build/Docker/guard Firebase, replay migrasi sintetis, pgTAP, isolasi API/tenant, Storage, dan backup-restore database lokal. [Run PR #197](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44920290816).
-- Pemeriksaan GitHub setelah merge tidak menemukan PR terbuka. Status domain hosting belum diverifikasi terhadap commit `main`.
-
-### Batas hasil
-
-- Tidak ada perubahan database, Auth, Storage, atau konfigurasi cloud pada VQE maupun PTSAS Production dalam pekerjaan ini. CI berjalan pada database lokal terisolasi.
-- Estimasi kasar pengembangan source tetap sekitar **75%**; bukan skor UAT. Login browser lintas role/modul, simpan-baca penuh pada staging, verifikasi hosting, diff DDL Production, serta backup-restore cloud tetap belum terbukti.
-- Tidak ada operasi manual yang dilakukan. Lanjutkan UAT browser setelah pemilik akun aktif; Production belum dinyatakan siap deploy atau komersial.
-
----
-
-## Checkpoint terbaru — 21 November 2026, 20.30 WIB
-
-### Source dan pemeriksaan otomatis
-- PR #189 telah tergabung ke `main` pada commit `1223e12fbdb96e0942c5bf504ad2f77fcc0b37d4`: halaman CBT Firebase lama yang tidak dirutekan dan dependensi rentan yang hanya dipakainya dihapus; CBT aktif `SupabaseCBTManager` dipertahankan.
-- GitHub Actions [run #44908590992](https://github.com/hamdanfaiz/ERP4-Pesantren/actions/runs/44908590992) lulus 3/3 job: instalasi NPM bersih, frontend/build/Docker dan guard runtime, serta replay migrasi, pgTAP, API/tenant, Storage, Document Center, dan backup-restore database lokal sintetis.
-- Pemeriksaan tersebut berjalan pada source yang kemudian di-merge. Tidak ada migrasi, perubahan record, atau operasi Storage ke PTSAS Production. Status deployment hosting/domain pelanggan belum diverifikasi.
-
-### Progress dan batas klaim
-- Estimasi kasar pengembangan source sampai serah-terima tim: **sekitar 75%**. Ini bukan persentase fitur yang telah lulus UAT; denominator berbobot untuk semua skenario belum ditetapkan.
-- CI membuktikan suite otomatis pada Supabase lokal terisolasi, bukan UAT browser semua role/modul dan bukan kesetaraan DDL atau pemulihan Production.
-- Catatan fixture staging 21 November melaporkan data tenant uji pada 43 dari 177 tabel ber-tenant; beberapa modul masih belum memiliki skenario simpan-baca. Angka tabel tidak membuktikan fitur siap. Sebelum menambah fixture, hitung ulang data tenant saat ini dan buat hanya yang benar-benar belum tersedia agar tidak menduplikasi.
-- UAT browser lintas role/modul, upload pada hosting, responsivitas penuh, dan alur simpan-baca UI masih belum lengkap. Pembacaan Production terakhir yang terdokumentasi di checkpoint sebelumnya hanya metadata ledger/katalog; belum ada diff DDL penuh atau rehearsal backup-restore Production.
-
-### Langkah berikutnya
-1. Lanjutkan UAT browser staging pada sesi Admin yang sudah tersedia; catat hasil per modul/role dan tandai yang belum aktif sebagai belum diuji.
-2. Perbarui inventaris record tenant UAT dengan hitungan baca-saja. Tambahkan data sintetis hanya melalui UI/API staging, lalu buktikan relasi dan baca-ulang setelah refresh.
-3. Uji build hosting terhadap commit `1223e12` dan environment staging; status domain pelanggan perlu bukti deployment dan smoke test terpisah.
-4. Selesaikan pemeriksaan DDL/urutan migrasi dan rehearsal pemulihan Production sebelum menyimpulkan siap Production atau komersial.
-
-**Status:** PR #189 sudah closed/merged dan semua job CI lulus. Produk masih belum dinyatakan siap go-live atau komersial; UAT browser, environment pelanggan, serta bukti Production tetap terbuka.
-
----
-
-# Kesiapan Komersial dan Go-Live — ERP4 Pesantren
-
-## Checkpoint terbaru — 21 November 2026, 19.24 WIB
-
-### Source, Tahfidz, dan CI
-
-- PR #185 telah **tergabung ke `main`** pada `3080422ffc552b82704da0941b574cf8d220b45a`; PR #186 pada `ee73543f75f79d9e9ca6666bb0959fb08ad6319f`; dan checkpoint pasca-UAT PR #187 pada `1365ba1e007c52c7b906f11fe29bfe5c44fbcc78`. PR #182 ditutup sebagai duplikat yang superseded oleh #185. Pencarian repo setelah merge #187 tidak menemukan PR terbuka.
-- UAT browser sebelumnya pada preview Hostinger PR #185 dengan akun Ustadz sintetis VQE menunjukkan 2 santri, 1 halaqah, 3 setoran hari itu, cakupan target 2/2, satu panel leaderboard, dan peringkat 15 lalu 10 ayat unik. Riwayat setoran memakai nama Surah serta rentang ayat dari katalog. Tab preview yang tersedia sekarang kembali ke layar publik/masuk; UAT lanjutan perlu sesi login staging baru.
-- Empat pemeriksaan lokal pada source aplikasi `c19f8c2` lulus: kontrak environment Compose (100 variabel tercakup, nilai secret kosong), konfigurasi deployment (31 nilai runtime publik dan 38 gerbang server fail-closed), graph runtime Supabase tanpa Firebase (169 modul, 26 rute Supabase, arsip impor ditutup), dan leaderboard Tahfidz (95 assertion database).
-- CI PR #185 dan PR #186 lulus tiga job wajib: frontend/build guard, instalasi paket pelanggan, dan migrasi/API Auth/pgTAP. Tes database berjalan pada Supabase lokal terisolasi. Job Supabase Preview dilewati karena branch tidak ditautkan ke Supabase Branch.
-
-### Staging dan Production
-
-- Pemeriksaan baca-saja VQE `vqemuyzveuirlkvdggjd` saat ini menunjukkan status `ACTIVE_HEALTHY`, **165/165 pasangan versi dan nama migrasi** cocok dengan 165 file source, hingga `20270404000000_tahfidz_unique_ayah_projection_indexes`. Inventaris schema menemukan 180 tabel `public` dan semuanya melaporkan RLS aktif.
-- Kecocokan ledger versi/nama dan RLS aktif bukan bukti checksum/DDL lengkap, ketepatan setiap policy, UAT seluruh modul, atau backup/restore cloud. Tidak ada migrasi atau baris data yang ditulis ke VQE pada pemeriksaan ini.
-- PTSAS Production `ptsasgdvgrbdtgyqieie` terbaca `ACTIVE_HEALTHY` (PostgreSQL 17.11.0.003). Ledger baca-saja memuat **100 versi** sampai `20270316000000`. Dibanding 165 file migrasi source: **97 pasangan versi/nama cocok persis**, **3 nama ledger kosong** (`20261205000000`, `20261206000000`, `20270118000000`), dan **65 versi source tidak memiliki baris ledger** (mulai `20261207000000` sampai `20270404000000`). Tidak terlihat versi ledger di luar set versi source.
-- Pembacaan ini hanya metadata versi/nama, bukan payload SQL, DDL aktual, policy, atau data aplikasi. Tidak ada migration/repair/data write ke PTSAS. Jangan menyusun rencana promosi dari jumlah ledger; tim backend tetap perlu membandingkan DDL/dependensi dan membuktikan restore sebelum rehearsal.
-
-### Gerbang produk yang masih terbuka
-
-- UAT browser lintas modul dan role belum lengkap; verifikasi leaderboard Ustadz bukan pengganti UAT Admin, Wali, Santri, keuangan, PPDB, Akademik, CBT/LMS, Storage, dan modul operasional lain.
-- Clean install, upgrade, dan pemulihan pada VPS/on-premise pelanggan belum dibuktikan. Tes konfigurasi Compose lokal yang lulus hanya memverifikasi kontrak environment dan guard.
-- Kesiapan Production masih memerlukan peninjauan DDL/migrasi dan bukti backup/restore oleh tim backend. Persetujuan UAT pengguna serta kesiapan operasional/komersial juga masih terbuka.
-- **Produk keseluruhan belum dinyatakan siap go-live atau komersial.** Persentase total tidak dihitung karena cakupan dan bobot UAT lintas environment belum memiliki denominator terukur yang disepakati.
+### Pro…3361 tokens truncated…karena cakupan dan bobot UAT lintas environment belum memiliki denominator terukur yang disepakati.
 
 ## Status otoritatif — 21 November 2026, 03.52 WIB
 
@@ -834,4 +712,5 @@ UAT baca-simpan-baca dilakukan pada preview staging Hostinger yang terhubung ke 
 - Staging kini menyimpan satu pegawai, satu catatan kehadiran, dan satu permohonan cuti sintetis untuk melanjutkan UAT. Jangan menyalin fixture ini ke Production.
 
 Tidak ada perubahan source aplikasi, flag hosting, migrasi, atau database Production pada checkpoint ini.
+
 
