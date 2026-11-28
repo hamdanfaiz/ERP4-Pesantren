@@ -50,6 +50,8 @@
     "test:customer-compose-env": "node scripts/test-customer-compose-env.mjs",
     "check:deployed-assets": "node scripts/check-deployed-asset-graph.mjs",
     "test:user-messages": "tsx scripts/test-user-messages.ts",
+    "test:identity-diagnostics": "tsx scripts/test-identity-diagnostics.ts",
+    "test:runtime-diagnostics": "tsx scripts/test-runtime-diagnostics.ts",
     "test:rbac-permissions": "tsx scripts/test-rbac-permissions.ts",
     "test:auth-recovery-redirect": "tsx scripts/test-auth-recovery-redirect.ts",
     "test:document-list-filters": "tsx scripts/test-document-list-filters.ts",
