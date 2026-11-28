@@ -8,10 +8,13 @@ import {
   PLATFORM_ONLY_MODULES, 
   TENANT_SCOPED_MODULES, 
   isModuleAccessible, 
-  getAllowedModulesForUser 
+  getAllowedModulesForUser,
+  getUserOverridableRolePermissionIds,
+  type RolePermissionId,
 } from '../rbac';
 import { ALL_MODULE_LIST } from '../services/systemSettingsService';
 import { ModuleId } from '../types';
+import { RoleFeaturePermissionEditor } from '../components/RoleFeaturePermissionEditor';
 import { 
   Users, 
   UserPlus, 
@@ -79,6 +82,15 @@ function actorCanGrantModule(
   return actorRole === "Admin" && isModuleAccessible(actorRole, moduleId, actorPermissions);
 }
 
+function getStoredRolePermissionOverrides(
+  role: UserRole,
+  permissions?: Record<string, boolean> | null,
+): Partial<Record<RolePermissionId, false>> {
+  return Object.fromEntries(getUserOverridableRolePermissionIds(role)
+    .filter((permissionId) => permissions?.[permissionId] === false)
+    .map((permissionId) => [permissionId, false])) as Partial<Record<RolePermissionId, false>>;
+}
+
 export function UserManagementView() {
   const { user: currentActor, role: currentRole } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -111,6 +123,7 @@ export function UserManagementView() {
   const [createTempPassword, setCreateTempPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createPermissions, setCreatePermissions] = useState<Record<string, boolean>>({});
+  const [createRolePermissionOverrides, setCreateRolePermissionOverrides] = useState<Partial<Record<RolePermissionId, false>>>({});
   const [createLinkedName, setCreateLinkedName] = useState('');
   const [createLinkedNis, setCreateLinkedNis] = useState('');
   const [guardianCandidates, setGuardianCandidates] = useState<Array<{ id: string; name: string; students: Array<{ id: string; nis: string; name: string; grade: string }> }>>([]);
@@ -126,6 +139,7 @@ export function UserManagementView() {
   const [editOrganizationUnitId, setEditOrganizationUnitId] = useState('');
   const [editStatus, setEditStatus] = useState<'active' | 'disabled'>('active');
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
+  const [editRolePermissionOverrides, setEditRolePermissionOverrides] = useState<Partial<Record<RolePermissionId, false>>>({});
   const [isUpdating, setIsUpdating] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -140,6 +154,7 @@ export function UserManagementView() {
         && actorCanGrantModule(currentRole, currentActor?.modulePermissions, m.id);
     });
     setCreatePermissions(perms);
+    setCreateRolePermissionOverrides({});
   }, [createRole, currentRole, currentActor?.modulePermissions]);
 
   const generateRandomPassword = () => {
@@ -304,6 +319,7 @@ export function UserManagementView() {
     setGuardianInviteLink('');
     setInviteLinkCopied(false);
     setCreateError(null);
+    setCreateRolePermissionOverrides({});
     generateRandomPassword();
     setIsCreateModalOpen(true);
   };
@@ -346,6 +362,9 @@ export function UserManagementView() {
           ...acc,
           [m.id]: isModuleAccessible(createRole, m.id, createPermissions),
         }), {} as Record<string, boolean>);
+      const finalRolePermissionOverrides = createRole === 'SuperAdmin'
+        ? {}
+        : getStoredRolePermissionOverrides(createRole, createRolePermissionOverrides);
       if (currentRole === 'Admin' || createRole === 'Walisantri') {
         finalPerms['settings'] = false;
       }
@@ -358,6 +377,7 @@ export function UserManagementView() {
             email: createEmail.trim().toLowerCase(),
             guardianId: selectedGuardianId,
             modulePermissions: finalPerms,
+            rolePermissionOverrides: finalRolePermissionOverrides,
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -383,6 +403,7 @@ export function UserManagementView() {
         role: createRole,
         tempPassword: createTempPassword,
         modulePermissions: finalPerms,
+        rolePermissionOverrides: finalRolePermissionOverrides,
         organizationUnitId: createRole === 'Ustadz' ? createOrganizationUnitId : undefined,
         linkedSantriName: createLinkedName.trim() || undefined,
         linkedSantriNis: createLinkedNis.trim() || undefined,
@@ -433,6 +454,7 @@ export function UserManagementView() {
       existingPerms[m.id] = isModuleAccessible(targetUser.role, m.id, targetUser.modulePermissions);
     });
     setEditPermissions(existingPerms);
+    setEditRolePermissionOverrides(getStoredRolePermissionOverrides(targetUser.role, targetUser.modulePermissions));
     setEditError(null);
   };
 
@@ -485,6 +507,9 @@ export function UserManagementView() {
           ...acc,
           [m.id]: isModuleAccessible(editRole, m.id, editPermissions),
         }), {} as Record<string, boolean>);
+      const finalRolePermissionOverrides = editRole === 'SuperAdmin'
+        ? {}
+        : getStoredRolePermissionOverrides(editRole, editRolePermissionOverrides);
       if (currentRole === 'Admin') {
         finalPerms['settings'] = false;
       }
@@ -493,6 +518,7 @@ export function UserManagementView() {
         role: editRole,
         status: editStatus,
         modulePermissions: finalPerms,
+        rolePermissionOverrides: finalRolePermissionOverrides,
         organizationUnitId: editRole === 'Ustadz' ? editOrganizationUnitId : null,
       };
 
@@ -1362,6 +1388,16 @@ export function UserManagementView() {
                 )}
               </div>
 
+              {createRole !== 'SuperAdmin' && <RoleFeaturePermissionEditor
+                role={createRole}
+                modulePermissions={createPermissions}
+                overrides={createRolePermissionOverrides}
+                actorRole={currentRole || 'Public'}
+                actorPermissions={currentActor?.modulePermissions}
+                disabled={isCreating}
+                onChange={setCreateRolePermissionOverrides}
+              />}
+
               {/* Submit Buttons */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-white/10">
                 <button
@@ -1433,7 +1469,13 @@ export function UserManagementView() {
                   </label>
                   <select
                     value={editRole}
-                    onChange={(e) => setEditRole(e.target.value as UserRole)}
+                    onChange={(e) => {
+                      const nextRole = e.target.value as UserRole;
+                      setEditRole(nextRole);
+                      setEditRolePermissionOverrides(nextRole === editingUser.role
+                        ? getStoredRolePermissionOverrides(editingUser.role, editingUser.modulePermissions)
+                        : {});
+                    }}
                     disabled={editingUser.uid === currentActor?.uid}
                     className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                   >
@@ -1597,6 +1639,16 @@ export function UserManagementView() {
                   </div>
                 )}
               </div>
+
+              {editRole !== 'SuperAdmin' && <RoleFeaturePermissionEditor
+                role={editRole}
+                modulePermissions={editPermissions}
+                overrides={editRolePermissionOverrides}
+                actorRole={currentRole || 'Public'}
+                actorPermissions={currentActor?.modulePermissions}
+                disabled={isUpdating || editingUser.uid === currentActor?.uid}
+                onChange={setEditRolePermissionOverrides}
+              />}
 
               {/* Submit Buttons */}
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-200 dark:border-white/10">

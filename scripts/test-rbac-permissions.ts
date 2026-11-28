@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { findUnauthorizedModuleGrants, isModuleAccessible, isRolePermissionAllowed, isValidModulePermissions, libraryStudentScope, ROLE_MODULES } from "../src/rbac";
+import { findUnauthorizedModuleGrants, findUnauthorizedRolePermissionGrants, isModuleAccessible, isRolePermissionAllowed, isValidModulePermissions, isValidRolePermissionOverrides, libraryStudentScope, ROLE_MODULES } from "../src/rbac";
 import { ALL_MODULE_LIST } from "../src/services/systemSettingsService";
 import type { ModuleId } from "../src/types";
 
@@ -40,6 +40,11 @@ assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.tab.parent"), false);
 assert.equal(isRolePermissionAllowed("Santri", "tahfidz.tab.parent"), false);
 assert.equal(isRolePermissionAllowed("Walisantri", "tahfidz.tab.peer-review"), false);
 assert.equal(isRolePermissionAllowed("Walisantri", "tahfidz.tab.parent"), true);
+assert.equal(isRolePermissionAllowed("Santri", "tahfidz.action.manage-halaqah"), false, "student role cannot manage teacher-owned halaqahs");
+assert.equal(isRolePermissionAllowed("Santri", "tahfidz.action.record-setoran"), false, "students cannot record staff setoran for other students");
+assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.action.record-setoran"), true, "Ustadz can record setoran within backend halaqah scope");
+assert.equal(isRolePermissionAllowed("Santri", "tahfidz.action.manage-sessions"), false, "students cannot schedule or grade teacher sessions");
+assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.action.manage-sessions"), true, "Ustadz can manage their assigned Tahfidz sessions");
 assert.equal(isRolePermissionAllowed("Santri", "tahfidz.action.comment-student"), false);
 assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.action.comment-student"), true);
 assert.equal(isRolePermissionAllowed("Santri", "tahfidz.action.send-reminders"), false);
@@ -49,6 +54,34 @@ assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.field.record-notes"), tr
 assert.equal(isRolePermissionAllowed("Santri", "tahfidz.field.follow-ups"), false);
 assert.equal(isRolePermissionAllowed("Santri", "tahfidz.tab.peer-review", { tahfidz: false }), false);
 assert.equal(isRolePermissionAllowed("Admin", "tahfidz.tab.not-registered"), false);
+assert.equal(isRolePermissionAllowed("Ustadz", "academic.action.write-journal", { "academic.action.write-journal": false }), false, "a per-account action denial is enforced by the matching API");
+assert.equal(isRolePermissionAllowed("Ustadz", "tahfidz.field.record-notes", { "tahfidz.field.record-notes": false }), false, "a per-account field denial removes Tahfidz staff notes from API projections");
+assert.equal(isRolePermissionAllowed("Ustadz", "boarding.field.facility-reporter", { "boarding.field.facility-reporter": false }), false, "a per-account field denial removes facility reporter identity from API projections");
+assert.equal(isRolePermissionAllowed("Santri", "academic.tab.journal", { "academic.tab.journal": true }), false, "a stale screen permission cannot elevate Santri into a Ustadz screen");
+assert.equal(isRolePermissionAllowed("Ustadz", "academic.action.write-journal", { "academic.action.write-journal": "false" as unknown as boolean }), false, "malformed sub-module permission fails closed");
+assert.equal(isValidRolePermissionOverrides({ "academic.action.write-journal": false }, "Ustadz"), true);
+assert.equal(isValidRolePermissionOverrides({ "academic.tab.journal": false }, "Ustadz"), false, "per-account tab overrides stay unavailable until the corresponding API projection enforces them");
+assert.equal(isValidRolePermissionOverrides({ "academic.tab.journal": false }, "Santri"), false, "an override cannot be assigned to a role outside the baseline");
+assert.equal(isValidRolePermissionOverrides({ "academic.action.write-journal": true }, "Ustadz"), false, "screen overrides are deny-only");
+assert.equal(isValidRolePermissionOverrides({ "academic.tab.journal": false }, "SuperAdmin"), false, "SuperAdmin rights cannot be reduced");
+assert.equal(isRolePermissionAllowed("SuperAdmin", "academic.tab.journal", { "academic.tab.journal": false }), true, "stale detailed denials cannot reduce SuperAdmin access");
+assert.equal(isValidRolePermissionOverrides({ "academic.tab.unknown": false }, "Ustadz"), false, "unknown screen permissions are rejected");
+assert.equal(isValidModulePermissions({ tahfidz: true, "tahfidz.field.record-notes": false }), true, "stored profile permissions accept only known feature denials alongside module settings");
+assert.equal(isValidModulePermissions({ tahfidz: true, "tahfidz.field.record-notes": true }), false, "stored profile permissions cannot persist feature grants");
+assert.deepEqual(
+  findUnauthorizedRolePermissionGrants(
+    "Santri", {}, "Walisantri", {}, "Walisantri", { "communication.action.acknowledge-announcement": false },
+  ),
+  ["communication.action.acknowledge-announcement"],
+  "a Santri-level actor cannot restore a restricted communication action while editing a Wali account",
+);
+assert.deepEqual(
+  findUnauthorizedRolePermissionGrants(
+    "Admin", {}, "Walisantri", {}, "Walisantri", { "communication.action.acknowledge-announcement": false },
+  ),
+  [],
+  "an Admin with tenant Communication scope can restore a role-default Wali action",
+);
 
 assert.equal(isRolePermissionAllowed("Santri", "lms.tab.instructor"), false);
 assert.equal(isRolePermissionAllowed("Santri", "lms.tab.categories"), false);

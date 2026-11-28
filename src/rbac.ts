@@ -200,6 +200,136 @@ export const ROLE_PERMISSION_POLICIES = {
 
 export type RolePermissionId = keyof typeof ROLE_PERMISSION_POLICIES;
 
+/**
+ * Permissions that can safely be reduced for one account through User Management.
+ * Keep this list limited to permissions enforced by the matching server routes
+ * or response projections. Other role policies remain source-controlled until
+ * their API/data projection enforces per-account overrides as well.
+ */
+export const USER_OVERRIDABLE_ROLE_PERMISSION_IDS = [
+  "tahfidz.tab.dashboard",
+  "tahfidz.tab.records",
+  "tahfidz.tab.targets",
+  "tahfidz.tab.talaqqi",
+  "tahfidz.tab.exams",
+  "tahfidz.tab.peer-review",
+  "tahfidz.tab.quran",
+  "tahfidz.tab.badges",
+  "tahfidz.action.manage-halaqah",
+  "tahfidz.action.record-setoran",
+  "tahfidz.action.manage-targets",
+  "tahfidz.action.manage-sessions",
+  "tahfidz.action.submit-peer-review",
+  "tahfidz.action.moderate-peer-review",
+  "tahfidz.field.record-notes",
+  "tahfidz.field.recorded-by",
+  "tahfidz.field.follow-ups",
+  "lms.action.manage-categories",
+  "lms.action.manage-courses",
+  "lms.action.manage-content",
+  "lms.action.manage-assignments",
+  "lms.action.manage-enrollments",
+  "lms.action.submit-assignment",
+  "lms.action.track-progress",
+  "lms.action.save-private-note",
+  "lms.action.comment-material",
+  "lms.action.grade-submission",
+  "academic.tab.report-card",
+  "academic.action.write-schedule",
+  "academic.action.write-journal",
+  "academic.action.write-assessment",
+  "academic.action.manage-report-card",
+  "academic.action.resolve-conflicts",
+  "communication.action.publish-announcement",
+  "communication.action.manage-templates",
+  "communication.action.acknowledge-announcement",
+  "communication.action.create-ticket",
+  "communication.action.transition-ticket",
+  "communication.action.send-message",
+  "communication.action.update-message-status",
+  "communication.field.audience-metrics",
+  "communication.field.ticket-roster",
+  "communication.field.own-ticket",
+  "communication.field.direct-messages",
+  "communication.field.tenant-recipient-directory",
+  "communication.field.admin-recipient-directory",
+  "boarding.tab.rooms",
+  "boarding.tab.permits",
+  "boarding.tab.discipline",
+  "boarding.tab.attendance",
+  "boarding.tab.assignments",
+  "boarding.tab.facility-ops",
+  "boarding.action.assign-room",
+  "boarding.action.request-permit",
+  "boarding.action.process-permit",
+  "boarding.action.record-discipline",
+  "boarding.action.resolve-discipline",
+  "boarding.action.mark-attendance",
+  "boarding.action.assign-staff",
+  "boarding.action.record-audit",
+  "boarding.action.create-facility-ticket",
+  "boarding.action.resolve-facility-ticket",
+  "boarding.field.facility-audits",
+  "boarding.field.facility-reporter",
+] as const satisfies readonly RolePermissionId[];
+
+const USER_OVERRIDABLE_ROLE_PERMISSION_SET = new Set<string>(USER_OVERRIDABLE_ROLE_PERMISSION_IDS);
+
+/** Return detail permissions whose deny overrides are enforced server-side. */
+export function getUserOverridableRolePermissionIds(role: UserRole): RolePermissionId[] {
+  return USER_OVERRIDABLE_ROLE_PERMISSION_IDS.filter((permissionId) =>
+    (ROLE_PERMISSION_POLICIES[permissionId] as readonly UserRole[]).includes(role)
+      && isModuleAccessible(role, permissionId.split(".")[0] as ModuleId),
+  );
+}
+
+/** Return only the tab/action/field permissions granted by the immutable role baseline. */
+export function getRolePermissionIds(role: UserRole): RolePermissionId[] {
+  return (Object.keys(ROLE_PERMISSION_POLICIES) as RolePermissionId[]).filter((permissionId) =>
+    (ROLE_PERMISSION_POLICIES[permissionId] as readonly UserRole[]).includes(role)
+      && isModuleAccessible(role, permissionId.split(".")[0] as ModuleId),
+  );
+}
+
+/** Validate per-account permission reductions. A sub-module override may only deny a known permission. */
+export function isValidRolePermissionOverrides(value: unknown, role: UserRole): value is Partial<Record<RolePermissionId, false>> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const entries = Object.entries(value);
+  if (role === "SuperAdmin" && entries.length > 0) return false;
+  if (entries.length > USER_OVERRIDABLE_ROLE_PERMISSION_IDS.length) return false;
+  return entries.every(([permissionId, allowed]) =>
+    allowed === false
+      && USER_OVERRIDABLE_ROLE_PERMISSION_SET.has(permissionId)
+      && (ROLE_PERMISSION_POLICIES as Record<string, readonly UserRole[]>)[permissionId]?.includes(role) === true
+      && isModuleAccessible(role, permissionId.split(".")[0] as ModuleId),
+  );
+}
+
+/**
+ * Detect newly enabled sub-module access that an actor cannot administer.
+ * Per-account overrides are deny-only; changing a role can still add defaults,
+ * so a non-SuperAdmin needs module authority to grant those newly inherited rights.
+ */
+export function findUnauthorizedRolePermissionGrants(
+  actorRole: UserRole,
+  actorPermissions: Record<string, boolean> | null | undefined,
+  targetRole: UserRole,
+  targetPermissions: Record<string, boolean> | null | undefined,
+  previousTargetRole?: UserRole | null,
+  previousTargetPermissions?: Record<string, boolean> | null,
+): RolePermissionId[] {
+  if (actorRole === "SuperAdmin") return [];
+  const actorAllowedModules = new Set(getAllowedModulesForUser(actorRole, actorPermissions));
+  return getRolePermissionIds(targetRole).filter((permissionId) => {
+    const wasAllowed = previousTargetRole
+      ? isRolePermissionAllowed(previousTargetRole, permissionId, previousTargetPermissions)
+      : true;
+    const isAllowed = isRolePermissionAllowed(targetRole, permissionId, targetPermissions);
+    const moduleId = permissionId.split(".")[0] as ModuleId;
+    return isAllowed && !wasAllowed && !actorAllowedModules.has(moduleId);
+  });
+}
+
 export type LibraryStudentScope =
   | { kind: "tenant" }
   | { kind: "linked-student"; studentId: string }
@@ -229,7 +359,15 @@ export function isRolePermissionAllowed(
   if (!allowedRoles) return false;
   const moduleId = permissionId.split(".")[0] as ModuleId;
   if (!ALL_SYSTEM_MODULE_IDS.includes(moduleId) || !isModuleAccessible(role, moduleId, userPermissions)) return false;
-  return allowedRoles.includes(role);
+  if (!allowedRoles.includes(role)) return false;
+  if (role === "SuperAdmin") return true;
+  // Role policies are the maximum. A per-account explicit false may further
+  // restrict that access; a stale true never grants beyond the role baseline.
+  if (USER_OVERRIDABLE_ROLE_PERMISSION_SET.has(permissionId)
+    && userPermissions && Object.prototype.hasOwnProperty.call(userPermissions, permissionId)) {
+    return userPermissions[permissionId] === true;
+  }
+  return true;
 }
 
 /**
@@ -237,9 +375,14 @@ export function isRolePermissionAllowed(
  */
 export function isValidModulePermissions(value: unknown): value is Record<string, boolean> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  return Object.entries(value).every(([moduleId, enabled]) =>
-    ALL_SYSTEM_MODULE_IDS.includes(moduleId as ModuleId) && typeof enabled === "boolean"
-  );
+  const entries = Object.entries(value);
+  if (entries.length > ALL_SYSTEM_MODULE_IDS.length + Object.keys(ROLE_PERMISSION_POLICIES).length) return false;
+  return entries.every(([permissionId, enabled]) => {
+    if (ALL_SYSTEM_MODULE_IDS.includes(permissionId as ModuleId)) return typeof enabled === "boolean";
+    // Profile storage keeps module and screen denials in one JSON object. A
+    // feature permission is deny-only; role grants live in the source policy.
+    return USER_OVERRIDABLE_ROLE_PERMISSION_SET.has(permissionId) && enabled === false;
+  });
 }
 
 /**

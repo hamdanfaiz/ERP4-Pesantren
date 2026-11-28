@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
 import { logIdentityStoreFailure } from "./identityDiagnostics";
+import { isValidModulePermissions, isValidRolePermissionOverrides, type UserRole } from "../rbac";
 
 export class IdentityUnavailableError extends Error {}
 export class IdentityConflictError extends Error {}
@@ -394,10 +395,11 @@ export async function createAuthUserWithProfile(input: {
     throw new IdentityConflictError("Unit organisasi hanya dapat ditetapkan pada akun Ustadz.");
   }
   const organizationUnitId = await resolveActiveOrganizationUnit(input.tenantId, input.organizationUnitId, input.role === "Ustadz");
-  if (!input.modulePermissions || typeof input.modulePermissions !== "object"
-    || Array.isArray(input.modulePermissions)
-    || Object.keys(input.modulePermissions).length > 64
-    || Object.values(input.modulePermissions).some((allowed) => typeof allowed !== "boolean")) {
+  const rolePermissionOverrides = Object.fromEntries(
+    Object.entries(input.modulePermissions || {}).filter(([permissionId]) => permissionId.includes(".")),
+  );
+  if (!isValidModulePermissions(input.modulePermissions)
+    || !isValidRolePermissionOverrides(rolePermissionOverrides, input.role as UserRole)) {
     throw new IdentityConflictError("Permission modul tidak valid.");
   }
 

@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { CalendarClock, CheckCircle2, ClipboardCheck, Loader2, Plus, RefreshCw, X } from "lucide-react";
 import { getAccessToken } from "../authSession";
 import { useAuth } from "../contexts/AuthContext";
+import { isRolePermissionAllowed } from "../rbac";
 import { TahfidzStudentSearchSelect } from "../components/TahfidzStudentSearchSelect";
 import { DEFAULT_TENANT_TIME_ZONE, formatTenantDateTime, normalizeTenantTimeZone, tenantLocalDateTime, tenantLocalDateTimeToIso } from "../lib/tenantTimeZone";
 
@@ -66,7 +67,7 @@ export function SupabaseTahfidzSessions({ kind, students, halaqahs, tenantTimeZo
   const sessionListSequence = useRef(0);
   const loadingMoreSequence = useRef(0);
   const loadingMoreGuard = useRef(false);
-  const canManage = ["Admin", "SuperAdmin", "Ustadz"].includes(role);
+  const canManage = isRolePermissionAllowed(role, "tahfidz.action.manage-sessions", user?.modulePermissions);
 
   const requestIdFor = (signature: string) => {
     const existing = requestIds.current.get(signature);

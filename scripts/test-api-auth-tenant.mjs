@@ -2192,6 +2192,59 @@ async function main() {
     }
     assert.ok(referenceServerReady, 'The isolated server with Master Data enabled must start before catalog authorization tests.');
 
+    const restrictedFeatureUstadz = await createUserFixture(admin, tenantIds[0], 'ustadz', 'active', 'ustadz-feature-denials', {
+      tahfidz: true,
+      'tahfidz.action.record-setoran': false,
+      'tahfidz.action.manage-sessions': false,
+      'tahfidz.tab.dashboard': false,
+      'tahfidz.tab.records': false,
+      'tahfidz.tab.talaqqi': false,
+      'tahfidz.tab.peer-review': false,
+    });
+    users.push(restrictedFeatureUstadz);
+    const restrictedFeatureUstadzToken = await signIn(anon, restrictedFeatureUstadz);
+    const deniedTahfidzRecord = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ record: {} }),
+    });
+    assert.equal(deniedTahfidzRecord.status, 403, 'A per-account action denial must be enforced by the Tahfidz API, not only hidden in the client.');
+    await deniedTahfidzRecord.body?.cancel();
+    const deniedTahfidzRecordPage = await fetch(`${referenceApiBase}/api/tahfidz/records`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzRecordPage.status, 403, 'A per-account tab denial must block direct access to its page API.');
+    await deniedTahfidzRecordPage.body?.cancel();
+    const deniedTahfidzRoster = await fetch(`${referenceApiBase}/api/tahfidz/roster?search=UAT`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzRoster.status, 403, 'A dashboard denial must block direct roster-search access unless the account has another authorized roster workflow.');
+    await deniedTahfidzRoster.body?.cancel();
+    const deniedTahfidzLeaderboard = await fetch(`${referenceApiBase}/api/tahfidz/leaderboard`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzLeaderboard.status, 403, 'A dashboard denial must block direct access to leaderboard data.');
+    await deniedTahfidzLeaderboard.body?.cancel();
+    const deniedTahfidzSessionTab = await fetch(`${referenceApiBase}/api/tahfidz/sessions?kind=talaqqi`, {
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}` },
+    });
+    assert.equal(deniedTahfidzSessionTab.status, 403, 'A per-account tab denial must block direct access to the corresponding Tahfidz page API.');
+    await deniedTahfidzSessionTab.body?.cancel();
+    const deniedTahfidzSessionWrite = await fetch(`${referenceApiBase}/api/tahfidz/sessions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session: { kind: 'exam' } }),
+    });
+    assert.equal(deniedTahfidzSessionWrite.status, 403, 'A per-account action denial must block direct scheduling even when the tab is visible.');
+    await deniedTahfidzSessionWrite.body?.cancel();
+    const deniedTahfidzReviewModeration = await fetch(`${referenceApiBase}/api/tahfidz/peer-reviews/00000000-0000-4000-8000-000000000001/moderation`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${restrictedFeatureUstadzToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'approved' }),
+    });
+    assert.equal(deniedTahfidzReviewModeration.status, 403, 'A denied peer-review tab blocks direct moderation even if the Ustadz role has the moderator action baseline.');
+    await deniedTahfidzReviewModeration.body?.cancel();
+
     const guardianAdminB = await createUserFixture(admin, tenantIds[1], 'admin', 'active', 'guardian-admin-b', {
       users: true,
       communication: true,

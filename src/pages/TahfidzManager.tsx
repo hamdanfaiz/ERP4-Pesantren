@@ -434,6 +434,11 @@ export function TahfidzManager() {
   const canSendTahfidzReminders = isRolePermissionAllowed(role, "tahfidz.action.send-reminders", user?.modulePermissions);
   const canSubmitPeerReview = isRolePermissionAllowed(role, "tahfidz.action.submit-peer-review", user?.modulePermissions);
   const canModeratePeerReview = isRolePermissionAllowed(role, "tahfidz.action.moderate-peer-review", user?.modulePermissions);
+  const canViewExamTab = isRolePermissionAllowed(role, "tahfidz.tab.exams", user?.modulePermissions);
+  const canViewTalaqqiTab = isRolePermissionAllowed(role, "tahfidz.tab.talaqqi", user?.modulePermissions);
+  const canViewPeerReviewTab = isRolePermissionAllowed(role, "tahfidz.tab.peer-review", user?.modulePermissions);
+  const canViewTargetsTab = isRolePermissionAllowed(role, "tahfidz.tab.targets", user?.modulePermissions);
+  const canViewRecordsTab = isRolePermissionAllowed(role, "tahfidz.tab.records", user?.modulePermissions);
   const canViewRecordNotes = isRolePermissionAllowed(role, "tahfidz.field.record-notes", user?.modulePermissions);
   const canViewRecordedBy = isRolePermissionAllowed(role, "tahfidz.field.recorded-by", user?.modulePermissions);
   const canViewFollowUps = isRolePermissionAllowed(role, "tahfidz.field.follow-ups", user?.modulePermissions);
@@ -458,13 +463,14 @@ export function TahfidzManager() {
     { id: "badges", label: "Pencapaian Tahfidz" },
     { id: "halaqah", label: isTahfidzLearner && SUPABASE_TAHFIDZ_RUNTIME ? "Halaqah Saya" : "Manajemen Halaqah" },
   ].filter((tab) => isRolePermissionAllowed(role, `tahfidz.tab.${tab.id}`, user?.modulePermissions));
-  const renderedTahfidzTab = visibleTahfidzTabs.some((tab) => tab.id === activeTab) ? activeTab : "dashboard";
+  const firstVisibleTahfidzTab = visibleTahfidzTabs[0]?.id || "";
+  const renderedTahfidzTab = visibleTahfidzTabs.some((tab) => tab.id === activeTab) ? activeTab : firstVisibleTahfidzTab;
 
   useEffect(() => {
     if (!isRolePermissionAllowed(role, `tahfidz.tab.${activeTab}`, user?.modulePermissions)) {
-      setActiveTab("dashboard");
+      setActiveTab(firstVisibleTahfidzTab);
     }
-  }, [activeTab, role, user?.modulePermissions]);
+  }, [activeTab, firstVisibleTahfidzTab, role, user?.modulePermissions]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
   const [isExamModalOpen, setIsExamModalOpen] = useState(false);
@@ -1907,7 +1913,7 @@ export function TahfidzManager() {
 
       {/* Floating Quick Actions Menu */}
       <div className="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
-        {isQuickActionsOpen && (canRecordTahfidz || canManageTargets || canManageSessions) && (
+        {isQuickActionsOpen && (canRecordTahfidz || (canManageTargets && canViewTargetsTab) || (canManageSessions && canViewExamTab)) && (
           <div className="flex flex-col items-end gap-2 mb-2 animate-in slide-in-from-bottom-5 fade-in duration-200">
             {canRecordTahfidz && <button
               onClick={() => {
@@ -1922,7 +1928,7 @@ export function TahfidzManager() {
                 <Plus className="w-4 h-4" />
               </div>
             </button>}
-            {canManageTargets && <button
+            {canManageTargets && canViewTargetsTab && <button
               onClick={() => {
                 setIsTargetModalOpen(true);
                 setIsQuickActionsOpen(false);
@@ -1934,7 +1940,7 @@ export function TahfidzManager() {
                 <Target className="w-4 h-4" />
               </div>
             </button>}
-            {canManageSessions && <button
+            {canManageSessions && canViewExamTab && <button
               onClick={() => {
                 setActiveTab("exams");
                 setIsExamModalOpen(true);
@@ -1947,7 +1953,7 @@ export function TahfidzManager() {
                 <Award className="w-4 h-4" />
               </div>
             </button>}
-            <button
+            {canViewRecordsTab && <button
               onClick={() => {
                 setActiveTab("records");
                 setIsQuickActionsOpen(false);
@@ -1958,10 +1964,10 @@ export function TahfidzManager() {
               <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <Users className="w-4 h-4" />
               </div>
-            </button>
+            </button>}
           </div>
         )}
-        {(canRecordTahfidz || canManageTargets || canManageSessions) && <button
+        {(canRecordTahfidz || (canManageTargets && canViewTargetsTab) || (canManageSessions && canViewExamTab)) && <button
           onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
           className={`w-14 h-14 rounded-full flex items-center justify-center text-white shadow-xl shadow-emerald-600/30 transition-all duration-300 ${isQuickActionsOpen ? "bg-slate-800 rotate-45" : "bg-emerald-600 hover:bg-emerald-500 hover:scale-105"}`}
         >
@@ -2117,7 +2123,7 @@ export function TahfidzManager() {
                   </div>
                   <div className="flex flex-wrap gap-1.5 sm:justify-end">
                     {student.reasons.map((reason: string) => <span key={reason} className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-200">{reason}</span>)}
-                    {canManageTargets && student.reasons.includes("Target harian belum ditetapkan") && <button type="button" onClick={() => { setDashboardActionStudent(student); setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">Tetapkan target</button>}
+                    {canManageTargets && canViewTargetsTab && student.reasons.includes("Target harian belum ditetapkan") && <button type="button" onClick={() => { setDashboardActionStudent(student); setTargetFormError(""); setBulkTargetStudentIds([]); setTargetForm({ studentId: student.id, ziyadahPagesPerDay: "1", murojaahPagesPerDay: "0.5", periodStart: currentTenantDate(), periodEnd: "", policy: "standard" }); setIsTargetModalOpen(true); }} className="rounded-full border border-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-400/10">Tetapkan target</button>}
                     {canManageTahfidz && student.reasons.includes("Belum ditempatkan pada halaqah") && <button type="button" onClick={() => { setDashboardActionStudent(student); setMembershipForm({ halaqahId: "", studentId: student.id, startsOn: currentTenantDate() }); setIsMembershipModalOpen(true); }} className="rounded-full border border-blue-200 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-50 dark:border-blue-500/30 dark:text-blue-300 dark:hover:bg-blue-400/10">Tempatkan ke halaqah</button>}
                   </div>
                 </div>
@@ -4106,7 +4112,7 @@ export function TahfidzManager() {
       {SUPABASE_TAHFIDZ_RUNTIME && renderedTahfidzTab === "peer-review" && <SupabaseTahfidzPeerReview />}
 
       {/* Target Harian Modal */}
-      {isTargetModalOpen && canManageTargets && (
+      {isTargetModalOpen && canManageTargets && canViewTargetsTab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -4497,7 +4503,7 @@ export function TahfidzManager() {
       )}
 
       {/* Talaqqi Scheduling Modal */}
-      {isTalaqqiModalOpen && canManageSessions && (
+      {isTalaqqiModalOpen && canManageSessions && canViewTalaqqiTab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -5737,7 +5743,7 @@ export function TahfidzManager() {
         </div>
       )}
       {/* Exam Scheduling Modal */}
-      {isExamModalOpen && canManageSessions && (
+      {isExamModalOpen && canManageSessions && canViewExamTab && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">
@@ -6221,7 +6227,7 @@ export function TahfidzManager() {
       )}
 
       {/* Peer Review Modal */}
-      {isPeerReviewOpen && selectedReview && (canSubmitPeerReview || canModeratePeerReview) && (
+      {isPeerReviewOpen && selectedReview && canViewPeerReviewTab && (canSubmitPeerReview || canModeratePeerReview) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh] border border-slate-200 dark:border-white/10">
             <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-black/40">

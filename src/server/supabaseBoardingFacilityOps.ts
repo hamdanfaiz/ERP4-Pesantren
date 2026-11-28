@@ -6,7 +6,7 @@ import { filterBoardingStructuresByUnit, requireBoardingUnitId } from "./boardin
 import { isRolePermissionAllowed, type UserRole } from "../rbac";
 
 type Row = Record<string, any>;
-type Actor = { uid: string; tenantId: string; role: string; name?: string; linkedSantriId?: string | null; organizationUnitId?: string | null };
+type Actor = { uid: string; tenantId: string; role: string; name?: string; linkedSantriId?: string | null; organizationUnitId?: string | null; modulePermissions?: Record<string, boolean> | null };
 type Scope = { roomIds: Set<string>; buildingIds: Set<string> };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ROLE: Record<string, string> = { Admin: "admin", SuperAdmin: "super_admin", Ustadz: "ustadz", Santri: "santri", Walisantri: "wali_santri" };
@@ -125,8 +125,8 @@ function date(value: unknown) {
 
 export async function listSupabaseBoardingFacilityOps(actor: Actor) {
   const tenantId = uuid(actor.tenantId, "Tenant"), userId = uuid(actor.uid, "Akun"), role = actorRole(actor);
-  const canReadFacilityAudits = isRolePermissionAllowed(actor.role as UserRole, "boarding.field.facility-audits");
-  const canReadReporter = isRolePermissionAllowed(actor.role as UserRole, "boarding.field.facility-reporter");
+  const canReadFacilityAudits = isRolePermissionAllowed(actor.role as UserRole, "boarding.field.facility-audits", actor.modulePermissions);
+  const canReadReporter = isRolePermissionAllowed(actor.role as UserRole, "boarding.field.facility-reporter", actor.modulePermissions);
   const [structures, auditRows, ticketRows] = await Promise.all([
     rows("master_data_records", tenantId, "id,name,category,status,parent_id,organization_unit_id", "category.asc,name.asc,id.asc"),
     !canReadFacilityAudits ? Promise.resolve([]) : rows("boarding_cleanliness_audits", tenantId, "id,room_id,audit_date,score,notes,inspector_name_snapshot,created_at", "audit_date.desc,created_at.desc,id.desc"),
@@ -161,9 +161,9 @@ export async function listSupabaseBoardingFacilityOps(actor: Actor) {
     rooms: visibleRooms.map((item) => ({ id: String(item.id), name: String(item.name || item.id), buildingId: item.parent_id ? String(item.parent_id) : null })),
     audits: visibleAudits.map((item) => ({ id: String(item.id), roomId: String(item.room_id), room: roomById.get(String(item.room_id)) || String(item.room_id), date: String(item.audit_date), score: Number(item.score), notes: String(item.notes || ""), inspector: String(item.inspector_name_snapshot || "Pengguna"), createdAt: String(item.created_at || "") })),
     tickets: visibleTickets.map((item) => ({ id: String(item.id), roomId: String(item.room_id), room: roomById.get(String(item.room_id)) || String(item.room_id), issue: String(item.issue), description: String(item.description || ""), priority: String(item.priority), status: String(item.status), reportedBy: canReadReporter ? String(item.reporter_name_snapshot || "Pengguna") : "Pelapor", date: String(item.created_at || "").slice(0, 10), resolvedAt: item.resolved_at ? String(item.resolved_at) : null })),
-    canCreateAudit: canReadFacilityAudits && isRolePermissionAllowed(actor.role as UserRole, "boarding.action.record-audit"),
-    canCreateTicket: isRolePermissionAllowed(actor.role as UserRole, "boarding.action.create-facility-ticket"),
-    canResolveTicket: isRolePermissionAllowed(actor.role as UserRole, "boarding.action.resolve-facility-ticket"),
+    canCreateAudit: canReadFacilityAudits && isRolePermissionAllowed(actor.role as UserRole, "boarding.action.record-audit", actor.modulePermissions),
+    canCreateTicket: isRolePermissionAllowed(actor.role as UserRole, "boarding.action.create-facility-ticket", actor.modulePermissions),
+    canResolveTicket: isRolePermissionAllowed(actor.role as UserRole, "boarding.action.resolve-facility-ticket", actor.modulePermissions),
   };
 }
 
