@@ -104,6 +104,12 @@ jobs:
       - name: Verify customer-facing error messages
         run: npm run test:user-messages
 
+      - name: Verify identity diagnostics omit sensitive details
+        run: npm run test:identity-diagnostics
+
+      - name: Verify runtime diagnostics omit request values
+        run: npm run test:runtime-diagnostics
+
       - name: Verify recovery links use the configured application URL
         run: npm run test:auth-recovery-redirect
 

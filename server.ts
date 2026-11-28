@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { PUBLIC_CLIENT_RUNTIME_CONFIG_KEYS } from "./src/publicRuntimeConfigKeys";
 import { createHash, randomUUID } from "node:crypto";
 import { resolveTrustedProxyHops } from "./src/server/trustedProxyHops";
+import { logRuntimeFeatureUnavailable } from "./src/server/runtimeDiagnostics";
 import { listSupabaseQuranSurahs, SupabaseQuranCatalogError } from "./src/server/supabaseQuranCatalog";
 import { Buffer } from "node:buffer";
 import { sanitizePublicErrorPayload } from "./src/server/publicErrorMessage.mjs";
@@ -548,9 +549,15 @@ async function startServer() {
   });
   app.use((_req, res, next) => {
     const sendJson = res.json.bind(res);
-    res.json = ((payload?: unknown) => sendJson(
-      res.statusCode >= 400 ? sanitizePublicErrorPayload(payload, res.statusCode) : payload,
-    )) as typeof res.json;
+    res.json = ((payload?: unknown) => {
+      if (res.statusCode === 503 && payload && typeof payload === "object" &&
+        "code" in payload && payload.code === "FEATURE_UNAVAILABLE") {
+        logRuntimeFeatureUnavailable(_req.method, _req.route?.path);
+      }
+      return sendJson(
+        res.statusCode >= 400 ? sanitizePublicErrorPayload(payload, res.statusCode) : payload,
+      );
+    }) as typeof res.json;
     next();
   });
   app.use(express.json({ limit: "5mb" }));

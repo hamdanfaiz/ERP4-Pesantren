@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomBytes } from "node:crypto";
+import { logIdentityStoreFailure } from "./identityDiagnostics";
 
 export class IdentityUnavailableError extends Error {}
 export class IdentityConflictError extends Error {}
@@ -60,6 +61,10 @@ function supabaseAdmin(): SupabaseClient {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) {
+    logIdentityStoreFailure("client.configure", undefined, [
+      ...(!url ? ["SUPABASE_URL"] : []),
+      ...(!key ? ["SUPABASE_SECRET_KEY"] : []),
+    ]);
     throw new IdentityUnavailableError("Layanan ini belum tersedia saat ini. Silakan hubungi administrator pesantren.");
   }
   if (!adminClient) {
@@ -131,7 +136,10 @@ export async function verifyAccessToken(token: string): Promise<{ uid: string; e
 export async function getUserProfile(uid: string): Promise<StoredUserProfile | null> {
   const supabase = supabaseAdmin();
   const { data, error } = await supabase.from("profiles").select(CANONICAL_PROFILE_SELECT).eq("user_id", uid).maybeSingle();
-  if (error) throw new IdentityUnavailableError("Profil pengguna tidak dapat dibaca dari Supabase.");
+  if (error) {
+    logIdentityStoreFailure("profile.read", error);
+    throw new IdentityUnavailableError("Profil pengguna tidak dapat dibaca dari Supabase.");
+  }
   return data ? mapCanonicalProfile(data as unknown as CanonicalProfileRow) : null;
 }
 
@@ -141,7 +149,10 @@ export async function checkIdentityStoreReady(): Promise<void> {
     .select("user_id")
     .limit(1)
     .abortSignal(AbortSignal.timeout(5000));
-  if (error) throw new IdentityUnavailableError("Pemeriksaan kesiapan database gagal.");
+  if (error) {
+    logIdentityStoreFailure("profile.health_check", error);
+    throw new IdentityUnavailableError("Pemeriksaan kesiapan database gagal.");
+  }
 }
 
 export type TenantProfileListOptions = {
