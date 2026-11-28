@@ -95,7 +95,7 @@ SET LOCAL request.jwt.claims = '{"sub":"a1000000-0000-4000-8000-000000000012","r
 SELECT is(private.current_app_role(), 'ustadz', 'Ustadz role comes from the active profile');
 SELECT ok(NOT private.is_tenant_admin(), 'Ustadz is not a tenant administrator');
 SELECT ok(private.has_module_access('tahfidz'), 'Ustadz retains Tahfidz within the role baseline');
-SELECT ok(NOT private.has_module_access('finance'), 'An explicit finance grant cannot elevate Ustadz beyond the role baseline');
+SELECT ok(private.has_module_access('finance'), 'Ustadz may enter the Finance module for the role-scoped expense workflow');
 SELECT ok(NOT private.has_module_access('ppdb'), 'An explicit PPDB grant cannot elevate Ustadz beyond the role baseline');
 SELECT is((SELECT count(*)::int FROM public.profiles), 1, 'Ustadz sees only their own profile');
 SELECT is((SELECT count(*)::int FROM public.candidates), 0, 'Ustadz cannot read PPDB candidates');
@@ -135,4 +135,5 @@ RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
+
 
