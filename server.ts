@@ -4181,7 +4181,7 @@ async function startServer() {
     if (unauthorizedGrants.length) {
       return res.status(403).json({
         code: "FORBIDDEN_MODULE_PERMISSION",
-        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+        error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
       });
     }
     try {
@@ -4406,10 +4406,21 @@ async function startServer() {
       role as UserRole,
       finalPermissions,
     );
-    if (unauthorizedGrants.length) {
+    // Check explicit requests before role defaults clamp them. Silently
+    // dropping a requested grant can hide a misconfigured account form and
+    // makes unauthorized attempts look like unrelated Auth failures.
+    const explicitlyUnauthorizedGrants = modulePermissions == null
+      ? []
+      : findUnauthorizedModuleGrants(
+        actor.role,
+        actor.modulePermissions,
+        role as UserRole,
+        modulePermissions,
+      );
+    if (unauthorizedGrants.length || explicitlyUnauthorizedGrants.length) {
       return res.status(403).json({
         code: "FORBIDDEN_MODULE_PERMISSION",
-        error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+        error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
       });
     }
 
@@ -4560,7 +4571,7 @@ async function startServer() {
       if (unauthorizedGrants.length) {
         return res.status(403).json({
           code: "FORBIDDEN_MODULE_PERMISSION",
-          error: "Admin hanya dapat memberikan akses modul yang juga dimiliki akun sendiri.",
+          error: "Izin modul yang diminta melampaui batas role atau kewenangan akun Anda.",
         });
       }
 

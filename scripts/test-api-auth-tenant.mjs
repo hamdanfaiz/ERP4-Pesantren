@@ -1917,7 +1917,8 @@ async function main() {
       body: JSON.stringify({
         email: `restricted-default-${randomUUID()}@example.test`,
         name: 'Akun uji terbatas',
-        role: 'Santri',
+        role: 'Ustadz',
+        organizationUnitId: hrisOrganizationUnitId,
         tempPassword: `Test-Password-${randomUUID()}-Aa1!`,
       }),
     });
